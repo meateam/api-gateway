@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"net/http"
 	"time"
 
@@ -22,8 +23,9 @@ func setupRouter() *gin.Engine {
 
 func main() {
 	router := setupRouter()
+	port := os.Getenv("PORT")
 	s := &http.Server{
-		Addr:           ":8080",
+		Addr:           ":" + port,
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
