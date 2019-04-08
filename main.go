@@ -1,29 +1,21 @@
 package main
 
 import (
-	"os"
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
-func setupRouter() *gin.Engine {
-	// Disable Console Color
-	gin.DisableConsoleColor()
-	r := gin.Default()
-
-	// Ping test
-	r.GET("/ping", func(c *gin.Context) {
-		c.String(http.StatusOK, "pong")
-	})
-
-	return r
+func init() {
+	viper.SetDefault("port", 8080)
+	viper.SetEnvPrefix("GW")
+	viper.AutomaticEnv()
 }
 
 func main() {
 	router := setupRouter()
-	port := os.Getenv("PORT")
+	port := viper.GetString("port")
 	s := &http.Server{
 		Addr:           ":" + port,
 		Handler:        router,
