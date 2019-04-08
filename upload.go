@@ -6,7 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type uploadRouter struct{}
+type uploadRouter struct {
+	uploadServiceURL string
+}
 
 func (ur uploadRouter) setup(r *gin.Engine) {
 	r.GET("/upload", ur.upload)

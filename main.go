@@ -7,17 +7,23 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	envPrefix           = "GW"
+	configPort          = "port"
+	configUploadService = "upload_service"
+)
+
 func init() {
-	viper.SetDefault("port", 8080)
-	viper.SetEnvPrefix("GW")
+	viper.SetDefault(configPort, 8080)
+	viper.SetDefault(configUploadService, "upload-service:8080")
+	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
 
 func main() {
 	router := setupRouter()
-	port := viper.GetString("port")
 	s := &http.Server{
-		Addr:           ":" + port,
+		Addr:           ":" + viper.GetString(configPort),
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
