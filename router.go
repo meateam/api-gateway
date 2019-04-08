@@ -17,10 +17,11 @@ func setupRouter() (*gin.Engine, func()) {
 	// Disable Console Color
 	gin.DisableConsoleColor()
 	r := gin.Default()
+	r.MaxMultipartMemory = 5 << 20
+	r.Use(authRequired)
 	u := &uploadRouter{
 		uploadServiceURL: viper.GetString(configUploadService),
 	}
-
 	conns := make([]*grpc.ClientConn, 0, numOfRPCConns)
 	uconn, err := u.setup(r)
 	if err != nil {
@@ -36,4 +37,8 @@ func setupRouter() (*gin.Engine, func()) {
 	}
 
 	return r, close
+}
+
+func authRequired(c *gin.Context) {
+	c.Set("User", user{id: "testuser"})
 }

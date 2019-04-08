@@ -8,6 +8,7 @@ require (
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/mattn/go-isatty v0.0.7 // indirect
 	github.com/meateam/upload-service v0.0.0-20190408081505-b8245449e951
+	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0
 	github.com/ugorji/go/codec v0.0.0-20190320090025-2dc34c0b8780 // indirect
