@@ -85,6 +85,11 @@ func (ur *uploadRouter) uploadMedia(c *gin.Context) {
 		File:   file,
 	}
 
+	contentType := c.GetHeader("Content-Type")
+	if contentType != "" {
+		ureq.ContentType = contentType
+	}
+
 	resp, err := ur.client.UploadMedia(context.Background(), ureq)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
