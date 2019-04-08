@@ -6,7 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      PORT: 8080
+      GW_PORT: 8080
+      GW_UPLOAD_SERVICE: upload-service:8080
     ports:
       - 8080:8080
     depends_on: 

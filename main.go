@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -21,7 +22,8 @@ func init() {
 }
 
 func main() {
-	router := setupRouter()
+	router, close := setupRouter()
+	defer close()
 	s := &http.Server{
 		Addr:           ":" + viper.GetString(configPort),
 		Handler:        router,
@@ -29,5 +31,7 @@ func main() {
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	s.ListenAndServe()
+	if err := s.ListenAndServe(); err != nil {
+		log.Fatalf("%v", err)
+	}
 }
