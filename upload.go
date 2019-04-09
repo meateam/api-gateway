@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -10,6 +11,12 @@ import (
 	pb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
+)
+
+const (
+	maxSimpleUploadSize = 5 << 20 // 5MB
+	mediaUploadType     = "media"
+	multipartUploadType = "multipart"
 )
 
 type uploadRouter struct {
@@ -37,12 +44,17 @@ func (ur *uploadRouter) upload(c *gin.Context) {
 	}
 
 	switch uploadType {
-	case "media":
+	case mediaUploadType:
 		ur.uploadMedia(c)
+		break
+	case multipartUploadType:
+		ur.uploadMultipart(c)
+		break
 	default:
 		c.String(http.StatusBadRequest, fmt.Sprintf("unknown uploadType=%v", uploadType))
 		return
 	}
+	return
 }
 
 func (ur *uploadRouter) uploadMedia(c *gin.Context) {
@@ -52,11 +64,37 @@ func (ur *uploadRouter) uploadMedia(c *gin.Context) {
 		return
 	}
 
-	if c.Request.ContentLength > 5<<20 { // 5MB
-		c.String(http.StatusBadRequest, "file max size is 5MB")
+	if c.Request.ContentLength > maxSimpleUploadSize {
+		c.String(http.StatusBadRequest, fmt.Sprintf("max file size exceeded %d", maxSimpleUploadSize))
 		return
 	}
 
+	contentType := c.GetHeader("Content-Type")
+
+	ur.uploadFile(c, fileReader, contentType)
+	return
+}
+
+func (ur *uploadRouter) uploadMultipart(c *gin.Context) {
+	fileReader, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("failed getting file: %v", err))
+	}
+
+	defer c.Request.MultipartForm.RemoveAll()
+
+	if header.Size > maxSimpleUploadSize {
+		c.String(http.StatusBadRequest, fmt.Sprintf("max file size exceeded %d", maxSimpleUploadSize))
+		return
+	}
+
+	contentType := header.Header.Get("Content-Type")
+
+	ur.uploadFile(c, fileReader, contentType)
+	return
+}
+
+func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string) {
 	file, err := ioutil.ReadAll(fileReader)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -85,7 +123,6 @@ func (ur *uploadRouter) uploadMedia(c *gin.Context) {
 		File:   file,
 	}
 
-	contentType := c.GetHeader("Content-Type")
 	if contentType != "" {
 		ureq.ContentType = contentType
 	}
