@@ -76,12 +76,19 @@ func (ur *uploadRouter) uploadMedia(c *gin.Context) {
 }
 
 func (ur *uploadRouter) uploadMultipart(c *gin.Context) {
+	multipartForm, err := c.MultipartForm()
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("failed parsing multipart form data: %v", err))
+		return
+	}
+
 	fileReader, header, err := c.Request.FormFile("file")
 	if err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("failed getting file: %v", err))
+		return
 	}
 
-	defer c.Request.MultipartForm.RemoveAll()
+	defer multipartForm.RemoveAll()
 
 	if header.Size > maxSimpleUploadSize {
 		c.String(http.StatusBadRequest, fmt.Sprintf("max file size exceeded %d", maxSimpleUploadSize))

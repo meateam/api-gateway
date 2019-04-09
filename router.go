@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -22,6 +23,10 @@ func setupRouter() (*gin.Engine, func()) {
 	gin.DisableConsoleColor()
 	r := gin.Default()
 	r.MaxMultipartMemory = 5 << 20
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AddAllowHeaders("cache-control", "x-requested-with")
+	corsConfig.AllowAllOrigins = true
+	r.Use(cors.New(corsConfig))
 	r.Use(authRequired)
 	u := &uploadRouter{
 		uploadServiceURL: viper.GetString(configUploadService),
