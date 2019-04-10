@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -39,7 +38,7 @@ func (ur *uploadRouter) setup(r *gin.Engine) (*grpc.ClientConn, error) {
 func (ur *uploadRouter) upload(c *gin.Context) {
 	uploadType, exists := c.GetQuery("uploadType")
 	if exists != true {
-		c.String(http.StatusBadRequest, "must specify uploadType")
+		ur.uploadInit(c)
 		return
 	}
 
@@ -108,18 +107,8 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		return
 	}
 
-	contextUser, exists := c.Get("User")
-	if exists != true {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	var reqUser user
-	switch v := contextUser.(type) {
-	case user:
-		reqUser = v
-		break
-	default:
+	reqUser := ur.extractRequestUser(c)
+	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -134,7 +123,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		ureq.ContentType = contentType
 	}
 
-	resp, err := ur.client.UploadMedia(context.Background(), ureq)
+	resp, err := ur.client.UploadMedia(c, ureq)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -142,4 +131,45 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 
 	c.String(http.StatusOK, resp.GetLocation())
 	return
+}
+
+func (ur *uploadRouter) uploadInit(c *gin.Context) {
+	reqUser := ur.extractRequestUser(c)
+
+	uploadInitReq := &pb.UploadInitRequest{
+		Key:    uuid.NewV4().String(),
+		Bucket: reqUser.id,
+	}
+
+	contentType := c.PostForm("mimeType")
+	if contentType != "" {
+		uploadInitReq.ContentType = contentType
+	}
+
+	resp, err := ur.client.UploadInit(c, uploadInitReq)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.String(http.StatusOK, resp.GetUploadId())
+	return
+}
+
+func (ur *uploadRouter) extractRequestUser(c *gin.Context) *user {
+	contextUser, exists := c.Get("User")
+	if exists != true {
+		return nil
+	}
+
+	var reqUser user
+	switch v := contextUser.(type) {
+	case user:
+		reqUser = v
+		break
+	default:
+		return nil
+	}
+
+	return &reqUser
 }
