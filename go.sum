@@ -41,6 +41,8 @@ github.com/meateam/upload-service v0.0.0-20190408081505-b8245449e951 h1:N+FXCktl
 github.com/meateam/upload-service v0.0.0-20190408081505-b8245449e951/go.mod h1:W3rgkpAlY1qOwaZIBClsKRPSLBa/ShvIMrOw7BOUbaQ=
 github.com/meateam/upload-service v0.0.0-20190408153551-8d2dd60d9fa4 h1:2SdD5TGZ9+tNowL3WCVWpiYFGoLv8gJVpiFfdaUOnLs=
 github.com/meateam/upload-service v0.0.0-20190408153551-8d2dd60d9fa4/go.mod h1:W3rgkpAlY1qOwaZIBClsKRPSLBa/ShvIMrOw7BOUbaQ=
+github.com/meateam/upload-service v0.0.0-20190411090631-98cb004d4b22 h1:DsCXZSyCzdJC8uLIg2Mg71ZTkTanq7qboq1XgI65W9M=
+github.com/meateam/upload-service v0.0.0-20190411090631-98cb004d4b22/go.mod h1:W3rgkpAlY1qOwaZIBClsKRPSLBa/ShvIMrOw7BOUbaQ=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=

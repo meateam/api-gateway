@@ -8,7 +8,7 @@ require (
 	github.com/gin-gonic/gin v1.3.0
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/mattn/go-isatty v0.0.7 // indirect
-	github.com/meateam/upload-service v0.0.0-20190408153551-8d2dd60d9fa4
+	github.com/meateam/upload-service v0.0.0-20190411090631-98cb004d4b22
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0

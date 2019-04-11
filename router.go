@@ -17,11 +17,11 @@ type routerSetup interface {
 	setup(r *gin.Engine) (*grpc.ClientConn, error)
 }
 
-func setupRouter() (*gin.Engine, func()) {
+func setupRouter() (r *gin.Engine, close func()) {
 	const numOfRPCConns = 1
 	// Disable Console Color
 	gin.DisableConsoleColor()
-	r := gin.Default()
+	r = gin.Default()
 	r.MaxMultipartMemory = 5 << 20
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AddAllowHeaders("cache-control", "x-requested-with")
@@ -39,13 +39,12 @@ func setupRouter() (*gin.Engine, func()) {
 
 	conns = append(conns, uconn)
 
-	close := func() {
+	close = func() {
 		for _, v := range conns {
 			v.Close()
 		}
 	}
-
-	return r, close
+	return
 }
 
 func authRequired(c *gin.Context) {
