@@ -1,35 +1,37 @@
 package main
 
 import (
-	"os"
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
-func setupRouter() *gin.Engine {
-	// Disable Console Color
-	gin.DisableConsoleColor()
-	r := gin.Default()
+const (
+	envPrefix           = "GW"
+	configPort          = "port"
+	configUploadService = "upload_service"
+)
 
-	// Ping test
-	r.GET("/ping", func(c *gin.Context) {
-		c.String(http.StatusOK, "pong")
-	})
-
-	return r
+func init() {
+	viper.SetDefault(configPort, 8080)
+	viper.SetDefault(configUploadService, "upload-service:8080")
+	viper.SetEnvPrefix(envPrefix)
+	viper.AutomaticEnv()
 }
 
 func main() {
-	router := setupRouter()
-	port := os.Getenv("PORT")
+	router, close := setupRouter()
+	defer close()
 	s := &http.Server{
-		Addr:           ":" + port,
+		Addr:           ":" + viper.GetString(configPort),
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	s.ListenAndServe()
+	if err := s.ListenAndServe(); err != nil {
+		log.Fatalf("%v", err)
+	}
 }
