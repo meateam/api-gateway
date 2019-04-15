@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	fpb "github.com/meateam/file-service/protos"
 	pb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
@@ -28,16 +29,23 @@ const (
 
 type uploadRouter struct {
 	client           pb.UploadClient
+	fileClient       fpb.FileServiceClient
 	uploadServiceURL string
 }
 
-func (ur *uploadRouter) setup(r *gin.Engine) (*grpc.ClientConn, error) {
+func (ur *uploadRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn) (*grpc.ClientConn, error) {
 	conn, err := grpc.Dial(ur.uploadServiceURL, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
 
 	ur.client = pb.NewUploadClient(conn)
+
+	if fileConn == nil {
+		return nil, fmt.Errorf("file service connection is nil")
+	}
+	ur.fileClient = fpb.NewFileServiceClient(fileConn)
+
 	r.POST("/upload", ur.upload)
 	r.PUT("/upload", ur.uploadComplete)
 
@@ -159,8 +167,30 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		return
 	}
 
+	keyResp, err := ur.fileClient.GenerateKey(c, &fpb.GenerateKeyRequest{})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	key := keyResp.GetKey()
+
+	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
+		Key:      key,
+		Bucket:   reqUser.id,
+		OwnerID:  reqUser.id,
+		Size:     int64(len(file)),
+		Type:     contentType,
+		FullName: uuid.NewV4().String(),
+	})
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	ureq := &pb.UploadMediaRequest{
-		Key:    uuid.NewV4().String(),
+		Key:    key,
 		Bucket: reqUser.id,
 		File:   file,
 	}
@@ -169,13 +199,16 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		ureq.ContentType = contentType
 	}
 
-	resp, err := ur.client.UploadMedia(c, ureq)
+	_, err = ur.client.UploadMedia(c, ureq)
 	if err != nil {
+		ur.fileClient.DeleteFile(c, &fpb.DeleteFileRequest{
+			Id: createFileResp.GetId(),
+		})
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	c.String(http.StatusOK, resp.GetLocation())
+	c.String(http.StatusOK, createFileResp.GetId())
 	return
 }
 

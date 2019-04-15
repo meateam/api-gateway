@@ -11,7 +11,8 @@
       "mode": "debug",
       "env":{
         "GW_UPLOAD_SERVICE": ":8081",
-        "GW_DOWNLOAD_SERVICE": ":8082"
+        "GW_DOWNLOAD_SERVICE": ":8082",
+        "GW_FILE_SERVICE": ":5001"
 
         // "GIN_MODE": "release"
       },
