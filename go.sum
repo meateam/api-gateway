@@ -41,8 +41,8 @@ github.com/mattn/go-isatty v0.0.7 h1:UvyT9uN+3r7yLEYSlJsbQGdsaB/a0DlgWP3pql6iwOc
 github.com/mattn/go-isatty v0.0.7/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hdxcsrc5s=
 github.com/meateam/download-service v0.0.0-20190414150718-bd5818b1d581 h1:g9D4Hxvsik/3Lkbq3YvHJnZQFerbfJsyIynofwwJtZI=
 github.com/meateam/download-service v0.0.0-20190414150718-bd5818b1d581/go.mod h1:UiatC7w4geyKhAGyWqpFYDf4VpB2wM/oon+cgPzkr0s=
-github.com/meateam/file-service v0.0.0-20190410134011-040fe756359a h1:iKUOgwAZyMThuAE3t83ZR0yVUBN7RDVeFH01JSizmw4=
-github.com/meateam/file-service v0.0.0-20190410134011-040fe756359a/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190415153401-6a18fa0fb375 h1:OvvW1mLTjAlh4/JZbGwVxqm+9WrTtwR5TwBPT0snVes=
+github.com/meateam/file-service v0.0.0-20190415153401-6a18fa0fb375/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/upload-service v0.0.0-20190408081505-b8245449e951 h1:N+FXCktl1o5CzKaoTOEPlWwXAd0B1n0fdbNWfngQWjE=
 github.com/meateam/upload-service v0.0.0-20190408081505-b8245449e951/go.mod h1:W3rgkpAlY1qOwaZIBClsKRPSLBa/ShvIMrOw7BOUbaQ=
 github.com/meateam/upload-service v0.0.0-20190408153551-8d2dd60d9fa4 h1:2SdD5TGZ9+tNowL3WCVWpiYFGoLv8gJVpiFfdaUOnLs=
