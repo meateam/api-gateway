@@ -12,12 +12,14 @@ const (
 	configPort            = "port"
 	configUploadService   = "upload_service"
 	configDownloadService = "download_service"
+	configfileService     = "file_service"
 )
 
 func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
 	viper.SetDefault(configDownloadService, "download-service:8080")
+	viper.SetDefault(configfileService, "file-service:8080")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

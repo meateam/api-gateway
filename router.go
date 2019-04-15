@@ -18,7 +18,7 @@ type routerSetup interface {
 }
 
 func setupRouter() (r *gin.Engine, close func()) {
-	const numOfRPCConns = 2
+	const numOfRPCConns = 3
 
 	// Disable Console Color
 	gin.DisableConsoleColor()
@@ -36,6 +36,11 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Auth middleware
 	r.Use(authRequired)
 
+	// Initiate file router.
+	fr := &fileRouter{
+		fileServiceURL: viper.GetString(configfileService),
+	}
+
 	// Initiate upload router.
 	ur := &uploadRouter{
 		uploadServiceURL: viper.GetString(configUploadService),
@@ -49,6 +54,14 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Creating a slice to manage connections
 	conns := make([]*grpc.ClientConn, 0, numOfRPCConns)
 
+	// Initiate client connection to file service.
+	// Appends The connection to the connections slice.
+	fconn, err := fr.setup(r)
+	if err != nil {
+		log.Fatalf("couldn't setup upload router: %v", err)
+	}
+	conns = append(conns, fconn)
+
 	// Initiate client connection to upload service.
 	// Appends The connection to the connections slice.
 	uconn, err := ur.setup(r)
@@ -59,7 +72,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 
 	// Initiate client connection to download service.
 	// Appends The connection to the connections slice.
-	dconn, err := dr.setup(r)
+	dconn, err := dr.setup(r, fconn)
 	if err != nil {
 		log.Fatalf("couldn't setup download router: %v", err)
 	}
