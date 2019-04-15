@@ -75,7 +75,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
-	reqUser := ur.extractRequestUser(c)
+	reqUser := extractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -153,7 +153,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		return
 	}
 
-	reqUser := ur.extractRequestUser(c)
+	reqUser := extractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -180,7 +180,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 }
 
 func (ur *uploadRouter) uploadInit(c *gin.Context) {
-	reqUser := ur.extractRequestUser(c)
+	reqUser := extractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -251,7 +251,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		return
 	}
 
-	reqUser := ur.extractRequestUser(c)
+	reqUser := extractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -272,22 +272,4 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 	c.Status(http.StatusOK)
 	return
-}
-
-func (ur *uploadRouter) extractRequestUser(c *gin.Context) *user {
-	contextUser, exists := c.Get("User")
-	if exists != true {
-		return nil
-	}
-
-	var reqUser user
-	switch v := contextUser.(type) {
-	case user:
-		reqUser = v
-		break
-	default:
-		return nil
-	}
-
-	return &reqUser
 }
