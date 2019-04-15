@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -29,8 +28,6 @@ func main() {
 	s := &http.Server{
 		Addr:           ":" + viper.GetString(configPort),
 		Handler:        router,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 	if err := s.ListenAndServe(); err != nil {

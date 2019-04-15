@@ -20,7 +20,7 @@ type downloadRouter struct {
 }
 
 func (dr *downloadRouter) setup(r *gin.Engine) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(dr.downloadServiceURL, grpc.WithInsecure())
+	conn, err := grpc.Dial(dr.downloadServiceURL, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10 << 20)), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,8 @@ func (dr *downloadRouter) download(c *gin.Context) {
 		return
 	}
 	filename := "shemkavua"
-	contentType := "application/zip"
+	contentType := "application/x-cd-image"
+	// contentLength := fmt.Sprintf("%d", fileSize)
 
 	downloadRequest := &pb.DownloadRequest{
 		Key:    downloadRequestFileKey,
@@ -56,6 +57,7 @@ func (dr *downloadRouter) download(c *gin.Context) {
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 	c.Header("Content-Type", contentType)
+	// c.Header("Content-Length", contentLength)
 
 	for {
 		chunk, err := stream.Recv()
