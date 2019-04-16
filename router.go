@@ -9,14 +9,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// routerSetup is an interface for setting up a *gin.Engine with routes, middlewares,
-// groups, etc, and a connection to a RPC service that will be used under the router.
-type routerSetup interface {
-	// setup gets a *gin.Engine and sets up its routes, middlewares, groups, etc,
-	// and returns a *grpc.ClientConn to a RPC service.
-	setup(r *gin.Engine) (*grpc.ClientConn, error)
-}
-
 func setupRouter() (r *gin.Engine, close func()) {
 	const numOfRPCConns = 3
 
@@ -64,7 +56,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 
 	// Initiate client connection to upload service.
 	// Appends The connection to the connections slice.
-	uconn, err := ur.setup(r)
+	uconn, err := ur.setup(r, fconn)
 	if err != nil {
 		log.Fatalf("couldn't setup upload router: %v", err)
 	}
