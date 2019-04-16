@@ -102,13 +102,22 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
+	fileName := uuid.NewV4().String()
+	contentDisposition := c.GetHeader("Content-Disposition")
+	if contentDisposition != "" {
+		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
+		if err != nil {
+			fileName = uuid.NewV4().String()
+		}
+	}
+
 	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
 		Key:      upload.GetKey(),
 		Bucket:   upload.GetBucket(),
 		OwnerID:  reqUser.id,
 		Size:     resp.GetContentLength(),
 		Type:     resp.GetContentType(),
-		FullName: uuid.NewV4().String(),
+		FullName: fileName,
 	})
 
 	c.String(http.StatusCreated, createFileResp.GetId())
@@ -128,8 +137,16 @@ func (ur *uploadRouter) uploadMedia(c *gin.Context) {
 	}
 
 	contentType := c.GetHeader("Content-Type")
+	fileName := ""
+	contentDisposition := c.GetHeader("Content-Disposition")
+	if contentDisposition != "" {
+		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
+		if err != nil {
+			fileName = ""
+		}
+	}
 
-	ur.uploadFile(c, fileReader, contentType)
+	ur.uploadFile(c, fileReader, contentType, fileName)
 	return
 }
 
@@ -160,11 +177,11 @@ func (ur *uploadRouter) uploadMultipart(c *gin.Context) {
 
 	contentType := fileHeader.Header.Get("Content-Type")
 
-	ur.uploadFile(c, file, contentType)
+	ur.uploadFile(c, file, contentType, fileHeader.Filename)
 	return
 }
 
-func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string) {
+func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	file, err := ioutil.ReadAll(fileReader)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -184,6 +201,10 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 	}
 
 	key := keyResp.GetKey()
+	fileFullName := uuid.NewV4().String()
+	if filename != "" {
+		fileFullName = filename
+	}
 
 	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
 		Key:      key,
@@ -191,7 +212,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		OwnerID:  reqUser.id,
 		Size:     int64(len(file)),
 		Type:     contentType,
-		FullName: uuid.NewV4().String(),
+		FullName: fileFullName,
 	})
 
 	if err != nil {
