@@ -21,7 +21,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 
 	// Default cors handeling.
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AddAllowHeaders("cache-control", "x-requested-with")
+	corsConfig.AddAllowHeaders("cache-control", "x-requested-with", "content-disposition")
 	corsConfig.AllowAllOrigins = true
 	r.Use(cors.New(corsConfig))
 
