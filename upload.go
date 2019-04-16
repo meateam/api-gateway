@@ -22,11 +22,6 @@ const (
 	resumableUploadType = "resumable"
 )
 
-// Tfirot
-const (
-	resumableUploadKey = "masheukavua"
-)
-
 type uploadRouter struct {
 	client           pb.UploadClient
 	fileClient       fpb.FileServiceClient
@@ -89,10 +84,16 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
+	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	uploadCompleteRequest := &pb.UploadCompleteRequest{
 		UploadId: uploadID,
-		Key:      resumableUploadKey,
-		Bucket:   reqUser.id,
+		Key:      upload.GetKey(),
+		Bucket:   upload.GetBucket(),
 	}
 
 	resp, err := ur.client.UploadComplete(c, uploadCompleteRequest)
@@ -101,7 +102,16 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
-	c.String(http.StatusCreated, resp.GetLocation())
+	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
+		Key:      upload.GetKey(),
+		Bucket:   upload.GetBucket(),
+		OwnerID:  reqUser.id,
+		Size:     resp.GetContentLength(),
+		Type:     resp.GetContentType(),
+		FullName: uuid.NewV4().String(),
+	})
+
+	c.String(http.StatusCreated, createFileResp.GetId())
 	return
 }
 
@@ -219,8 +229,16 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		return
 	}
 
+	createUploadResponse, err := ur.fileClient.CreateUpload(c, &fpb.CreateUploadRequest{
+		Bucket: reqUser.id,
+	})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	uploadInitReq := &pb.UploadInitRequest{
-		Key:    resumableUploadKey,
+		Key:    createUploadResponse.GetKey(),
 		Bucket: reqUser.id,
 	}
 
@@ -230,6 +248,18 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	}
 
 	resp, err := ur.client.UploadInit(c, uploadInitReq)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	_, err = ur.fileClient.UpdateUploadID(c, &fpb.UpdateUploadIDRequest{
+		Key:      createUploadResponse.GetKey(),
+		Bucket:   reqUser.id,
+		UploadID: resp.GetUploadId(),
+	})
+
+	// TODO: Handler update error, consider abstracting s3 upload id from client
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -265,7 +295,12 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		return
 	}
 
-	key := resumableUploadKey
+	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	chunkIndex, exists := c.GetPostForm("chunkIndex")
 	if exists != true {
 		c.String(http.StatusBadRequest, "chunk index is required")
@@ -292,8 +327,8 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 
 	uploadPartInput := &pb.UploadPartRequest{
 		UploadId:   uploadID,
-		Key:        key,
-		Bucket:     reqUser.id,
+		Key:        upload.GetKey(),
+		Bucket:     upload.GetBucket(),
 		Part:       partBytes,
 		PartNumber: partNumber,
 	}
