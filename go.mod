@@ -23,7 +23,7 @@ require (
 	github.com/lyft/protoc-gen-validate v0.0.14 // indirect
 	github.com/mattn/go-isatty v0.0.7 // indirect
 	github.com/meateam/download-service v0.0.0-20190414150718-bd5818b1d581
-	github.com/meateam/file-service v0.0.0-20190415153401-6a18fa0fb375
+	github.com/meateam/file-service v0.0.0-20190416095227-21850ade1e47
 	github.com/meateam/upload-service v0.0.0-20190416065936-6350187dc433
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect

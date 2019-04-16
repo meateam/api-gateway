@@ -99,6 +99,8 @@ github.com/meateam/download-service v0.0.0-20190414150718-bd5818b1d581 h1:g9D4Hx
 github.com/meateam/download-service v0.0.0-20190414150718-bd5818b1d581/go.mod h1:UiatC7w4geyKhAGyWqpFYDf4VpB2wM/oon+cgPzkr0s=
 github.com/meateam/file-service v0.0.0-20190415153401-6a18fa0fb375 h1:OvvW1mLTjAlh4/JZbGwVxqm+9WrTtwR5TwBPT0snVes=
 github.com/meateam/file-service v0.0.0-20190415153401-6a18fa0fb375/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190416095227-21850ade1e47 h1:pgu3yIP/RdBV1Kt51WCqEcScQovkXuQ2QG9mxNpq5qA=
+github.com/meateam/file-service v0.0.0-20190416095227-21850ade1e47/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/upload-service v0.0.0-20190416065936-6350187dc433 h1:IQbWMhvMwOXd5Ara+uaNt6BlxLCc6qeXlCf9b4iBVe0=
 github.com/meateam/upload-service v0.0.0-20190416065936-6350187dc433/go.mod h1:W3rgkpAlY1qOwaZIBClsKRPSLBa/ShvIMrOw7BOUbaQ=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=

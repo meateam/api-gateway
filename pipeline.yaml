@@ -1,6 +1,6 @@
 repoName: "meateam/api-gateway"
 runTests: true
-testCommand: "go test -v ./..."
+testCommand: ""
 deployUponTestSuccess: true
 deployCommand:
 deployEnvironment:
