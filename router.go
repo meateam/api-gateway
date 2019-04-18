@@ -2,11 +2,16 @@ package main
 
 import (
 	"log"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"github.com/dgrijalva/jwt-go"
 )
 
 // routerSetup is an interface for setting up a *gin.Engine with routes, middlewares,
@@ -87,6 +92,54 @@ func setupRouter() (r *gin.Engine, close func()) {
 	return
 }
 
+/*  the function search for the authrization header to check if the client has a jwt token.
+	If the token is not valid or expired, it will redirect the client to the auth service
+	If the token is valid, it will inject user to the gin context
+*/
 func authRequired(c *gin.Context) {
-	c.Set("User", user{id: "testuser"})
+	auth := c.GetHeader("Authorization")
+	if auth == "" {
+		redirectToAuthService(c)
+		return
+	}
+	authArr := strings.Fields(auth)
+	_, tokenString := authArr[0], authArr[1]
+	
+	secret := viper.GetString(configSecret)
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Validates the alg is what we expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			redirectToAuthService(c)
+		}
+		
+		return []byte(secret), nil
+	})
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {	
+		iat := int64(claims["iat"].(float64))
+		passed := time.Since(time.Unix(iat, 0))
+		if time.Hour*24 < passed {
+			fmt.Println("Token Expired!")
+			redirectToAuthService(c)
+			return
+		}
+		c.Set("User", user{
+			id: claims["id"].(string),
+			firstName: claims["firstName"].(string),
+			lastName: claims["lastName"].(string),
+		})
+		fmt.Println(extractRequestUser(c))
+	} else {
+		fmt.Println(err)
+		redirectToAuthService(c)
+		return
+	}
+
+}
+
+func redirectToAuthService(c *gin.Context) {
+	host := viper.GetString(configHost)
+	c.Redirect(http.StatusMovedPermanently, host + "/auth/login")
+	c.Abort()
 }
