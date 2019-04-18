@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	fpb "github.com/meateam/file-service/protos"
 	pb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
@@ -21,23 +22,25 @@ const (
 	resumableUploadType = "resumable"
 )
 
-// Tfirot
-const (
-	resumableUploadKey = "masheukavua"
-)
-
 type uploadRouter struct {
 	client           pb.UploadClient
+	fileClient       fpb.FileServiceClient
 	uploadServiceURL string
 }
 
-func (ur *uploadRouter) setup(r *gin.Engine) (*grpc.ClientConn, error) {
+func (ur *uploadRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn) (*grpc.ClientConn, error) {
 	conn, err := grpc.Dial(ur.uploadServiceURL, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
 
 	ur.client = pb.NewUploadClient(conn)
+
+	if fileConn == nil {
+		return nil, fmt.Errorf("file service connection is nil")
+	}
+	ur.fileClient = fpb.NewFileServiceClient(fileConn)
+
 	r.POST("/upload", ur.upload)
 	r.PUT("/upload", ur.uploadComplete)
 
@@ -81,10 +84,16 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
+	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	uploadCompleteRequest := &pb.UploadCompleteRequest{
 		UploadId: uploadID,
-		Key:      resumableUploadKey,
-		Bucket:   reqUser.id,
+		Key:      upload.GetKey(),
+		Bucket:   upload.GetBucket(),
 	}
 
 	resp, err := ur.client.UploadComplete(c, uploadCompleteRequest)
@@ -93,7 +102,25 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
-	c.String(http.StatusCreated, resp.GetLocation())
+	fileName := uuid.NewV4().String()
+	contentDisposition := c.GetHeader("Content-Disposition")
+	if contentDisposition != "" {
+		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
+		if err != nil {
+			fileName = uuid.NewV4().String()
+		}
+	}
+
+	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
+		Key:      upload.GetKey(),
+		Bucket:   upload.GetBucket(),
+		OwnerID:  reqUser.id,
+		Size:     resp.GetContentLength(),
+		Type:     resp.GetContentType(),
+		FullName: fileName,
+	})
+
+	c.String(http.StatusCreated, createFileResp.GetId())
 	return
 }
 
@@ -110,8 +137,16 @@ func (ur *uploadRouter) uploadMedia(c *gin.Context) {
 	}
 
 	contentType := c.GetHeader("Content-Type")
+	fileName := ""
+	contentDisposition := c.GetHeader("Content-Disposition")
+	if contentDisposition != "" {
+		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
+		if err != nil {
+			fileName = ""
+		}
+	}
 
-	ur.uploadFile(c, fileReader, contentType)
+	ur.uploadFile(c, fileReader, contentType, fileName)
 	return
 }
 
@@ -142,11 +177,11 @@ func (ur *uploadRouter) uploadMultipart(c *gin.Context) {
 
 	contentType := fileHeader.Header.Get("Content-Type")
 
-	ur.uploadFile(c, file, contentType)
+	ur.uploadFile(c, file, contentType, fileHeader.Filename)
 	return
 }
 
-func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string) {
+func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	file, err := ioutil.ReadAll(fileReader)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -159,8 +194,34 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		return
 	}
 
+	keyResp, err := ur.fileClient.GenerateKey(c, &fpb.GenerateKeyRequest{})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	key := keyResp.GetKey()
+	fileFullName := uuid.NewV4().String()
+	if filename != "" {
+		fileFullName = filename
+	}
+
+	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
+		Key:      key,
+		Bucket:   reqUser.id,
+		OwnerID:  reqUser.id,
+		Size:     int64(len(file)),
+		Type:     contentType,
+		FullName: fileFullName,
+	})
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	ureq := &pb.UploadMediaRequest{
-		Key:    uuid.NewV4().String(),
+		Key:    key,
 		Bucket: reqUser.id,
 		File:   file,
 	}
@@ -169,13 +230,16 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		ureq.ContentType = contentType
 	}
 
-	resp, err := ur.client.UploadMedia(c, ureq)
+	_, err = ur.client.UploadMedia(c, ureq)
 	if err != nil {
+		ur.fileClient.DeleteFile(c, &fpb.DeleteFileRequest{
+			Id: createFileResp.GetId(),
+		})
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	c.String(http.StatusOK, resp.GetLocation())
+	c.String(http.StatusOK, createFileResp.GetId())
 	return
 }
 
@@ -186,8 +250,16 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		return
 	}
 
+	createUploadResponse, err := ur.fileClient.CreateUpload(c, &fpb.CreateUploadRequest{
+		Bucket: reqUser.id,
+	})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	uploadInitReq := &pb.UploadInitRequest{
-		Key:    resumableUploadKey,
+		Key:    createUploadResponse.GetKey(),
 		Bucket: reqUser.id,
 	}
 
@@ -197,6 +269,18 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	}
 
 	resp, err := ur.client.UploadInit(c, uploadInitReq)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	_, err = ur.fileClient.UpdateUploadID(c, &fpb.UpdateUploadIDRequest{
+		Key:      createUploadResponse.GetKey(),
+		Bucket:   reqUser.id,
+		UploadID: resp.GetUploadId(),
+	})
+
+	// TODO: Handler update error, consider abstracting s3 upload id from client
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -232,7 +316,12 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		return
 	}
 
-	key := resumableUploadKey
+	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	chunkIndex, exists := c.GetPostForm("chunkIndex")
 	if exists != true {
 		c.String(http.StatusBadRequest, "chunk index is required")
@@ -259,8 +348,8 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 
 	uploadPartInput := &pb.UploadPartRequest{
 		UploadId:   uploadID,
-		Key:        key,
-		Bucket:     reqUser.id,
+		Key:        upload.GetKey(),
+		Bucket:     upload.GetBucket(),
 		Part:       partBytes,
 		PartNumber: partNumber,
 	}
