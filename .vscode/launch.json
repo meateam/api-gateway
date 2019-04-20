@@ -12,7 +12,7 @@
       "env":{
         "GW_UPLOAD_SERVICE": ":8081",
         "GW_DOWNLOAD_SERVICE": ":8082",
-        "GW_FILE_SERVICE": ":5001"
+        "GW_FILE_SERVICE": ":8083"
 
         // "GIN_MODE": "release"
       },

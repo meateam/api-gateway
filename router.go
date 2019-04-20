@@ -17,7 +17,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 	r = gin.Default()
 
 	// In a form upload - defines how many saved in RAM, the rest saved in /tmp.
-	r.MaxMultipartMemory = 5 << 20
+	r.MaxMultipartMemory = 32 << 20
 
 	// Default cors handeling.
 	corsConfig := cors.DefaultConfig()

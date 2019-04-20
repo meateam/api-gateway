@@ -263,7 +263,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		Bucket: reqUser.id,
 	}
 
-	contentType := c.PostForm("mimeType")
+	contentType := c.GetHeader("Content-Type")
 	if contentType != "" {
 		uploadInitReq.ContentType = contentType
 	}
