@@ -290,20 +290,13 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 }
 
 func (ur *uploadRouter) uploadPart(c *gin.Context) {
-	multipartForm, err := c.MultipartForm()
+	multipartReader, err := c.Request.MultipartReader()
 	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("failed parsing multipart form data: %v", err))
-		return
-	}
-	defer multipartForm.RemoveAll()
-
-	fileHeader, err := c.FormFile("file")
-	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("failed getting file: %v", err))
+		c.String(http.StatusBadRequest, fmt.Sprintf("failed reading multipart form data: %v", err))
 		return
 	}
 
-	file, err := fileHeader.Open()
+	file, err := multipartReader.NextPart()
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -321,29 +314,52 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
+	
+	fileRange := c.GetHeader("Content-Range")
+	if fileRange == "" {
+		c.String(http.StatusBadRequest, "Content-Range is required")
+		return
+	}
 
-	off := int64(0)
-	buf := make([]byte, 5 << 20)
+	rangeStart := int64(0)
+	rangeEnd := int64(0)
+	fileSize := int64(0)
+	_, err = fmt.Sscanf(fileRange, "bytes %d-%d/%d", &rangeStart, &rangeEnd, &fileSize)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Content-Range is invalid: %v", err))
+		return
+	}
+
+	bufSize := fileSize / 50
+	if bufSize < 5 << 20 {
+		bufSize = 5 << 20
+	}
+
 	partNumber := int64(1)
 	stream, err := ur.client.UploadPart(c)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-
+	defer stream.CloseSend()
+	
 	for {
-		nread, err := file.ReadAt(buf, off)
-		if err == io.EOF {
-			c.Status(http.StatusOK)
-			break;
+		if rangeEnd - rangeStart + 1 < bufSize {
+			bufSize = rangeEnd - rangeStart + 1
 		}
 
+		if bufSize == 0 {
+			break
+		}
+		
+		buf := make([]byte, bufSize)
+		bytesRead, err := io.ReadFull(file, buf)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			break
 		}
 
-		PartRequest := &pb.UploadPartRequest{
+		partRequest := &pb.UploadPartRequest{
 			Part: buf,
 			Key: upload.GetKey(),
 			Bucket: upload.GetBucket(),
@@ -351,17 +367,13 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 			UploadId: uploadID,
 		}
 
-		err = stream.Send(PartRequest)
+		err = stream.Send(partRequest)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			break
 		}
-
-		off, err = file.Seek(int64(nread), io.SeekCurrent)
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			break
-		}
+		
+		rangeStart += int64(bytesRead)
 		partNumber++
 	}
 
