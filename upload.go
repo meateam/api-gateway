@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	fpb "github.com/meateam/file-service/protos"
@@ -309,8 +308,9 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
+	defer file.Close()
 
-	uploadID, exists := c.GetPostForm("uploadId")
+	uploadID, exists := c.GetQuery("uploadId")
 	if exists != true {
 		c.String(http.StatusBadRequest, "upload id is required")
 		return
@@ -322,43 +322,49 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		return
 	}
 
-	chunkIndex, exists := c.GetPostForm("chunkIndex")
-	if exists != true {
-		c.String(http.StatusBadRequest, "chunk index is required")
-		return
-	}
-
-	partNumber, err := strconv.ParseInt(chunkIndex, 10, 64)
-	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("chunk index is invalid: %v", err))
-		return
-	}
-
-	partBytes, err := ioutil.ReadAll(file)
+	off := int64(0)
+	buf := make([]byte, 5 << 20)
+	partNumber := int64(1)
+	stream, err := ur.client.UploadPart(c)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	reqUser := extractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+	for {
+		nread, err := file.ReadAt(buf, off)
+		if err == io.EOF {
+			c.Status(http.StatusOK)
+			break;
+		}
+
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			break
+		}
+
+		PartRequest := &pb.UploadPartRequest{
+			Part: buf,
+			Key: upload.GetKey(),
+			Bucket: upload.GetBucket(),
+			PartNumber: partNumber,
+			UploadId: uploadID,
+		}
+
+		err = stream.Send(PartRequest)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			break
+		}
+
+		off, err = file.Seek(int64(nread), io.SeekCurrent)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			break
+		}
+		partNumber++
 	}
 
-	uploadPartInput := &pb.UploadPartRequest{
-		UploadId:   uploadID,
-		Key:        upload.GetKey(),
-		Bucket:     upload.GetBucket(),
-		Part:       partBytes,
-		PartNumber: partNumber,
-	}
-
-	_, err = ur.client.UploadPart(c, uploadPartInput)
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
 	c.Status(http.StatusOK)
 	return
 }
