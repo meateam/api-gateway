@@ -1,0 +1,30 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Package",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "env":{
+        "GW_UPLOAD_SERVICE": ":8081",
+        "GW_DOWNLOAD_SERVICE": ":8082",
+        "GW_FILE_SERVICE": ":8083"
+
+        // "GIN_MODE": "release"
+      },
+      "program": "${workspaceFolder}"
+    },
+    {
+      "name": "Launch test package",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}",
+      "env": {},
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+version: '2'
+services:
+  api-gateway:
+    image: api-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      GW_PORT: 8080
+      GW_UPLOAD_SERVICE: 'upload-service:8080'
+      GW_DOWNLOAD_SERVICE: 'download-service:8080'
+      GW_FILE_SERVICE: 'file-service:50051'
+    ports:
+      - '8080:8080'
+    depends_on:
+      - upload-service
+      - download-service
+      - file-service
+  minio:
+    image: minio/minio
+    volumes:
+      - './data:/data'
+    ports:
+      - '9000:9000'
+    environment:
+      MINIO_ACCESS_KEY: F6WUUG27HBUFSIXVZL59
+      MINIO_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
+    command: server /data
+  upload-service:
+    image: 'upload-service:latest'
+    environment:
+      S3_ACCESS_KEY: F6WUUG27HBUFSIXVZL59
+      S3_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
+      S3_ENDPOINT: 'http://minio:9000'
+      TCP_PORT: 8080
+    depends_on:
+      - minio
+    ports:
+      - '8081:8080'
+  download-service:
+    image: 'download-service:latest'
+    environment:
+      S3_ACCESS_KEY: F6WUUG27HBUFSIXVZL59
+      S3_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
+      S3_ENDPOINT: 'http://minio:9000'
+      TCP_PORT: 8080
+    ports:
+      - '8082:8080'
+    depends_on:
+      - minio
+  file-service:
+    image: file-service
+    environment:
+      MONGO_HOST: mongo
+    ports:
+      - '8083:50051'
+    depends_on:
+      - mongo
+  mongo:
+    image: 'mongo:latest'
+    ports:
+      - '27018:27017'
+    volumes:
+      - './data/db:/data/db'
