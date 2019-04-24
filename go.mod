@@ -1,4 +1,4 @@
-module api-gateway
+module github.com/meateam/api-gateway
 
 go 1.12
 
