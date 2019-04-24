@@ -16,12 +16,10 @@ func setupRouter() (r *gin.Engine, close func()) {
 	gin.DisableConsoleColor()
 	r = gin.Default()
 
-	// In a form upload - defines how many saved in RAM, the rest saved in /tmp.
-	r.MaxMultipartMemory = 32 << 20
-
 	// Default cors handeling.
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AddAllowHeaders("cache-control", "x-requested-with", "content-disposition")
+	corsConfig.AddExposeHeaders("x-uploadid")
+	corsConfig.AddAllowHeaders("cache-control", "x-requested-with", "content-disposition", "content-range")
 	corsConfig.AllowAllOrigins = true
 	r.Use(cors.New(corsConfig))
 

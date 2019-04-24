@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"io"
+	"strings"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	fpb "github.com/meateam/file-service/protos"
@@ -42,7 +42,6 @@ func (ur *uploadRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn) (*grpc.C
 	ur.fileClient = fpb.NewFileServiceClient(fileConn)
 
 	r.POST("/upload", ur.upload)
-	r.PUT("/upload", ur.uploadComplete)
 
 	return conn, nil
 }
@@ -103,13 +102,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 	}
 
 	fileName := uuid.NewV4().String()
-	contentDisposition := c.GetHeader("Content-Disposition")
-	if contentDisposition != "" {
-		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
-		if err != nil {
-			fileName = uuid.NewV4().String()
-		}
-	}
+	// fileName := upload.filename
 
 	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
 		Key:      upload.GetKey(),
@@ -120,7 +113,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		FullName: fileName,
 	})
 
-	c.String(http.StatusCreated, createFileResp.GetId())
+	c.String(http.StatusOK, createFileResp.GetId())
 	return
 }
 
@@ -280,85 +273,119 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		UploadID: resp.GetUploadId(),
 	})
 
-	// TODO: Handler update error, consider abstracting s3 upload id from client
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	c.String(http.StatusOK, resp.GetUploadId())
+	c.Header("x-uploadid", resp.GetUploadId())
+	c.Status(http.StatusOK)
 	return
 }
 
 func (ur *uploadRouter) uploadPart(c *gin.Context) {
-	multipartForm, err := c.MultipartForm()
+	multipartReader, err := c.Request.MultipartReader()
 	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("failed parsing multipart form data: %v", err))
-		return
-	}
-	defer multipartForm.RemoveAll()
-
-	fileHeader, err := c.FormFile("file")
-	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("failed getting file: %v", err))
+		c.String(http.StatusBadRequest, fmt.Sprintf("failed reading multipart form data: %v", err))
 		return
 	}
 
-	file, err := fileHeader.Open()
+	file, err := multipartReader.NextPart()
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
+	defer file.Close()
 
-	uploadID, exists := c.GetPostForm("uploadId")
+	uploadID, exists := c.GetQuery("uploadId")
 	if exists != true {
 		c.String(http.StatusBadRequest, "upload id is required")
 		return
 	}
 
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	
+	if err != nil {
+		if strings.Contains(err.Error(), "Upload not found") {
+			c.String(http.StatusBadRequest, "upload not found")
+		} else {
+			c.AbortWithError(http.StatusInternalServerError, err)
+		}
+		
+		return
+	}
+	
+	fileRange := c.GetHeader("Content-Range")
+	if fileRange == "" {
+		c.String(http.StatusBadRequest, "Content-Range is required")
+		return
+	}
+
+	rangeStart := int64(0)
+	rangeEnd := int64(0)
+	fileSize := int64(0)
+	_, err = fmt.Sscanf(fileRange, "bytes %d-%d/%d", &rangeStart, &rangeEnd, &fileSize)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Content-Range is invalid: %v", err))
+		return
+	}
+
+	bufSize := fileSize / 50
+	if bufSize < 5 << 20 {
+		bufSize = 5 << 20
+	}
+
+	if bufSize > 5120 << 20 {
+		bufSize = 5120 << 20
+	}
+
+	partNumber := int64(1)
+	stream, err := ur.client.UploadPart(c)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
+	defer stream.CloseSend()
+	
+	for {
+		if rangeEnd - rangeStart + 1 < bufSize {
+			bufSize = rangeEnd - rangeStart + 1
+		}
 
-	chunkIndex, exists := c.GetPostForm("chunkIndex")
-	if exists != true {
-		c.String(http.StatusBadRequest, "chunk index is required")
-		return
+		if bufSize == 0 {
+			if rangeStart == fileSize {
+				ur.uploadComplete(c)
+				break
+			}
+
+			c.Status(http.StatusOK)
+			break
+		}
+		
+		buf := make([]byte, bufSize)
+		bytesRead, err := io.ReadFull(file, buf)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			break
+		}
+
+		partRequest := &pb.UploadPartRequest{
+			Part: buf,
+			Key: upload.GetKey(),
+			Bucket: upload.GetBucket(),
+			PartNumber: partNumber,
+			UploadId: uploadID,
+		}
+
+		err = stream.Send(partRequest)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			break
+		}
+		
+		rangeStart += int64(bytesRead)
+		partNumber++
 	}
 
-	partNumber, err := strconv.ParseInt(chunkIndex, 10, 64)
-	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("chunk index is invalid: %v", err))
-		return
-	}
-
-	partBytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	reqUser := extractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	uploadPartInput := &pb.UploadPartRequest{
-		UploadId:   uploadID,
-		Key:        upload.GetKey(),
-		Bucket:     upload.GetBucket(),
-		Part:       partBytes,
-		PartNumber: partNumber,
-	}
-
-	_, err = ur.client.UploadPart(c, uploadPartInput)
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	c.Status(http.StatusOK)
 	return
 }
