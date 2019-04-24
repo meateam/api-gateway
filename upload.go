@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"strings"
 	"io/ioutil"
 	"net/http"
 
@@ -41,7 +42,6 @@ func (ur *uploadRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn) (*grpc.C
 	ur.fileClient = fpb.NewFileServiceClient(fileConn)
 
 	r.POST("/upload", ur.upload)
-	r.PUT("/upload", ur.uploadComplete)
 
 	return conn, nil
 }
@@ -102,13 +102,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 	}
 
 	fileName := uuid.NewV4().String()
-	contentDisposition := c.GetHeader("Content-Disposition")
-	if contentDisposition != "" {
-		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
-		if err != nil {
-			fileName = uuid.NewV4().String()
-		}
-	}
+	// fileName := upload.filename
 
 	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
 		Key:      upload.GetKey(),
@@ -119,7 +113,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		FullName: fileName,
 	})
 
-	c.String(http.StatusCreated, createFileResp.GetId())
+	c.String(http.StatusOK, createFileResp.GetId())
 	return
 }
 
@@ -279,13 +273,13 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		UploadID: resp.GetUploadId(),
 	})
 
-	// TODO: Handler update error, consider abstracting s3 upload id from client
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	c.String(http.StatusOK, resp.GetUploadId())
+	c.Header("x-uploadid", resp.GetUploadId())
+	c.Status(http.StatusOK)
 	return
 }
 
@@ -310,8 +304,14 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		if strings.Contains(err.Error(), "Upload not found") {
+			c.String(http.StatusBadRequest, "upload not found")
+		} else {
+			c.AbortWithError(http.StatusInternalServerError, err)
+		}
+		
 		return
 	}
 	
@@ -335,6 +335,10 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		bufSize = 5 << 20
 	}
 
+	if bufSize > 5120 << 20 {
+		bufSize = 5120 << 20
+	}
+
 	partNumber := int64(1)
 	stream, err := ur.client.UploadPart(c)
 	if err != nil {
@@ -349,6 +353,12 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		}
 
 		if bufSize == 0 {
+			if rangeStart == fileSize {
+				ur.uploadComplete(c)
+				break
+			}
+
+			c.Status(http.StatusOK)
 			break
 		}
 		
@@ -377,6 +387,5 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		partNumber++
 	}
 
-	c.Status(http.StatusOK)
 	return
 }
