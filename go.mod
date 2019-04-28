@@ -3,6 +3,11 @@ module api-gateway
 go 1.12
 
 require (
+	cloud.google.com/go v0.37.4 // indirect
+	github.com/DataDog/zstd v1.3.8 // indirect
+	github.com/Shopify/sarama v1.22.0 // indirect
+	github.com/aws/aws-sdk-go v1.19.11 // indirect
+	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	cloud.google.com/go v0.37.4 // indirect
 	github.com/DataDog/zstd v1.3.8 // indirect

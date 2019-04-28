@@ -13,17 +13,19 @@ const (
 	configUploadService   = "upload_service"
 	configDownloadService = "download_service"
 	configfileService     = "file_service"
-	configSecret		  = "secret"
-	configHost			  = "host"
+	configSecret          = "secret"
+	configHost            = "host"
+	configAuthUrl         = "auth_url"
 )
 
 func init() {
-	viper.SetDefault(configPort, 8000)
+	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configfileService, "file-service:8080")
 	viper.SetDefault(configSecret, "bLue5tream@2018")
 	viper.SetDefault(configHost, "http://localhost")
+	viper.SetDefault(configAuthUrl, "/auth/login")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

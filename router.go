@@ -95,6 +95,10 @@ func authRequired(c *gin.Context) {
 		return
 	}
 	authArr := strings.Fields(auth)
+	if len(authArr) < 2 {
+		redirectToAuthService(c)
+		return
+	}
 	_, tokenString := authArr[0], authArr[1]
 	
 	secret := viper.GetString(configSecret)
@@ -102,8 +106,8 @@ func authRequired(c *gin.Context) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Validates the alg is what we expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 			redirectToAuthService(c)
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		
 		return []byte(secret), nil
@@ -112,7 +116,7 @@ func authRequired(c *gin.Context) {
 		iat := int64(claims["iat"].(float64))
 		passed := time.Since(time.Unix(iat, 0))
 		if time.Hour*24 < passed {
-			fmt.Println("Token Expired!")
+			f// Token expired
 			redirectToAuthService(c)
 			return
 		}
@@ -121,9 +125,7 @@ func authRequired(c *gin.Context) {
 			firstName: claims["firstName"].(string),
 			lastName: claims["lastName"].(string),
 		})
-		fmt.Println(extractRequestUser(c))
 	} else {
-		fmt.Println(err)
 		redirectToAuthService(c)
 		return
 	}
