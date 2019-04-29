@@ -9,11 +9,6 @@ require (
 	github.com/aws/aws-sdk-go v1.19.11 // indirect
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	cloud.google.com/go v0.37.4 // indirect
-	github.com/DataDog/zstd v1.3.8 // indirect
-	github.com/Shopify/sarama v1.22.0 // indirect
-	github.com/aws/aws-sdk-go v1.19.11 // indirect
-	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/envoyproxy/go-control-plane v0.7.0 // indirect
 	github.com/gin-contrib/cors v0.0.0-20190301062745-f9e10995c85a
 	github.com/gin-contrib/sse v0.0.0-20190301062529-5545eab6dad3 // indirect

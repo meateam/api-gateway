@@ -84,10 +84,9 @@ func setupRouter() (r *gin.Engine, close func()) {
 	return
 }
 
-/*  the function search for the authrization header to check if the client has a jwt token.
-	If the token is not valid or expired, it will redirect the client to the auth service
-	If the token is valid, it will inject user to the gin context
-*/
+//  authRequired searches for the authorization header to check if the client has a jwt token.
+//	If the token is not valid or expired, it will redirect the client to the auth service.
+//	If the token is valid, it will inject user to the gin context
 func authRequired(c *gin.Context) {
 	auth := c.GetHeader("Authorization")
 	if auth == "" {
@@ -111,24 +110,31 @@ func authRequired(c *gin.Context) {
 		}
 		
 		return []byte(secret), nil
+
 	})
+	if err != nil {
+		redirectToAuthService(c)
+		return
+	} 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {	
 		iat := int64(claims["iat"].(float64))
 		passed := time.Since(time.Unix(iat, 0))
 		if time.Hour*24 < passed {
-			f// Token expired
+			// Token expired
 			redirectToAuthService(c)
 			return
 		}
+
+		// Check type assertion
 		c.Set("User", user{
 			id: claims["id"].(string),
 			firstName: claims["firstName"].(string),
 			lastName: claims["lastName"].(string),
 		})
-	} else {
-		redirectToAuthService(c)
 		return
-	}
+	} 
+	redirectToAuthService(c)
+	return
 
 }
 
@@ -136,4 +142,5 @@ func redirectToAuthService(c *gin.Context) {
 	host := viper.GetString(configHost)
 	c.Redirect(http.StatusMovedPermanently, host + "/auth/login")
 	c.Abort()
+	return
 }
