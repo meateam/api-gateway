@@ -34,6 +34,12 @@ github.com/meateam/download-service v0.0.0-20190415075423-cb92595c1120 h1:VfrsDO
 github.com/meateam/download-service v0.0.0-20190415075423-cb92595c1120/go.mod h1:QUYcVRxRRuuOURK46rverwUO0kCHqPlSpWChc1jA3mU=
 github.com/meateam/file-service v0.0.0-20190417083022-114923ba6553 h1:jhPDwmUz+BQfKgWWUBTbSyGanwsHTLA1A7wH8ewxIKE=
 github.com/meateam/file-service v0.0.0-20190417083022-114923ba6553/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190429121158-bf70931264a0 h1:I019Nq2ErFs+bAQdAfeu/J4GI5p8qN8DpsdY8aumlLY=
+github.com/meateam/file-service v0.0.0-20190429121158-bf70931264a0/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190429123109-fb07897a8842 h1:T9AQST1SplBODCjKzzJTRnO8jl0LXVxKMB7uuFX8JZA=
+github.com/meateam/file-service v0.0.0-20190429123109-fb07897a8842/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190429130529-69bf686e0fa6 h1:ggkr30nYJBmR3pTzDIBuSydpP+VZNUHsxpNSgbQbVIA=
+github.com/meateam/file-service v0.0.0-20190429130529-69bf686e0fa6/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/upload-service v0.0.0-20190423081000-e57f14124087 h1:rt8nc4qeqzR+W3tV6uuOgm5FqeUEJGALqgh2HD5M61Q=
 github.com/meateam/upload-service v0.0.0-20190423081000-e57f14124087/go.mod h1:tu9jVqqq+TpZmkBHhLx0Xbx6ww6tYwnvlOVN/fkHZzo=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
