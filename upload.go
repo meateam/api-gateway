@@ -97,6 +97,16 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
+	deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
+		UploadID: upload.GetUploadID(),
+	}
+
+	_, err = ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	fileName := upload.Name
 
 	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
@@ -378,14 +388,20 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 				if partResponse.GetCode() == 500 {
 					errc <- fmt.Errorf(partResponse.GetMessage())
 				}
-
+				
 				abortUploadRequest := &pb.UploadAbortRequest{
 					UploadId: upload.GetUploadID(),
 					Key: upload.GetKey(),
 					Bucket: upload.GetBucket(),
 				}
-
+				
 				ur.uploadClient.UploadAbort(c, abortUploadRequest)
+
+				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
+					UploadID: upload.GetUploadID(),
+				}
+				
+				ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
 				return 
 			}
 		}
@@ -420,10 +436,16 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 				}
 	
 				ur.uploadClient.UploadAbort(c, abortUploadRequest)
+
+				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
+					UploadID: upload.GetUploadID(),
+				}
+
+				ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
 				c.Abort()
 				break
 			}
-			
+
 			c.AbortWithError(http.StatusInternalServerError, err)
 			break
 		}
