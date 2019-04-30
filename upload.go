@@ -28,6 +28,11 @@ type uploadRouter struct {
 	uploadServiceURL string
 }
 
+type uploadInitBody struct {
+	Title			string `json:"title" binding:"required"`
+	MimeType	string `json:"mimeType" binding:"required"`
+}
+
 func (ur *uploadRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn) (*grpc.ClientConn, error) {
 	conn, err := grpc.Dial(ur.uploadServiceURL, grpc.WithInsecure())
 	if err != nil {
@@ -101,8 +106,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
-	fileName := uuid.NewV4().String()
-	// fileName := upload.filename
+	fileName := upload.Name
 
 	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
 		Key:      upload.GetKey(),
@@ -243,9 +247,22 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		return
 	}
 
+	var reqBody uploadInitBody
+	err := c.BindJSON(&reqBody)
+	if err != nil {
+		c.String(http.StatusBadRequest, "invalid request body parameters")
+		return
+	}
+
+	if reqBody.Title == "" {
+		reqBody.Title = uuid.NewV4().String()
+	}
+
 	createUploadResponse, err := ur.fileClient.CreateUpload(c, &fpb.CreateUploadRequest{
 		Bucket: reqUser.id,
+		Name: reqBody.Title,
 	})
+
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -256,9 +273,9 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		Bucket: reqUser.id,
 	}
 
-	contentType := c.GetHeader("Content-Type")
-	if contentType != "" {
-		uploadInitReq.ContentType = contentType
+	uploadInitReq.ContentType = reqBody.MimeType
+	if reqBody.MimeType == "" {
+		uploadInitReq.ContentType = "application/octet-stream"
 	}
 
 	resp, err := ur.client.UploadInit(c, uploadInitReq)
