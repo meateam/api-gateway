@@ -10,8 +10,6 @@ import (
 )
 
 func setupRouter() (r *gin.Engine, close func()) {
-	const numOfRPCConns = 3
-
 	// Disable Console Color
 	gin.DisableConsoleColor()
 	r = gin.Default()
@@ -27,54 +25,55 @@ func setupRouter() (r *gin.Engine, close func()) {
 	r.Use(authRequired)
 
 	// Initiate file router.
-	fr := &fileRouter{
-		fileServiceURL: viper.GetString(configfileService),
+	fileConn, err := initServiceConn(viper.GetString(configfileService))
+	if err != nil {
+		log.Fatalf("couldn't setup file service connection: %v", err)
 	}
+
+	uploadConn, err := initServiceConn(viper.GetString(configUploadService))
+	if err != nil {
+		log.Fatalf("couldn't setup upload service connection: %v", err)
+	}
+
+	downloadConn, err := initServiceConn(viper.GetString(configDownloadService))
+	if err != nil {
+		log.Fatalf("couldn't setup download service connection: %v", err)
+	}
+	
+	// Initiate file router.
+	fr := &fileRouter{}
 
 	// Initiate upload router.
-	ur := &uploadRouter{
-		uploadServiceURL: viper.GetString(configUploadService),
-	}
-
-	// Initiate download router.
-	dr := &downloadRouter{
-		downloadServiceURL: viper.GetString(configDownloadService),
-	}
-
-	// Creating a slice to manage connections
-	conns := make([]*grpc.ClientConn, 0, numOfRPCConns)
+	ur := &uploadRouter{}
 
 	// Initiate client connection to file service.
-	// Appends The connection to the connections slice.
-	fconn, err := fr.setup(r)
-	if err != nil {
-		log.Fatalf("couldn't setup upload router: %v", err)
-	}
-	conns = append(conns, fconn)
+	fr.setup(r, fileConn, downloadConn)
 
 	// Initiate client connection to upload service.
-	// Appends The connection to the connections slice.
-	uconn, err := ur.setup(r, fconn)
-	if err != nil {
-		log.Fatalf("couldn't setup upload router: %v", err)
-	}
-	conns = append(conns, uconn)
+	ur.setup(r, uploadConn, fileConn)
 
-	// Initiate client connection to download service.
-	// Appends The connection to the connections slice.
-	dconn, err := dr.setup(r, fconn)
-	if err != nil {
-		log.Fatalf("couldn't setup download router: %v", err)
-	}
-	conns = append(conns, dconn)
+	// Creating a slice to manage connections
+	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn}
 
 	// Defines a function that is closing all connections in order to defer it outside.
 	close = func() {
 		for _, v := range conns {
 			v.Close()
 		}
+
+		return
 	}
+
 	return
+}
+
+func initServiceConn(url string) (*grpc.ClientConn, error) {
+	conn, err := grpc.Dial(url, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)), grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
 }
 
 func authRequired(c *gin.Context) {
