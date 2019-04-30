@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"io/ioutil"
 	"net/http"
 
@@ -352,26 +353,77 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-	defer stream.CloseSend()
 	
+	errc := make(chan error, 1)
+	responseWG := sync.WaitGroup{}
+	responseWG.Add(1)
+	go func() {
+		defer responseWG.Done()
+		for {
+			partResponse, err := stream.Recv()
+
+			// Upload response that all parts have finished uploading.
+			if err == io.EOF {
+				ur.uploadComplete(c)
+				return
+			}
+
+			// If there's an error uploading any part then abort the upload process,
+			// and delete the parts that have finished uploading.
+			if err != nil || partResponse.GetCode() == 500 {
+				if err != nil {
+					errc <- err
+				}
+
+				if partResponse.GetCode() == 500 {
+					errc <- fmt.Errorf(partResponse.GetMessage())
+				}
+
+				abortUploadRequest := &pb.UploadAbortRequest{
+					UploadId: upload.GetUploadID(),
+					Key: upload.GetKey(),
+					Bucket: upload.GetBucket(),
+				}
+
+				ur.uploadClient.UploadAbort(c, abortUploadRequest)
+				return 
+			}
+		}
+	}()
+
 	for {
+		// If there's an error stop uploading file parts.
+		// Otherwise continue uploading the remaining parts.
+		select {
+		case <-errc:
+			c.AbortWithStatus(http.StatusInternalServerError)
+			break
+		default:
+		}
+
 		if rangeEnd - rangeStart + 1 < bufSize {
 			bufSize = rangeEnd - rangeStart + 1
 		}
 
 		if bufSize == 0 {
-			if rangeStart == fileSize {
-				ur.uploadComplete(c)
-				break
-			}
-
-			c.Status(http.StatusOK)
 			break
 		}
-		
+
 		buf := make([]byte, bufSize)
 		bytesRead, err := io.ReadFull(file, buf)
 		if err != nil {
+			if err == io.ErrUnexpectedEOF {
+				abortUploadRequest := &pb.UploadAbortRequest{
+					UploadId: upload.GetUploadID(),
+					Key: upload.GetKey(),
+					Bucket: upload.GetBucket(),
+				}
+	
+				ur.uploadClient.UploadAbort(c, abortUploadRequest)
+				c.Abort()
+				break
+			}
+			
 			c.AbortWithError(http.StatusInternalServerError, err)
 			break
 		}
@@ -394,5 +446,9 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		partNumber++
 	}
 
+	// Close the stream after finishing uploading all file parts.
+	stream.CloseSend()
+	responseWG.Wait()
+	
 	return
 }
