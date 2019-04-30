@@ -101,6 +101,7 @@ func authRequired(c *gin.Context) {
 	secret := viper.GetString(configSecret)
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		
 		// Validates the alg is what we expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			redirectToAuthService(c)
@@ -115,10 +116,16 @@ func authRequired(c *gin.Context) {
 		return
 	} 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {	
-		iat := int64(claims["iat"].(float64))
+		iat_float, ok := claims["iat"].(float64)
+		if !ok {
+			redirectToAuthService(c)
+			return
+		}
+		iat := int64(iat_float)
 		passed := time.Since(time.Unix(iat, 0))
+		
+		// Token expired
 		if time.Hour*24 < passed {
-			// Token expired
 			redirectToAuthService(c)
 			return
 		}
