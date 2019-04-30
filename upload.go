@@ -23,9 +23,8 @@ const (
 )
 
 type uploadRouter struct {
-	client           pb.UploadClient
-	fileClient       fpb.FileServiceClient
-	uploadServiceURL string
+	uploadClient pb.UploadClient
+	fileClient   fpb.FileServiceClient
 }
 
 type uploadInitBody struct {
@@ -33,22 +32,13 @@ type uploadInitBody struct {
 	MimeType	string `json:"mimeType" binding:"required"`
 }
 
-func (ur *uploadRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(ur.uploadServiceURL, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-
-	ur.client = pb.NewUploadClient(conn)
-
-	if fileConn == nil {
-		return nil, fmt.Errorf("file service connection is nil")
-	}
+func (ur *uploadRouter) setup(r *gin.Engine, uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn) {
+	ur.uploadClient = pb.NewUploadClient(uploadConn)
 	ur.fileClient = fpb.NewFileServiceClient(fileConn)
 
 	r.POST("/upload", ur.upload)
 
-	return conn, nil
+	return
 }
 
 func (ur *uploadRouter) upload(c *gin.Context) {
@@ -100,7 +90,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		Bucket:   upload.GetBucket(),
 	}
 
-	resp, err := ur.client.UploadComplete(c, uploadCompleteRequest)
+	resp, err := ur.uploadClient.UploadComplete(c, uploadCompleteRequest)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -227,7 +217,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		ureq.ContentType = contentType
 	}
 
-	_, err = ur.client.UploadMedia(c, ureq)
+	_, err = ur.uploadClient.UploadMedia(c, ureq)
 	if err != nil {
 		ur.fileClient.DeleteFile(c, &fpb.DeleteFileRequest{
 			Id: createFileResp.GetId(),
@@ -278,7 +268,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		uploadInitReq.ContentType = "application/octet-stream"
 	}
 
-	resp, err := ur.client.UploadInit(c, uploadInitReq)
+	resp, err := ur.uploadClient.UploadInit(c, uploadInitReq)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -357,7 +347,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	partNumber := int64(1)
-	stream, err := ur.client.UploadPart(c)
+	stream, err := ur.uploadClient.UploadPart(c)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
