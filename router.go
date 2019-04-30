@@ -138,7 +138,7 @@ func authRequired(c *gin.Context) {
 
 func redirectToAuthService(c *gin.Context) {
 	authURL := viper.GetString(configAuthUrl)
-	c.Redirect(http.StatusMovedPermanently, configAuthUrl)
+	c.Redirect(http.StatusMovedPermanently, authURL)
 	c.Abort()
 	return
 }
