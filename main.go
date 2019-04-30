@@ -14,7 +14,6 @@ const (
 	configDownloadService = "download_service"
 	configfileService     = "file_service"
 	configSecret          = "secret"
-	configHost            = "host"
 	configAuthUrl         = "auth_url"
 )
 
@@ -24,8 +23,7 @@ func init() {
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configfileService, "file-service:8080")
 	viper.SetDefault(configSecret, "bLue5tream@2018")
-	viper.SetDefault(configHost, "http://localhost")
-	viper.SetDefault(configAuthUrl, "/auth/login")
+	viper.SetDefault(configAuthUrl, "http://localhost/auth/login")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
