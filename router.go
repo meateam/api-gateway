@@ -1,17 +1,17 @@
 package main
 
 import (
-	"log"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"github.com/dgrijalva/jwt-go"
 )
 
 func setupRouter() (r *gin.Engine, close func()) {
@@ -44,7 +44,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 	if err != nil {
 		log.Fatalf("couldn't setup download service connection: %v", err)
 	}
-	
+
 	// Initiate file router.
 	fr := &fileRouter{}
 
@@ -96,33 +96,32 @@ func authRequired(c *gin.Context) {
 		return
 	}
 	_, tokenString := authArr[0], authArr[1]
-	
+
 	secret := viper.GetString(configSecret)
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		
+
 		// Validates the alg is what we expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			redirectToAuthService(c)
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		
-		return []byte(secret), nil
 
+		return []byte(secret), nil
 	})
 	if err != nil {
 		redirectToAuthService(c)
 		return
-	} 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {	
-		iat_float, ok := claims["iat"].(float64)
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		iatFloat, ok := claims["iat"].(float64)
 		if !ok {
 			redirectToAuthService(c)
 			return
 		}
-		iat := int64(iat_float)
+		iat := int64(iatFloat)
 		passed := time.Since(time.Unix(iat, 0))
-		
+
 		// Token expired
 		if time.Hour*24 < passed {
 			redirectToAuthService(c)
@@ -131,12 +130,12 @@ func authRequired(c *gin.Context) {
 
 		// Check type assertion
 		c.Set("User", user{
-			id: claims["id"].(string),
+			id:        claims["id"].(string),
 			firstName: claims["firstName"].(string),
-			lastName: claims["lastName"].(string),
+			lastName:  claims["lastName"].(string),
 		})
 		return
-	} 
+	}
 	redirectToAuthService(c)
 	return
 
