@@ -90,11 +90,13 @@ func authRequired(c *gin.Context) {
 		redirectToAuthService(c)
 		return
 	}
+
 	authArr := strings.Fields(auth)
 	if len(authArr) < 2 {
 		redirectToAuthService(c)
 		return
 	}
+
 	_, tokenString := authArr[0], authArr[1]
 
 	secret := viper.GetString(configSecret)
@@ -114,12 +116,12 @@ func authRequired(c *gin.Context) {
 		return
 	}
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		iatFloat, ok := claims["iat"].(float64)
+		iat, ok := claims["iat"].(int64)
 		if !ok {
 			redirectToAuthService(c)
 			return
 		}
-		iat := int64(iatFloat)
+
 		passed := time.Since(time.Unix(iat, 0))
 
 		// Token expired
@@ -134,11 +136,11 @@ func authRequired(c *gin.Context) {
 			firstName: claims["firstName"].(string),
 			lastName:  claims["lastName"].(string),
 		})
+
 		return
 	}
 	redirectToAuthService(c)
 	return
-
 }
 
 func redirectToAuthService(c *gin.Context) {
