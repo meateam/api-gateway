@@ -102,7 +102,6 @@ func authRequired(c *gin.Context) {
 	secret := viper.GetString(configSecret)
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-
 		// Validates the alg is what we expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			redirectToAuthService(c)
