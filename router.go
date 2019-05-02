@@ -97,12 +97,11 @@ func authRequired(c *gin.Context) {
 		return
 	}
 
-	_, tokenString := authArr[0], authArr[1]
-
-	secret := viper.GetString(configSecret)
+	tokenString := authArr[1]
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Validates the alg is what we expect:
+		secret := viper.GetString(configSecret)
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			redirectToAuthService(c)
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
