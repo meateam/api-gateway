@@ -114,11 +114,12 @@ func authRequired(c *gin.Context) {
 		return
 	}
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		iat, ok := claims["iat"].(int64)
+		iatFloat, ok := claims["iat"].(float64) // for some reason can't convert directly to int64
 		if !ok {
 			redirectToAuthService(c)
 			return
 		}
+		iat := int64(iatFloat)
 
 		passed := time.Since(time.Unix(iat, 0))
 
@@ -142,7 +143,7 @@ func authRequired(c *gin.Context) {
 }
 
 func redirectToAuthService(c *gin.Context) {
-	authURL := viper.GetString(configAuthUrl)
+	authURL := viper.GetString(configAuthURL)
 	c.Redirect(http.StatusMovedPermanently, authURL)
 	c.Abort()
 	return

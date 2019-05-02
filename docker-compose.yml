@@ -11,7 +11,7 @@ services:
       GW_UPLOAD_SERVICE: 'upload-service:8080'
       GW_DOWNLOAD_SERVICE: 'download-service:8080'
       GW_FILE_SERVICE: 'file-service:50051'
-      GW_SECRET: bLue5tream@2018
+      GW_SECRET: pandora@drive
     ports:
       - '8080:8080'
     depends_on:
