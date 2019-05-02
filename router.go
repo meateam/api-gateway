@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -21,8 +22,13 @@ func setupRouter() (r *gin.Engine, close func()) {
 	corsConfig.AllowAllOrigins = true
 	r.Use(cors.New(corsConfig))
 
-	// Auth middleware
+	// Authentication middleware
 	r.Use(authRequired)
+
+	// Health Check route
+	r.GET("/healthcheck", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
 
 	// Initiate file router.
 	fileConn, err := initServiceConn(viper.GetString(configfileService))
@@ -39,7 +45,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 	if err != nil {
 		log.Fatalf("couldn't setup download service connection: %v", err)
 	}
-	
+
 	// Initiate file router.
 	fr := &fileRouter{}
 
