@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +12,7 @@ import (
 	pb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -82,7 +82,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	resp, err := ur.uploadClient.UploadComplete(c, uploadCompleteRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	_, err = ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -118,6 +118,11 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		Type:     resp.GetContentType(),
 		FullName: fileName,
 	})
+
+	if err != nil {
+		c.AbortWithError(int(status.Code(err)), err)
+		return
+	}
 
 	c.String(http.StatusOK, createFileResp.GetId())
 	return
@@ -195,7 +200,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 
 	keyResp, err := ur.fileClient.GenerateKey(c, &fpb.GenerateKeyRequest{})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -215,7 +220,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 	})
 
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -234,7 +239,8 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		ur.fileClient.DeleteFile(c, &fpb.DeleteFileRequest{
 			Id: createFileResp.GetId(),
 		})
-		c.AbortWithError(http.StatusInternalServerError, err)
+
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -266,7 +272,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -282,7 +288,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 
 	resp, err := ur.uploadClient.UploadInit(c, uploadInitReq)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -293,7 +299,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -325,12 +331,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
 
 	if err != nil {
-		if strings.Contains(err.Error(), "Upload not found") {
-			c.String(http.StatusBadRequest, "upload not found")
-		} else {
-			c.AbortWithError(http.StatusInternalServerError, err)
-		}
-
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -361,7 +362,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	partNumber := int64(1)
 	stream, err := ur.uploadClient.UploadPart(c)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -413,8 +414,8 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		// If there's an error stop uploading file parts.
 		// Otherwise continue uploading the remaining parts.
 		select {
-		case <-errc:
-			c.AbortWithStatus(http.StatusInternalServerError)
+		case err := <-errc:
+			c.AbortWithError(int(status.Code(err)), err)
 			break
 		default:
 		}
@@ -462,8 +463,8 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 
 		err = stream.Send(partRequest)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			break
+			c.AbortWithError(int(status.Code(err)), err)
+			return
 		}
 
 		rangeStart += int64(bytesRead)

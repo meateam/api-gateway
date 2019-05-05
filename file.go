@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"strings"
+	"io"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/protos"
 	"google.golang.org/grpc"
-	"io"
-	"net/http"
+	"google.golang.org/grpc/status"
 )
 
 type fileRouter struct {
@@ -38,13 +39,13 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 		fr.download(c)
 		return
 	}
-	
+
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
-	
+
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -57,12 +58,7 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 	file, err := fr.fileClient.GetFileByID(c, getFileByIDRequest)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "File not found") {
-			c.Status(http.StatusNotFound)
-			return
-		}
-
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -81,10 +77,10 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 	if exists == true {
 		isUserAllowed, err := fr.userFilePermission(c, filesParent)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			c.AbortWithError(int(status.Code(err)), err)
 			return
 		}
-		
+
 		if isUserAllowed == false {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -93,7 +89,7 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 
 	filesResp, err := fr.fileClient.GetFilesByFolder(c, &fpb.GetFilesByFolderRequest{OwnerID: reqUser.id, FolderID: filesParent})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -107,13 +103,13 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 		c.String(http.StatusBadRequest, "file id is required")
 		return
 	}
-	
+
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
-	
+
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -124,7 +120,7 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	}
 	deleteFileResponse, err := fr.fileClient.DeleteFile(c, deleteFileRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -142,10 +138,10 @@ func (fr *fileRouter) download(c *gin.Context) {
 
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
-	
+
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -154,7 +150,8 @@ func (fr *fileRouter) download(c *gin.Context) {
 	// Get the file meta from the file service
 	fileMeta, err := fr.fileClient.GetFileByID(c, &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
+		return
 	}
 
 	filename := fileMeta.GetFullName()
@@ -168,7 +165,8 @@ func (fr *fileRouter) download(c *gin.Context) {
 
 	stream, err := fr.downloadClient.Download(c, downloadRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
+		return
 	}
 
 	c.Header("X-Content-Type-Options", "nosniff")
@@ -186,7 +184,7 @@ func (fr *fileRouter) download(c *gin.Context) {
 		}
 
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			c.AbortWithError(int(status.Code(err)), err)
 			stream.CloseSend()
 			return
 		}
@@ -206,7 +204,7 @@ func (fr *fileRouter) userFilePermission(c *gin.Context, fileID string) (bool, e
 	if reqUser == nil {
 		return false, nil
 	}
-	
+
 	isAllowedResp, err := fr.fileClient.IsAllowed(c, &fpb.IsAllowedRequest{
 		FileID: fileID,
 		UserID: reqUser.id,
