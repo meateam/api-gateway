@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	maxSimpleUploadSize = 5 << 20 // 5MB
-	minPartUploadSize   = 5 << 20 // 5MB S3 limit
+	maxSimpleUploadSize = 5 << 20    // 5MB
+	minPartUploadSize   = 5 << 20    // 5MB S3 limit
+	maxPartUploadSize   = 5120 << 20 // 5GB S3 limit
 	mediaUploadType     = "media"
 	multipartUploadType = "multipart"
 	resumableUploadType = "resumable"
@@ -349,12 +350,12 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	bufSize := fileSize / 50
-	if bufSize < 5<<20 {
-		bufSize = 5 << 20
+	if bufSize < minPartUploadSize {
+		bufSize = minPartUploadSize
 	}
 
-	if bufSize > 5120<<20 {
-		bufSize = 5120 << 20
+	if bufSize > maxPartUploadSize {
+		bufSize = maxPartUploadSize
 	}
 
 	partNumber := int64(1)
