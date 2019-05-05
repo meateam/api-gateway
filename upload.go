@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
-	"strings"
-	"sync"
 	"io/ioutil"
 	"net/http"
+	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	fpb "github.com/meateam/file-service/protos"
@@ -29,8 +29,8 @@ type uploadRouter struct {
 }
 
 type uploadInitBody struct {
-	Title			string `json:"title" binding:"required"`
-	MimeType	string `json:"mimeType" binding:"required"`
+	Title    string `json:"title"`
+	MimeType string `json:"mimeType"`
 }
 
 func (ur *uploadRouter) setup(r *gin.Engine, uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn) {
@@ -261,7 +261,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 
 	createUploadResponse, err := ur.fileClient.CreateUpload(c, &fpb.CreateUploadRequest{
 		Bucket: reqUser.id,
-		Name: reqBody.Title,
+		Name:   reqBody.Title,
 	})
 
 	if err != nil {
@@ -322,17 +322,17 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
-	
+
 	if err != nil {
 		if strings.Contains(err.Error(), "Upload not found") {
 			c.String(http.StatusBadRequest, "upload not found")
 		} else {
 			c.AbortWithError(http.StatusInternalServerError, err)
 		}
-		
+
 		return
 	}
-	
+
 	fileRange := c.GetHeader("Content-Range")
 	if fileRange == "" {
 		c.String(http.StatusBadRequest, "Content-Range is required")
@@ -349,11 +349,11 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	bufSize := fileSize / 50
-	if bufSize < 5 << 20 {
+	if bufSize < 5<<20 {
 		bufSize = 5 << 20
 	}
 
-	if bufSize > 5120 << 20 {
+	if bufSize > 5120<<20 {
 		bufSize = 5120 << 20
 	}
 
@@ -363,8 +363,9 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-	
+
 	errc := make(chan error, 1)
+	defer close(errc)
 	responseWG := sync.WaitGroup{}
 	responseWG.Add(1)
 	go func() {
@@ -388,21 +389,21 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 				if partResponse.GetCode() == 500 {
 					errc <- fmt.Errorf(partResponse.GetMessage())
 				}
-				
+
 				abortUploadRequest := &pb.UploadAbortRequest{
 					UploadId: upload.GetUploadID(),
-					Key: upload.GetKey(),
-					Bucket: upload.GetBucket(),
+					Key:      upload.GetKey(),
+					Bucket:   upload.GetBucket(),
 				}
-				
+
 				ur.uploadClient.UploadAbort(c, abortUploadRequest)
 
 				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
 					UploadID: upload.GetUploadID(),
 				}
-				
+
 				ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
-				return 
+				return
 			}
 		}
 	}()
@@ -417,7 +418,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		default:
 		}
 
-		if rangeEnd - rangeStart + 1 < bufSize {
+		if rangeEnd-rangeStart+1 < bufSize {
 			bufSize = rangeEnd - rangeStart + 1
 		}
 
@@ -431,10 +432,10 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 			if err == io.ErrUnexpectedEOF {
 				abortUploadRequest := &pb.UploadAbortRequest{
 					UploadId: upload.GetUploadID(),
-					Key: upload.GetKey(),
-					Bucket: upload.GetBucket(),
+					Key:      upload.GetKey(),
+					Bucket:   upload.GetBucket(),
 				}
-	
+
 				ur.uploadClient.UploadAbort(c, abortUploadRequest)
 
 				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
@@ -451,11 +452,11 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		}
 
 		partRequest := &pb.UploadPartRequest{
-			Part: buf,
-			Key: upload.GetKey(),
-			Bucket: upload.GetBucket(),
+			Part:       buf,
+			Key:        upload.GetKey(),
+			Bucket:     upload.GetBucket(),
 			PartNumber: partNumber,
-			UploadId: uploadID,
+			UploadId:   uploadID,
 		}
 
 		err = stream.Send(partRequest)
@@ -463,7 +464,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			break
 		}
-		
+
 		rangeStart += int64(bytesRead)
 		partNumber++
 	}
@@ -471,6 +472,6 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	// Close the stream after finishing uploading all file parts.
 	stream.CloseSend()
 	responseWG.Wait()
-	
+
 	return
 }
