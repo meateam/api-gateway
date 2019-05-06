@@ -81,3 +81,7 @@ func initServiceConn(url string) (*grpc.ClientConn, error) {
 
 	return conn, nil
 }
+
+func authRequired(c *gin.Context) {
+	c.Set("User", user{id: "testuser"})
+}
