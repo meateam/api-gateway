@@ -13,8 +13,6 @@ const (
 	configUploadService   = "upload_service"
 	configDownloadService = "download_service"
 	configfileService     = "file_service"
-	configSecret          = "secret"
-	configAuthURL         = "auth_url"
 )
 
 func init() {
@@ -22,8 +20,6 @@ func init() {
 	viper.SetDefault(configUploadService, "upload-service:8080")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configfileService, "file-service:8080")
-	viper.SetDefault(configSecret, "pandora@drive")
-	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
@@ -36,7 +32,7 @@ func main() {
 		Handler:        router,
 		MaxHeaderBytes: 1 << 20,
 	}
-
+	
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatalf("%v", err)
 	}
