@@ -35,8 +35,9 @@ github.com/mattn/go-isatty v0.0.4 h1:bnP0vzxcAdeI1zdubAl5PjU6zsERjGZb7raWodagDYs
 github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/meateam/download-service v0.0.0-20190505082208-15b980fc9a07 h1:3AkEq5qxPFRCmEQ3LDe1ScvqUcbEK5CwdWs/w34bUOU=
 github.com/meateam/download-service v0.0.0-20190505082208-15b980fc9a07/go.mod h1:UiatC7w4geyKhAGyWqpFYDf4VpB2wM/oon+cgPzkr0s=
-github.com/meateam/file-service v0.0.0-20190507073824-f3f08a4c7c96 h1:ryTKkHagOADMnfkSkhqOnVTv8a6fPdTa8rqrpz1egfQ=
-github.com/meateam/file-service v0.0.0-20190507073824-f3f08a4c7c96/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190506083047-26ddff59872f h1:G6N84h2Sn1JhVxhEwGNDvtxk6u1/JLojy+zJIF6P2Pk=
+github.com/meateam/file-service v0.0.0-20190507111629-bd2f93994b78 h1:55H5vUMQCQngWdjY/DqaHD5lvRSFbZ/17Ka5m2jEflA=
+github.com/meateam/file-service v0.0.0-20190507111629-bd2f93994b78/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26 h1:8mWCumautVzGxOMUOGILx7pwFVBoqik5E38v2AzeK9A=
 github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26/go.mod h1:+DKN0naTjr9feBK3gvn+821VKPxQVIp6pkXs85eT29c=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
