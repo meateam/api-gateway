@@ -9,7 +9,7 @@ services:
       GW_PORT: 8080
       GW_UPLOAD_SERVICE: 'upload-service:8080'
       GW_DOWNLOAD_SERVICE: 'download-service:8080'
-      GW_FILE_SERVICE: 'file-service:50051'
+      GW_FILE_SERVICE: 'file-service:8080'
     ports:
       - '8080:8080'
     depends_on:
@@ -53,7 +53,7 @@ services:
     environment:
       MONGO_HOST: mongo
     ports:
-      - '8083:50051'
+      - '8083:8080'
     depends_on:
       - mongo
   mongo:

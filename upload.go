@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	fpb "github.com/meateam/file-service/protos"
+	fpb "github.com/meateam/file-service/proto"
 	pb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
@@ -117,6 +117,10 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		Type:     resp.GetContentType(),
 		FullName: fileName,
 	})
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
 
 	c.String(http.StatusOK, createFileResp.GetId())
 	return
@@ -324,7 +328,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
 
 	if err != nil {
-		if strings.Contains(err.Error(), "Upload not found") {
+		if strings.Contains(err.Error(), "upload not found") {
 			c.String(http.StatusBadRequest, "upload not found")
 		} else {
 			c.AbortWithError(http.StatusInternalServerError, err)
