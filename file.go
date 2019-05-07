@@ -10,8 +10,6 @@ import (
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto"
 	"google.golang.org/grpc"
-	"io"
-	"net/http"
 )
 
 type fileRouter struct {
