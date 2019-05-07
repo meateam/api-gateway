@@ -10,6 +10,8 @@ import (
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto"
 	"google.golang.org/grpc"
+	"io"
+	"net/http"
 )
 
 type fileRouter struct {
@@ -51,7 +53,6 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 		fr.download(c)
 		return
 	}
-
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -102,7 +103,6 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-
 		if isUserAllowed == false {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -137,13 +137,11 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 		c.String(http.StatusBadRequest, "file id is required")
 		return
 	}
-
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -175,7 +173,6 @@ func (fr *fileRouter) download(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -236,7 +233,6 @@ func (fr *fileRouter) userFilePermission(c *gin.Context, fileID string) (bool, e
 	if reqUser == nil {
 		return false, nil
 	}
-
 	isAllowedResp, err := fr.fileClient.IsAllowed(c, &fpb.IsAllowedRequest{
 		FileID: fileID,
 		UserID: reqUser.id,
