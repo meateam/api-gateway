@@ -66,7 +66,7 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 		Id: fileID,
 	}
 
-	file, err := fr.fileClient.GetFileByID(c, getFileByIDRequest)
+	file, err := fr.fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
 	if err != nil {
 		if strings.Contains(err.Error(), "file not found") {
 			c.Status(http.StatusNotFound)
@@ -107,7 +107,7 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 		}
 	}
 
-	filesResp, err := fr.fileClient.GetFilesByFolder(c, &fpb.GetFilesByFolderRequest{OwnerID: reqUser.id, FolderID: filesParent})
+	filesResp, err := fr.fileClient.GetFilesByFolder(c.Request.Context(), &fpb.GetFilesByFolderRequest{OwnerID: reqUser.id, FolderID: filesParent})
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -148,7 +148,7 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	deleteFileRequest := &fpb.DeleteFileRequest{
 		Id: fileID,
 	}
-	deleteFileResponse, err := fr.fileClient.DeleteFile(c, deleteFileRequest)
+	deleteFileResponse, err := fr.fileClient.DeleteFile(c.Request.Context(), deleteFileRequest)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -177,7 +177,7 @@ func (fr *fileRouter) download(c *gin.Context) {
 	}
 
 	// Get the file meta from the file service
-	fileMeta, err := fr.fileClient.GetFileByID(c, &fpb.GetByFileByIDRequest{Id: fileID})
+	fileMeta, err := fr.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	}
@@ -191,7 +191,7 @@ func (fr *fileRouter) download(c *gin.Context) {
 		Bucket: fileMeta.GetBucket(),
 	}
 
-	stream, err := fr.downloadClient.Download(c, downloadRequest)
+	stream, err := fr.downloadClient.Download(c.Request.Context(), downloadRequest)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	}
@@ -231,7 +231,7 @@ func (fr *fileRouter) userFilePermission(c *gin.Context, fileID string) (bool, e
 	if reqUser == nil {
 		return false, nil
 	}
-	isAllowedResp, err := fr.fileClient.IsAllowed(c, &fpb.IsAllowedRequest{
+	isAllowedResp, err := fr.fileClient.IsAllowed(c.Request.Context(), &fpb.IsAllowedRequest{
 		FileID: fileID,
 		UserID: reqUser.id,
 	})

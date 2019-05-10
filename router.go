@@ -7,6 +7,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"go.elastic.co/apm/module/apmgin"
+	"go.elastic.co/apm/module/apmgrpc"
 	"google.golang.org/grpc"
 )
 
@@ -14,11 +16,12 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Disable Console Color
 	gin.DisableConsoleColor()
 	r = gin.Default()
+	r.Use(apmgin.Middleware(r))
 
 	// Default cors handeling.
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AddExposeHeaders("x-uploadid")
-	corsConfig.AddAllowHeaders("cache-control", "x-requested-with", "content-disposition", "content-range")
+	corsConfig.AddAllowHeaders("cache-control", "x-requested-with", "content-disposition", "content-range", "elastic-apm-traceparent")
 	corsConfig.AllowAllOrigins = true
 	r.Use(cors.New(corsConfig))
 
@@ -74,7 +77,10 @@ func setupRouter() (r *gin.Engine, close func()) {
 }
 
 func initServiceConn(url string) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(url, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)), grpc.WithInsecure())
+	conn, err := grpc.Dial(url,
+		grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)),
+		grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
