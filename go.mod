@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/gin-contrib/cors v0.0.0-20190424000812-bd1331c62cae
-	github.com/gin-gonic/gin v1.4.0
+	github.com/gin-gonic/gin v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway v1.8.6
 	github.com/meateam/download-service v0.0.0-20190505082208-15b980fc9a07
 	github.com/meateam/file-service v0.0.0-20190507115828-b9a9848f7322
