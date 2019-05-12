@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 type fileRouter struct {
@@ -53,7 +54,7 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 	}
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -68,12 +69,7 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 
 	file, err := fr.fileClient.GetFileByID(c, getFileByIDRequest)
 	if err != nil {
-		if strings.Contains(err.Error(), "file not found") {
-			c.Status(http.StatusNotFound)
-			return
-		}
-
-		c.AbortWithError(http.StatusBadRequest, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -98,7 +94,7 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 	if exists == true {
 		isUserAllowed, err := fr.userFilePermission(c, filesParent)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			c.AbortWithError(int(status.Code(err)), err)
 			return
 		}
 		if isUserAllowed == false {
@@ -109,7 +105,7 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 
 	filesResp, err := fr.fileClient.GetFilesByFolder(c, &fpb.GetFilesByFolderRequest{OwnerID: reqUser.id, FolderID: filesParent})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -137,7 +133,7 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	}
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 	if isUserAllowed == false {
@@ -150,7 +146,7 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	}
 	deleteFileResponse, err := fr.fileClient.DeleteFile(c, deleteFileRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -168,7 +164,7 @@ func (fr *fileRouter) download(c *gin.Context) {
 
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 	if isUserAllowed == false {
@@ -179,7 +175,8 @@ func (fr *fileRouter) download(c *gin.Context) {
 	// Get the file meta from the file service
 	fileMeta, err := fr.fileClient.GetFileByID(c, &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
+		return
 	}
 
 	filename := fileMeta.GetFullName()
@@ -193,7 +190,9 @@ func (fr *fileRouter) download(c *gin.Context) {
 
 	stream, err := fr.downloadClient.Download(c, downloadRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
+		return
 	}
 
 	c.Header("X-Content-Type-Options", "nosniff")
@@ -211,7 +210,8 @@ func (fr *fileRouter) download(c *gin.Context) {
 		}
 
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			c.AbortWithError(httpStatusCode, err)
 			stream.CloseSend()
 			return
 		}
