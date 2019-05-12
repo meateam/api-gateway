@@ -6,8 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	dpb "github.com/meateam/download-service/proto"
-	fpb "github.com/meateam/file-service/protos"
+	fpb "github.com/meateam/file-service/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -15,6 +16,18 @@ import (
 type fileRouter struct {
 	downloadClient dpb.DownloadClient
 	fileClient     fpb.FileServiceClient
+}
+
+type getFileByIDResponse struct {
+	ID          string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	Description string `json:"description,omitempty"`
+	OwnerID     string `json:"ownerId,omitempty"`
+	Parent      string `json:"parent,omitempty"`
+	CreatedAt   int64  `json:"createdAt,omitempty"`
+	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 }
 
 func (fr *fileRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn) {
@@ -39,7 +52,6 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 		fr.download(c)
 		return
 	}
-
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
@@ -56,13 +68,18 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 	}
 
 	file, err := fr.fileClient.GetFileByID(c, getFileByIDRequest)
-
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
-	c.JSON(http.StatusOK, file)
+	responseFile, err := createGetFileResponse(file)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, responseFile)
 	return
 }
 
@@ -80,7 +97,6 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 			c.AbortWithError(int(status.Code(err)), err)
 			return
 		}
-
 		if isUserAllowed == false {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -93,7 +109,19 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, filesResp.GetFiles())
+	files := filesResp.GetFiles()
+	responseFiles := make([]*getFileByIDResponse, 0, len(files))
+	for _, file := range files {
+		responseFile, err := createGetFileResponse(file)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		responseFiles = append(responseFiles, responseFile)
+	}
+
+	c.JSON(http.StatusOK, responseFiles)
 	return
 }
 
@@ -103,13 +131,11 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 		c.String(http.StatusBadRequest, "file id is required")
 		return
 	}
-
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
-
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -141,7 +167,6 @@ func (fr *fileRouter) download(c *gin.Context) {
 		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
-
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -165,7 +190,8 @@ func (fr *fileRouter) download(c *gin.Context) {
 
 	stream, err := fr.downloadClient.Download(c, downloadRequest)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -184,7 +210,8 @@ func (fr *fileRouter) download(c *gin.Context) {
 		}
 
 		if err != nil {
-			c.AbortWithError(int(status.Code(err)), err)
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			c.AbortWithError(httpStatusCode, err)
 			stream.CloseSend()
 			return
 		}
@@ -204,7 +231,6 @@ func (fr *fileRouter) userFilePermission(c *gin.Context, fileID string) (bool, e
 	if reqUser == nil {
 		return false, nil
 	}
-
 	isAllowedResp, err := fr.fileClient.IsAllowed(c, &fpb.IsAllowedRequest{
 		FileID: fileID,
 		UserID: reqUser.id,
@@ -219,4 +245,32 @@ func (fr *fileRouter) userFilePermission(c *gin.Context, fileID string) (bool, e
 	}
 
 	return true, nil
+}
+
+// Creates a file grpc response to http response struct
+func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
+	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
+	fileParentID := file.GetParent()
+	if fileParentID == "" {
+		fileParentObject := file.GetParentObject()
+		if fileParentObject == nil {
+			return nil, fmt.Errorf("file parent is invalid")
+		}
+
+		fileParentID = fileParentObject.GetId()
+	}
+
+	responseFile := &getFileByIDResponse{
+		ID:          file.GetId(),
+		Name:        file.GetFullName(),
+		Type:        file.GetType(),
+		Size:        file.GetSize(),
+		Description: file.GetDescription(),
+		OwnerID:     file.GetOwnerID(),
+		Parent:      fileParentID,
+		CreatedAt:   file.GetCreatedAt(),
+		UpdatedAt:   file.GetUpdatedAt(),
+	}
+
+	return responseFile, nil
 }

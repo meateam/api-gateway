@@ -8,7 +8,8 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	fpb "github.com/meateam/file-service/protos"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	fpb "github.com/meateam/file-service/proto"
 	pb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
@@ -81,7 +82,8 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -93,7 +95,8 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	resp, err := ur.uploadClient.UploadComplete(c, uploadCompleteRequest)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -108,7 +111,6 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 	}
 
 	fileName := upload.Name
-
 	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
 		Key:      upload.GetKey(),
 		Bucket:   upload.GetBucket(),
@@ -117,7 +119,6 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		Type:     resp.GetContentType(),
 		FullName: fileName,
 	})
-
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
 		return
@@ -239,7 +240,8 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 			Id: createFileResp.GetId(),
 		})
 
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -255,8 +257,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	}
 
 	var reqBody uploadInitBody
-	err := c.BindJSON(&reqBody)
-	if err != nil {
+	if err := c.BindJSON(&reqBody); err != nil {
 		c.String(http.StatusBadRequest, "invalid request body parameters")
 		return
 	}
@@ -287,7 +288,8 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 
 	resp, err := ur.uploadClient.UploadInit(c, uploadInitReq)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -328,7 +330,6 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
-
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
 		return
@@ -361,7 +362,8 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	partNumber := int64(1)
 	stream, err := ur.uploadClient.UploadPart(c)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -414,7 +416,8 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		// Otherwise continue uploading the remaining parts.
 		select {
 		case err := <-errc:
-			c.AbortWithError(int(status.Code(err)), err)
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			c.AbortWithError(httpStatusCode, err)
 			break
 		default:
 		}
@@ -460,9 +463,9 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 			UploadId:   uploadID,
 		}
 
-		err = stream.Send(partRequest)
-		if err != nil {
-			c.AbortWithError(int(status.Code(err)), err)
+		if err := stream.Send(partRequest); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			c.AbortWithError(httpStatusCode, err)
 			return
 		}
 

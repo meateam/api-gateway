@@ -1,7 +1,6 @@
 # api-gateway
-
-api gateway
-
+[![Go Report Card](https://goreportcard.com/badge/github.com/meateam/api-gateway)](https://goreportcard.com/report/github.com/meateam/api-gateway)
+[![GoDoc](https://godoc.org/github.com/meateam/api-gateway?status.svg)](https://godoc.org/github.com/meateam/api-gateway)
 ## Perform a simple media upload
 
 `curl -X POST http://localhost:8080/upload?uploadType=media --data-binary "@/path/to/file" -H "Content-Type: <file_mime_type>" -H "Content-Disposition: filename=<file_name>"`
