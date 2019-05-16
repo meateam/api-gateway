@@ -17,5 +17,3 @@ require (
 	go.elastic.co/apm/module/apmhttp v1.3.0
 	google.golang.org/grpc v1.20.1
 )
-
-replace go.elastic.co/apm/module/apmgrpc => github.com/omrishtam/apm-agent-go/module/apmgrpc
