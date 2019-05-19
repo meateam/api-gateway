@@ -361,7 +361,9 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	partNumber := int64(1)
-	stream, err := ur.uploadClient.UploadPart(c.Request.Context())
+	span, spanCtx := startSpan(c.Request.Context(), "/upload.Upload/UploadPart")
+	defer span.End()
+	stream, err := ur.uploadClient.UploadPart(spanCtx)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		c.AbortWithError(httpStatusCode, err)

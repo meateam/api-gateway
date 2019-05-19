@@ -188,7 +188,9 @@ func (fr *fileRouter) download(c *gin.Context) {
 		Bucket: fileMeta.GetBucket(),
 	}
 
-	stream, err := fr.downloadClient.Download(c.Request.Context(), downloadRequest)
+	span, spanCtx := startSpan(c.Request.Context(), "/download.Download/Download")
+	defer span.End()
+	stream, err := fr.downloadClient.Download(spanCtx, downloadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		c.AbortWithError(httpStatusCode, err)
