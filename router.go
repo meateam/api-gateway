@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
@@ -21,6 +22,8 @@ func setupRouter() (r *gin.Engine, close func()) {
 	corsConfig.AddAllowHeaders("cache-control", "x-requested-with", "content-disposition", "content-range")
 	corsConfig.AllowAllOrigins = true
 	r.Use(cors.New(corsConfig))
+
+	r.Use(loggermiddleware.SetLogger(loggermiddleware.Config{Logger: logger, SkipPath: []string{"/healthcheck"}}), gin.Recovery())
 
 	// Authentication middleware
 	r.Use(authRequired)
