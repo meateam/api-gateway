@@ -35,7 +35,7 @@
       "env": {},
     },
     {
-      "name": "Connect to server",
+      "name": "Connect to remote delve server",
       "type": "go",
       "request": "launch",
       "mode": "remote",

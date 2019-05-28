@@ -11,12 +11,11 @@ import (
 )
 
 // Config is the configuration struct for the logger,
-// Logger - a logrus Logger to use in the logger
+// Logger - a logrus Logger to use in the logger.
 // SkipPath - path to skip logging.
 // SkipPathRegexp - a regex to skip paths.
 type Config struct {
-	Logger *logrus.Logger
-
+	Logger         *logrus.Logger
 	SkipPath       []string
 	SkipPathRegexp *regexp.Regexp
 }
@@ -54,9 +53,8 @@ func SetLogger(config *Config) gin.HandlerFunc {
 			return
 		}
 
-		end := time.Now()
+		end := time.Now().UTC()
 		duration := end.Sub(start)
-		end = end.UTC()
 
 		msg := "Request"
 		if len(c.Errors) > 0 {
@@ -65,7 +63,7 @@ func SetLogger(config *Config) gin.HandlerFunc {
 
 		traceID := extractTraceParent(c)
 
-		dumplogger := config.Logger.WithFields(
+		logger := config.Logger.WithFields(
 			logrus.Fields{
 				"request.method":     c.Request.Method,
 				"request.path":       path,
@@ -82,14 +80,14 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		switch {
 		case isWarning(c):
 			{
-				dumplogger.Warn(msg)
+				logger.Warn(msg)
 			}
 		case isError(c):
 			{
-				dumplogger.Error(msg)
+				logger.Error(msg)
 			}
 		default:
-			dumplogger.Info(msg)
+			logger.Info(msg)
 		}
 	}
 }
