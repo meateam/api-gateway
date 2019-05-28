@@ -103,7 +103,10 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 		}
 	}
 
-	filesResp, err := fr.fileClient.GetFilesByFolder(c.Request.Context(), &fpb.GetFilesByFolderRequest{OwnerID: reqUser.id, FolderID: filesParent})
+	filesResp, err := fr.fileClient.GetFilesByFolder(
+		c.Request.Context(),
+		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.id, FolderID: filesParent}
+	)
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
 		return

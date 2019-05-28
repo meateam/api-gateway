@@ -26,7 +26,13 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Default cors handeling.
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AddExposeHeaders("x-uploadid")
-	corsConfig.AddAllowHeaders("cache-control", "x-requested-with", "content-disposition", "content-range", "elastic-apm-traceparent")
+	corsConfig.AddAllowHeaders(
+		"cache-control",
+		"x-requested-with",
+		"content-disposition",
+		"content-range",
+		"elastic-apm-traceparent",
+	)
 	corsConfig.AllowAllOrigins = true
 	r.Use(cors.New(corsConfig))
 
