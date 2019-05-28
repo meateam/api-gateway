@@ -10,10 +10,12 @@ require (
 	github.com/meateam/elasticsearch-logger v1.1.0
 	github.com/meateam/file-service v0.0.0-20190507115828-b9a9848f7322
 	github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26
-	github.com/rs/zerolog v1.14.3
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.3.2
+	go.elastic.co/apm v1.3.0
+	go.elastic.co/apm/module/apmgin v1.3.0
+	go.elastic.co/apm/module/apmgrpc v1.3.0
 	go.elastic.co/apm/module/apmhttp v1.3.0
 	google.golang.org/grpc v1.21.0
 )

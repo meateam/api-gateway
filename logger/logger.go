@@ -24,10 +24,10 @@ type Config struct {
 }
 
 // SetLogger initializes the logging middleware.
-func SetLogger(config ...Config) gin.HandlerFunc {
+func SetLogger(config *Config) gin.HandlerFunc {
 	var newConfig Config
-	if len(config) > 0 {
-		newConfig = config[0]
+	if config != nil {
+		newConfig = *config
 	}
 	var skip map[string]struct{}
 	if length := len(newConfig.SkipPath); length > 0 {
@@ -67,7 +67,7 @@ func SetLogger(config ...Config) gin.HandlerFunc {
 
 		if track {
 			end := time.Now()
-			latency := end.Sub(start)
+			duration := end.Sub(start)
 			if newConfig.UTC {
 				end = end.UTC()
 			}
@@ -86,14 +86,15 @@ func SetLogger(config ...Config) gin.HandlerFunc {
 
 			dumplogger := sublog.WithFields(
 				logrus.Fields{
-					"status":     c.Writer.Status(),
-					"method":     c.Request.Method,
-					"path":       path,
-					"ip":         c.ClientIP(),
-					"latency":    latency,
-					"user-agent": c.Request.UserAgent(),
-					"headers":    c.Request.Header,
-					"trace.id":   traceID,
+					"request.method":     c.Request.Method,
+					"request.path":       path,
+					"request.ip":         c.ClientIP(),
+					"request.user-agent": c.Request.UserAgent(),
+					"request.headers":    c.Request.Header,
+					"trace.id":           traceID,
+					"response.headers":   c.Writer.Header(),
+					"response.status":    c.Writer.Status(),
+					"duration":           duration,
 				},
 			)
 
