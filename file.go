@@ -30,7 +30,7 @@ type getFileByIDResponse struct {
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 }
 
-func (fr *fileRouter) setup(r *gin.Engine, fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn) {
+func (fr *fileRouter) setupGroup(r *gin.RouterGroup, fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn) {
 	fr.fileClient = fpb.NewFileServiceClient(fileConn)
 	fr.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.GET("/files", fr.getFilesByFolder)

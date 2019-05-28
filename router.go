@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/gin-contrib/cors"
@@ -18,7 +19,7 @@ import (
 )
 
 func setupRouter() (r *gin.Engine, close func()) {
-	// Disable Console Color
+	// Disable Console Color.
 	gin.DisableConsoleColor()
 	r = gin.Default()
 	r.Use(apmgin.Middleware(r))
@@ -26,6 +27,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Default cors handeling.
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AddExposeHeaders("x-uploadid")
+	corsConfig.AllowAllOrigins = true
 	corsConfig.AddAllowHeaders(
 		"cache-control",
 		"x-requested-with",
@@ -33,24 +35,23 @@ func setupRouter() (r *gin.Engine, close func()) {
 		"content-range",
 		apmhttp.TraceparentHeader,
 	)
-	corsConfig.AllowAllOrigins = true
-	r.Use(cors.New(corsConfig))
 
+	r.Use(cors.New(corsConfig))
 	r.Use(
 		loggermiddleware.SetLogger(
 			&loggermiddleware.Config{
-				Logger:   logger,
-				SkipPath: []string{"/healthcheck"},
+				Logger:             logger,
+				SkipPath:           []string{"/api/healthcheck"},
+				SkipBodyPathRegexp: regexp.MustCompile("/api/upload.+"),
 			},
 		),
 		gin.Recovery(),
 	)
 
-	// Authentication middleware
-	r.Use(authRequired)
+	apiRoutesGroup := r.Group("/api")
 
-	// Health Check route
-	r.GET("/healthcheck", func(c *gin.Context) {
+	// Health Check route.
+	apiRoutesGroup.GET("/healthcheck", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -76,13 +77,16 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Initiate upload router.
 	ur := &uploadRouter{}
 
+	// Authentication middleware on routes group.
+	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequired)
+
 	// Initiate client connection to file service.
-	fr.setup(r, fileConn, downloadConn)
+	fr.setupGroup(authRequiredRoutesGroup, fileConn, downloadConn)
 
 	// Initiate client connection to upload service.
-	ur.setup(r, uploadConn, fileConn)
+	ur.setupGroup(authRequiredRoutesGroup, uploadConn, fileConn)
 
-	// Creating a slice to manage connections
+	// Creating a slice to manage connections.
 	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn}
 
 	// Defines a function that is closing all connections in order to defer it outside.
