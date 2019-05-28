@@ -79,13 +79,9 @@ func SetLogger(config *Config) gin.HandlerFunc {
 
 		switch {
 		case isWarning(c):
-			{
-				logger.Warn(msg)
-			}
+			logger.Warn(msg)
 		case isError(c):
-			{
-				logger.Error(msg)
-			}
+			logger.Error(msg)
 		default:
 			logger.Info(msg)
 		}
