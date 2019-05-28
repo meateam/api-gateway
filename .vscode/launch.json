@@ -13,6 +13,7 @@
         "GW_UPLOAD_SERVICE": ":8081",
         "GW_DOWNLOAD_SERVICE": ":8082",
         "GW_FILE_SERVICE": ":8083",
+        "GW_API_ROUTE": "http://localhost:8080/api",
         "ELASTICSEARCH_URL": "http://localhost:9200",
         "LOG_INDEX": "kdrive",
         "LOG_LEVEL": "info",

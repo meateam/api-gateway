@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
@@ -53,6 +54,16 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", func(c *gin.Context) {
 		c.Status(http.StatusOK)
+	})
+	apiRoutesGroup.GET("/config", func(c *gin.Context) {
+		c.JSON(
+			http.StatusOK,
+			gin.H{
+				"api":          viper.GetString(configAPIRoute),
+				"apmServerUrl": os.Getenv("ELASTIC_APM_SERVER_URL"),
+				"environment":  os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+			},
+		)
 	})
 
 	// Initiate file router.
