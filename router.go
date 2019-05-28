@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmgin"
@@ -31,10 +31,20 @@ func setupRouter() (r *gin.Engine, close func()) {
 		"x-requested-with",
 		"content-disposition",
 		"content-range",
-		"elastic-apm-traceparent",
+		apmhttp.TraceparentHeader,
 	)
 	corsConfig.AllowAllOrigins = true
 	r.Use(cors.New(corsConfig))
+
+	r.Use(
+		loggermiddleware.SetLogger(
+			&loggermiddleware.Config{
+				Logger:   logger,
+				SkipPath: []string{"/healthcheck"},
+			},
+		),
+		gin.Recovery(),
+	)
 
 	// Authentication middleware
 	r.Use(authRequired)
@@ -47,17 +57,17 @@ func setupRouter() (r *gin.Engine, close func()) {
 	// Initiate file router.
 	fileConn, err := initServiceConn(viper.GetString(configfileService))
 	if err != nil {
-		log.Fatalf("couldn't setup file service connection: %v", err)
+		logger.Fatalf("couldn't setup file service connection: %v", err)
 	}
 
 	uploadConn, err := initServiceConn(viper.GetString(configUploadService))
 	if err != nil {
-		log.Fatalf("couldn't setup upload service connection: %v", err)
+		logger.Fatalf("couldn't setup upload service connection: %v", err)
 	}
 
 	downloadConn, err := initServiceConn(viper.GetString(configDownloadService))
 	if err != nil {
-		log.Fatalf("couldn't setup download service connection: %v", err)
+		logger.Fatalf("couldn't setup download service connection: %v", err)
 	}
 
 	// Initiate file router.
