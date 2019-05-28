@@ -1,6 +1,9 @@
 package logger
 
 import (
+	"bytes"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"time"
@@ -15,22 +18,17 @@ import (
 // SkipPath - path to skip logging.
 // SkipPathRegexp - a regex to skip paths.
 type Config struct {
-	Logger         *logrus.Logger
-	SkipPath       []string
-	SkipPathRegexp *regexp.Regexp
+	Logger             *logrus.Logger
+	SkipBodyPath       []string
+	SkipBodyPathRegexp *regexp.Regexp
+	SkipPath           []string
+	SkipPathRegexp     *regexp.Regexp
 }
 
 // SetLogger initializes the logging middleware.
 func SetLogger(config *Config) gin.HandlerFunc {
-	if config != nil {
+	if config == nil {
 		config = &Config{}
-	}
-	var skip map[string]struct{}
-	if length := len(config.SkipPath); length > 0 {
-		skip = make(map[string]struct{}, length)
-		for _, path := range config.SkipPath {
-			skip[path] = struct{}{}
-		}
 	}
 
 	if config.Logger == nil {
@@ -39,23 +37,22 @@ func SetLogger(config *Config) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		start := time.Now()
-		path := c.Request.URL.Path
-		raw := c.Request.URL.RawQuery
-		if raw != "" {
-			path = path + "?" + raw
-		}
+		fullPath := getRequestFullPath(c)
+
+		requestBodyField := extractRequestBody(c, config, fullPath)
 
 		c.Next()
-		// if skip contains the current path or the path matches the regex, skip it.
-		if _, ok := skip[path]; ok ||
+
+		// If skip contains the current path or the path matches the regex, skip it.
+		skip := mapStringSlice(config.SkipPath)
+		if _, ok := skip[fullPath]; ok ||
 			(config.SkipPathRegexp != nil &&
-				config.SkipPathRegexp.MatchString(path)) {
+				config.SkipPathRegexp.MatchString(fullPath)) {
 			return
 		}
 
 		end := time.Now().UTC()
 		duration := end.Sub(start)
-
 		msg := "Request"
 		if len(c.Errors) > 0 {
 			msg = c.Errors.String()
@@ -66,10 +63,11 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		logger := config.Logger.WithFields(
 			logrus.Fields{
 				"request.method":     c.Request.Method,
-				"request.path":       path,
+				"request.path":       fullPath,
 				"request.ip":         c.ClientIP(),
 				"request.user-agent": c.Request.UserAgent(),
 				"request.headers":    c.Request.Header,
+				"request.body":       requestBodyField,
 				"trace.id":           traceID,
 				"response.headers":   c.Writer.Header(),
 				"response.status":    c.Writer.Status(),
@@ -95,6 +93,53 @@ func extractTraceParent(c *gin.Context) string {
 		}
 	}
 	return ""
+}
+
+func mapStringSlice(s []string) map[string]struct{} {
+	var mappedSlice map[string]struct{}
+	if length := len(s); length > 0 {
+		mappedSlice = make(map[string]struct{}, length)
+		for _, v := range s {
+			mappedSlice[v] = struct{}{}
+		}
+	}
+
+	return mappedSlice
+}
+
+func extractRequestBody(c *gin.Context, config *Config, fullPath string) string {
+	skipBody := mapStringSlice(config.SkipBodyPath)
+	requestBodyField := ""
+	if _, ok := skipBody[fullPath]; !ok ||
+		!(config.SkipPathRegexp != nil &&
+			config.SkipPathRegexp.MatchString(fullPath)) {
+		if c.Request.ContentLength > 0 &&
+			c.Request.ContentLength <= 1<<20 {
+			var buf bytes.Buffer
+			requestBody := io.TeeReader(c.Request.Body, &buf)
+
+			if requestBody != nil {
+				bodyBytes, err := ioutil.ReadAll(requestBody)
+				c.Request.Body = ioutil.NopCloser(&buf)
+
+				if err == nil {
+					requestBodyField = string(bodyBytes)
+				}
+			}
+		}
+	}
+
+	return requestBodyField
+}
+
+func getRequestFullPath(c *gin.Context) string {
+	path := c.Request.URL.Path
+	raw := c.Request.URL.RawQuery
+	if raw != "" {
+		path = path + "?" + raw
+	}
+
+	return path
 }
 
 func isWarning(c *gin.Context) bool {

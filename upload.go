@@ -34,7 +34,7 @@ type uploadInitBody struct {
 	MimeType string `json:"mimeType"`
 }
 
-func (ur *uploadRouter) setup(r *gin.Engine, uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn) {
+func (ur *uploadRouter) setupGroup(r *gin.RouterGroup, uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn) {
 	ur.uploadClient = pb.NewUploadClient(uploadConn)
 	ur.fileClient = fpb.NewFileServiceClient(fileConn)
 
