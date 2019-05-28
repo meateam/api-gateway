@@ -12,7 +12,15 @@
       "env":{
         "GW_UPLOAD_SERVICE": ":8081",
         "GW_DOWNLOAD_SERVICE": ":8082",
-        "GW_FILE_SERVICE": ":8083"
+        "GW_FILE_SERVICE": ":8083",
+        "ELASTIC_APM_SERVER_URL": "http://localhost:8200",
+        "ELASTIC_APM_SERVICE_NAME": "api-gateway",
+        "ELASTIC_APM_SERVICE_VERSION": "0.1",
+        "ELASTIC_APM_ENVIRONMENT": "development",
+        "ELASTIC_APM_ACTIVE": "true",
+        "ELASTIC_APM_IGNORE_URLS": "/healthcheck",
+        "ELASTIC_APM_CAPTURE_BODY": "all",
+        "ELASTIC_APM_METRICS_INTERVAL": "10s"
 
         // "GIN_MODE": "release"
       },
