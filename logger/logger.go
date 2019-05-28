@@ -12,36 +12,30 @@ import (
 
 // Config is the configuration struct for the logger,
 // Logger - a logrus Logger to use in the logger
-// UTC - boolean stating whether to use UTC time zone or local.
 // SkipPath - path to skip logging.
 // SkipPathRegexp - a regex to skip paths.
 type Config struct {
 	Logger *logrus.Logger
-	// UTC a boolean stating whether to use UTC time zone or local.
-	UTC            bool
+
 	SkipPath       []string
 	SkipPathRegexp *regexp.Regexp
 }
 
 // SetLogger initializes the logging middleware.
 func SetLogger(config *Config) gin.HandlerFunc {
-	var newConfig Config
 	if config != nil {
-		newConfig = *config
+		config = &Config{}
 	}
 	var skip map[string]struct{}
-	if length := len(newConfig.SkipPath); length > 0 {
+	if length := len(config.SkipPath); length > 0 {
 		skip = make(map[string]struct{}, length)
-		for _, path := range newConfig.SkipPath {
+		for _, path := range config.SkipPath {
 			skip[path] = struct{}{}
 		}
 	}
 
-	var sublog *logrus.Logger
-	if newConfig.Logger == nil {
-		sublog = logrus.New()
-	} else {
-		sublog = newConfig.Logger
+	if config.Logger == nil {
+		config.Logger = logrus.New()
 	}
 
 	return func(c *gin.Context) {
@@ -53,63 +47,66 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		}
 
 		c.Next()
-		track := true
-
-		if _, ok := skip[path]; ok {
-			track = false
+		// if skip contains the current path or the path matches the regex, skip it.
+		if _, ok := skip[path]; ok ||
+			(config.SkipPathRegexp != nil &&
+				config.SkipPathRegexp.MatchString(path)) {
+			return
 		}
 
-		if track &&
-			newConfig.SkipPathRegexp != nil &&
-			newConfig.SkipPathRegexp.MatchString(path) {
-			track = false
+		end := time.Now()
+		duration := end.Sub(start)
+		end = end.UTC()
+
+		msg := "Request"
+		if len(c.Errors) > 0 {
+			msg = c.Errors.String()
 		}
 
-		if track {
-			end := time.Now()
-			duration := end.Sub(start)
-			if newConfig.UTC {
-				end = end.UTC()
-			}
+		traceID := extractTraceParent(c)
 
-			msg := "Request"
-			if len(c.Errors) > 0 {
-				msg = c.Errors.String()
-			}
+		dumplogger := config.Logger.WithFields(
+			logrus.Fields{
+				"request.method":     c.Request.Method,
+				"request.path":       path,
+				"request.ip":         c.ClientIP(),
+				"request.user-agent": c.Request.UserAgent(),
+				"request.headers":    c.Request.Header,
+				"trace.id":           traceID,
+				"response.headers":   c.Writer.Header(),
+				"response.status":    c.Writer.Status(),
+				"duration":           duration,
+			},
+		)
 
-			traceID := ""
-			if values := c.Request.Header[apmhttp.TraceparentHeader]; len(values) == 1 && values[0] != "" {
-				if traceContext, err := apmhttp.ParseTraceparentHeader(values[0]); err == nil {
-					traceID = traceContext.Trace.String()
-				}
+		switch {
+		case isWarning(c):
+			{
+				dumplogger.Warn(msg)
 			}
-
-			dumplogger := sublog.WithFields(
-				logrus.Fields{
-					"request.method":     c.Request.Method,
-					"request.path":       path,
-					"request.ip":         c.ClientIP(),
-					"request.user-agent": c.Request.UserAgent(),
-					"request.headers":    c.Request.Header,
-					"trace.id":           traceID,
-					"response.headers":   c.Writer.Header(),
-					"response.status":    c.Writer.Status(),
-					"duration":           duration,
-				},
-			)
-
-			switch {
-			case c.Writer.Status() >= http.StatusBadRequest && c.Writer.Status() < http.StatusInternalServerError:
-				{
-					dumplogger.Warn(msg)
-				}
-			case c.Writer.Status() >= http.StatusInternalServerError:
-				{
-					dumplogger.Error(msg)
-				}
-			default:
-				dumplogger.Info(msg)
+		case isError(c):
+			{
+				dumplogger.Error(msg)
 			}
+		default:
+			dumplogger.Info(msg)
 		}
 	}
+}
+
+func extractTraceParent(c *gin.Context) string {
+	if values := c.Request.Header[apmhttp.TraceparentHeader]; len(values) == 1 && values[0] != "" {
+		if traceContext, err := apmhttp.ParseTraceparentHeader(values[0]); err == nil {
+			return traceContext.Trace.String()
+		}
+	}
+	return ""
+}
+
+func isWarning(c *gin.Context) bool {
+	return c.Writer.Status() >= http.StatusBadRequest && c.Writer.Status() < http.StatusInternalServerError
+}
+
+func isError(c *gin.Context) bool {
+	return c.Writer.Status() >= http.StatusInternalServerError
 }
