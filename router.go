@@ -55,11 +55,12 @@ func setupRouter() (r *gin.Engine, close func()) {
 	apiRoutesGroup.GET("/healthcheck", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
+
+	// Frontend configuration route.
 	apiRoutesGroup.GET("/config", func(c *gin.Context) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"api":          viper.GetString(configAPIRoute),
 				"apmServerUrl": os.Getenv("ELASTIC_APM_SERVER_URL"),
 				"environment":  os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 			},

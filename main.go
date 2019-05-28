@@ -13,7 +13,6 @@ const (
 	configUploadService   = "upload_service"
 	configDownloadService = "download_service"
 	configfileService     = "file_service"
-	configAPIRoute        = "api_route"
 )
 
 var (
