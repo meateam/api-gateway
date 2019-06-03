@@ -13,3 +13,4 @@
 api-gateway
 data
 debug
+*.log

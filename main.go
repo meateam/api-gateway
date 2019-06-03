@@ -1,9 +1,9 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
+	ilogger "github.com/meateam/elasticsearch-logger"
 	"github.com/spf13/viper"
 )
 
@@ -13,6 +13,10 @@ const (
 	configUploadService   = "upload_service"
 	configDownloadService = "download_service"
 	configfileService     = "file_service"
+)
+
+var (
+	logger = ilogger.NewLogger()
 )
 
 func init() {
@@ -33,7 +37,8 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
+	logger.Infof("server listening on port: %s", viper.GetString(configPort))
 	if err := s.ListenAndServe(); err != nil {
-		log.Fatalf("%v", err)
+		logger.Fatalf("%v", err)
 	}
 }

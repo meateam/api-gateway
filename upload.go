@@ -5,14 +5,15 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	fpb "github.com/meateam/file-service/proto"
 	pb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -33,7 +34,7 @@ type uploadInitBody struct {
 	MimeType string `json:"mimeType"`
 }
 
-func (ur *uploadRouter) setup(r *gin.Engine, uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn) {
+func (ur *uploadRouter) setupGroup(r *gin.RouterGroup, uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn) {
 	ur.uploadClient = pb.NewUploadClient(uploadConn)
 	ur.fileClient = fpb.NewFileServiceClient(fileConn)
 
@@ -43,6 +44,7 @@ func (ur *uploadRouter) setup(r *gin.Engine, uploadConn *grpc.ClientConn, fileCo
 }
 
 func (ur *uploadRouter) upload(c *gin.Context) {
+
 	uploadType, exists := c.GetQuery("uploadType")
 	if exists != true {
 		ur.uploadInit(c)
@@ -79,9 +81,10 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
-	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	upload, err := ur.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -91,9 +94,10 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		Bucket:   upload.GetBucket(),
 	}
 
-	resp, err := ur.uploadClient.UploadComplete(c, uploadCompleteRequest)
+	resp, err := ur.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -101,15 +105,14 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		UploadID: upload.GetUploadID(),
 	}
 
-	_, err = ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
+	_, err = ur.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
 	fileName := upload.Name
-
-	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
+	createFileResp, err := ur.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:      upload.GetKey(),
 		Bucket:   upload.GetBucket(),
 		OwnerID:  reqUser.id,
@@ -118,7 +121,7 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		FullName: fileName,
 	})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -196,9 +199,9 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		return
 	}
 
-	keyResp, err := ur.fileClient.GenerateKey(c, &fpb.GenerateKeyRequest{})
+	keyResp, err := ur.fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -208,7 +211,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		fileFullName = filename
 	}
 
-	createFileResp, err := ur.fileClient.CreateFile(c, &fpb.CreateFileRequest{
+	createFileResp, err := ur.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:      key,
 		Bucket:   reqUser.id,
 		OwnerID:  reqUser.id,
@@ -218,7 +221,7 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 	})
 
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -232,12 +235,14 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		ureq.ContentType = contentType
 	}
 
-	_, err = ur.uploadClient.UploadMedia(c, ureq)
+	_, err = ur.uploadClient.UploadMedia(c.Request.Context(), ureq)
 	if err != nil {
-		ur.fileClient.DeleteFile(c, &fpb.DeleteFileRequest{
+		ur.fileClient.DeleteFile(c.Request.Context(), &fpb.DeleteFileRequest{
 			Id: createFileResp.GetId(),
 		})
-		c.AbortWithError(http.StatusInternalServerError, err)
+
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -253,8 +258,7 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	}
 
 	var reqBody uploadInitBody
-	err := c.BindJSON(&reqBody)
-	if err != nil {
+	if err := c.BindJSON(&reqBody); err != nil {
 		c.String(http.StatusBadRequest, "invalid request body parameters")
 		return
 	}
@@ -263,13 +267,13 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		reqBody.Title = uuid.NewV4().String()
 	}
 
-	createUploadResponse, err := ur.fileClient.CreateUpload(c, &fpb.CreateUploadRequest{
+	createUploadResponse, err := ur.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket: reqUser.id,
 		Name:   reqBody.Title,
 	})
 
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -283,20 +287,21 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		uploadInitReq.ContentType = "application/octet-stream"
 	}
 
-	resp, err := ur.uploadClient.UploadInit(c, uploadInitReq)
+	resp, err := ur.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
-	_, err = ur.fileClient.UpdateUploadID(c, &fpb.UpdateUploadIDRequest{
+	_, err = ur.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
 		Key:      createUploadResponse.GetKey(),
 		Bucket:   reqUser.id,
 		UploadID: resp.GetUploadId(),
 	})
 
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -325,15 +330,9 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		return
 	}
 
-	upload, err := ur.fileClient.GetUploadByID(c, &fpb.GetUploadByIDRequest{UploadID: uploadID})
-
+	upload, err := ur.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
-		if strings.Contains(err.Error(), "upload not found") {
-			c.String(http.StatusBadRequest, "upload not found")
-		} else {
-			c.AbortWithError(http.StatusInternalServerError, err)
-		}
-
+		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
 
@@ -362,9 +361,12 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	}
 
 	partNumber := int64(1)
-	stream, err := ur.uploadClient.UploadPart(c)
+	span, spanCtx := startSpan(c.Request.Context(), "/upload.Upload/UploadPart")
+	defer span.End()
+	stream, err := ur.uploadClient.UploadPart(spanCtx)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -400,13 +402,13 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 					Bucket:   upload.GetBucket(),
 				}
 
-				ur.uploadClient.UploadAbort(c, abortUploadRequest)
+				ur.uploadClient.UploadAbort(c.Request.Context(), abortUploadRequest)
 
 				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
 					UploadID: upload.GetUploadID(),
 				}
 
-				ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
+				ur.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 				return
 			}
 		}
@@ -416,8 +418,9 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		// If there's an error stop uploading file parts.
 		// Otherwise continue uploading the remaining parts.
 		select {
-		case <-errc:
-			c.AbortWithStatus(http.StatusInternalServerError)
+		case err := <-errc:
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			c.AbortWithError(httpStatusCode, err)
 			break
 		default:
 		}
@@ -440,13 +443,13 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 					Bucket:   upload.GetBucket(),
 				}
 
-				ur.uploadClient.UploadAbort(c, abortUploadRequest)
+				ur.uploadClient.UploadAbort(c.Request.Context(), abortUploadRequest)
 
 				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
 					UploadID: upload.GetUploadID(),
 				}
 
-				ur.fileClient.DeleteUploadByID(c, deleteUploadRequest)
+				ur.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 				c.Abort()
 				break
 			}
@@ -463,10 +466,10 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 			UploadId:   uploadID,
 		}
 
-		err = stream.Send(partRequest)
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			break
+		if err := stream.Send(partRequest); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			c.AbortWithError(httpStatusCode, err)
+			return
 		}
 
 		rangeStart += int64(bytesRead)
