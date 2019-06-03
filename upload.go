@@ -402,7 +402,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 					Bucket:   upload.GetBucket(),
 				}
 
-				ur.uploadClient.UploadAbort(c.Request.Context(), abortUploadRequest)
+				ur.uploadClient.UploadAbort(spanCtx, abortUploadRequest)
 
 				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
 					UploadID: upload.GetUploadID(),
@@ -443,7 +443,7 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 					Bucket:   upload.GetBucket(),
 				}
 
-				ur.uploadClient.UploadAbort(c.Request.Context(), abortUploadRequest)
+				ur.uploadClient.UploadAbort(spanCtx, abortUploadRequest)
 
 				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
 					UploadID: upload.GetUploadID(),
