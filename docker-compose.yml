@@ -17,7 +17,7 @@ services:
       ELASTIC_APM_SERVICE_NAME: api-gateway
       ELASTIC_APM_SERVICE_VERSION: 0.1
       ELASTIC_APM_ENVIRONMENT: development
-      ELASTIC_APM_ACTIVE: true
+      ELASTIC_APM_ACTIVE: 'true'
       ELASTIC_APM_IGNORE_URLS: /api/healthcheck
       ELASTIC_APM_CAPTURE_BODY: all
       ELASTIC_APM_METRICS_INTERVAL: 10s

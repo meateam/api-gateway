@@ -48,7 +48,9 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		skip := mapStringSlice(config.SkipPath)
 		if _, ok := skip[fullPath]; ok ||
 			(config.SkipPathRegexp != nil &&
-				config.SkipPathRegexp.MatchString(fullPath)) {
+				config.SkipPathRegexp.MatchString(fullPath) ||
+				(config.SkipBodyPathRegexp != nil &&
+					config.SkipBodyPathRegexp.MatchString(fullPath))) {
 			return
 		}
 
@@ -119,7 +121,9 @@ func extractRequestBody(c *gin.Context, config *Config, fullPath string) string 
 	requestBodyField := ""
 	if _, ok := skipBody[fullPath]; !ok ||
 		!(config.SkipPathRegexp != nil &&
-			config.SkipPathRegexp.MatchString(fullPath)) {
+			config.SkipPathRegexp.MatchString(fullPath) ||
+			(config.SkipBodyPathRegexp != nil &&
+				config.SkipBodyPathRegexp.MatchString(fullPath))) {
 		if c.Request.ContentLength > 0 &&
 			c.Request.ContentLength <= 1<<20 {
 			var buf bytes.Buffer
