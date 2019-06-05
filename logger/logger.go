@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmhttp"
 )
 
@@ -47,7 +48,9 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		skip := mapStringSlice(config.SkipPath)
 		if _, ok := skip[fullPath]; ok ||
 			(config.SkipPathRegexp != nil &&
-				config.SkipPathRegexp.MatchString(fullPath)) {
+				config.SkipPathRegexp.MatchString(fullPath) ||
+				(config.SkipBodyPathRegexp != nil &&
+					config.SkipBodyPathRegexp.MatchString(fullPath))) {
 			return
 		}
 
@@ -87,12 +90,18 @@ func SetLogger(config *Config) gin.HandlerFunc {
 }
 
 func extractTraceParent(c *gin.Context) string {
+	// If apmhttp.TraceparentHeader is present in request's headers
+	// then parse the trace id and return it.
 	if values := c.Request.Header[apmhttp.TraceparentHeader]; len(values) == 1 && values[0] != "" {
 		if traceContext, err := apmhttp.ParseTraceparentHeader(values[0]); err == nil {
 			return traceContext.Trace.String()
 		}
 	}
-	return ""
+
+	// If apmhttp.TraceparentHeader is not present then return the created
+	// transaction's trace id from its context.
+	tx := apm.TransactionFromContext(c.Request.Context())
+	return tx.TraceContext().Trace.String()
 }
 
 func mapStringSlice(s []string) map[string]struct{} {
@@ -112,7 +121,9 @@ func extractRequestBody(c *gin.Context, config *Config, fullPath string) string 
 	requestBodyField := ""
 	if _, ok := skipBody[fullPath]; !ok ||
 		!(config.SkipPathRegexp != nil &&
-			config.SkipPathRegexp.MatchString(fullPath)) {
+			config.SkipPathRegexp.MatchString(fullPath) ||
+			(config.SkipBodyPathRegexp != nil &&
+				config.SkipBodyPathRegexp.MatchString(fullPath))) {
 		if c.Request.ContentLength > 0 &&
 			c.Request.ContentLength <= 1<<20 {
 			var buf bytes.Buffer
