@@ -70,7 +70,10 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 	file, err := fr.fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -110,7 +113,10 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -152,7 +158,10 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	deleteFileResponse, err := fr.fileClient.DeleteFile(c.Request.Context(), deleteFileRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -182,7 +191,10 @@ func (fr *fileRouter) download(c *gin.Context) {
 	fileMeta, err := fr.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -200,7 +212,10 @@ func (fr *fileRouter) download(c *gin.Context) {
 	stream, err := fr.downloadClient.Download(spanCtx, downloadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -220,8 +235,14 @@ func (fr *fileRouter) download(c *gin.Context) {
 
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			c.AbortWithError(httpStatusCode, err)
-			stream.CloseSend()
+			if err := c.AbortWithError(httpStatusCode, err); err != nil {
+				logger.Errorf("%v", err)
+			}
+
+			if err := stream.CloseSend(); err != nil {
+				logger.Errorf("%v", err)
+			}
+
 			return
 		}
 
