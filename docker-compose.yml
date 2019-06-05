@@ -124,5 +124,5 @@ services:
     ports:
       - '8086:8080'
     environment:
-      KARTOFFEL_URL: 'http://13.69.137.179:8080'
+      KARTOFFEL_URL: ENTER_KARTOFFEL_ROUTE
       RPC_PORT: 8080
