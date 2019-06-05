@@ -108,7 +108,8 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	_, err = ur.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -122,7 +123,8 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		FullName: fileName,
 	})
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -202,7 +204,8 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 
 	keyResp, err := ur.fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -222,7 +225,8 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 	})
 
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -274,7 +278,8 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -302,7 +307,8 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
@@ -333,7 +339,8 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 
 	upload, err := ur.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		c.AbortWithError(httpStatusCode, err)
 		return
 	}
 
