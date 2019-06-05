@@ -85,7 +85,10 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 	upload, err := ur.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -98,7 +101,10 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 	resp, err := ur.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -108,7 +114,11 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	_, err = ur.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -122,7 +132,11 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		FullName: fileName,
 	})
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -202,7 +216,11 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 
 	keyResp, err := ur.fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -222,7 +240,11 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 	})
 
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -243,7 +265,10 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 		})
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -274,7 +299,11 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -291,7 +320,10 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	resp, err := ur.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -302,7 +334,11 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -333,7 +369,11 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 
 	upload, err := ur.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -367,7 +407,10 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 	stream, err := ur.uploadClient.UploadPart(spanCtx)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		c.AbortWithError(httpStatusCode, err)
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 
@@ -421,7 +464,10 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 		select {
 		case err := <-errc:
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			c.AbortWithError(httpStatusCode, err)
+			if err := c.AbortWithError(httpStatusCode, err); err != nil {
+				logger.Errorf("%v", err)
+			}
+
 			break
 		default:
 		}
@@ -469,7 +515,10 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 
 		if err := stream.Send(partRequest); err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			c.AbortWithError(httpStatusCode, err)
+			if err := c.AbortWithError(httpStatusCode, err); err != nil {
+				logger.Errorf("%v", err)
+			}
+
 			return
 		}
 
