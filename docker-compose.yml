@@ -29,6 +29,7 @@ services:
       - upload-service
       - download-service
       - file-service
+      - authentication-service
   minio:
     image: minio/minio
     volumes:
@@ -98,7 +99,7 @@ services:
     volumes:
       - './data/db:/data/db'
   authentication-service:
-    image: authentication-service
+    image: bluehub.azurecr.io/meateam/authentication-service:latest
     ports:
       - '8084:8080'
     environment:
@@ -112,7 +113,7 @@ services:
       - saml-idp
       - user-service
   saml-idp:
-    image: test-saml-idp
+    image: bluehub.azurecr.io/meateam/test-saml-idp:latest
     ports:
       - '8085:8080'
     environment:
@@ -120,7 +121,7 @@ services:
       SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: 'http://localhost:8084/auth/metadata.xml/callback'
       SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: 'http://localhost:8084/auth/logout'
   user-service:
-    image: user-service
+    image: bluehub.azurecr.io/meateam/user-service:ec68a07
     ports:
       - '8086:8080'
     environment:
