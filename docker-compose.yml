@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      GW_AUTH_URL: 'http://localhost:8084/auth/login'
       GW_PORT: 8080
       GW_UPLOAD_SERVICE: 'upload-service:8080'
       GW_DOWNLOAD_SERVICE: 'download-service:8080'
@@ -21,6 +22,7 @@ services:
       ELASTIC_APM_IGNORE_URLS: /api/healthcheck
       ELASTIC_APM_CAPTURE_BODY: all
       ELASTIC_APM_METRICS_INTERVAL: 10s
+      GW_SECRET: pandora@drive
     ports:
       - '8080:8080'
     depends_on:
@@ -95,3 +97,32 @@ services:
       - '27018:27017'
     volumes:
       - './data/db:/data/db'
+  authentication-service:
+    image: authentication-service
+    ports:
+      - '8084:8080'
+    environment:
+      SAML_ENTRY_POINT: 'http://localhost:8085/simplesaml/saml2/idp/SSOService.php'
+      SAML_ISSUER: 'http://localhost:8084/auth/metadata.xml'
+      SAML_CALLBACK_URL: 'http://localhost:8084/auth/metadata.xml/callback'
+      USERS_RPC_ENDPOINT: 'user-service:8080'
+      SECRET_KEY: pandora@drive
+      CLIENT_ENDPOINT: 'https://cataas.com/cat/says/Auth works!?size=50&color=red'
+    depends_on:
+      - saml-idp
+      - user-service
+  saml-idp:
+    image: test-saml-idp
+    ports:
+      - '8085:8080'
+    environment:
+      SIMPLESAMLPHP_SP_ENTITY_ID: 'http://localhost:8084/auth/metadata.xml'
+      SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: 'http://localhost:8084/auth/metadata.xml/callback'
+      SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: 'http://localhost:8084/auth/logout'
+  user-service:
+    image: user-service
+    ports:
+      - '8086:8080'
+    environment:
+      KARTOFFEL_URL: ENTER_KARTOFFEL_ROUTE
+      RPC_PORT: 8080

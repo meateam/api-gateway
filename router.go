@@ -125,10 +125,6 @@ func initServiceConn(url string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func authRequired(c *gin.Context) {
-	c.Set("User", user{id: "testuser"})
-}
-
 // startSpan starts an "external.grpc" span under the transaction in ctx,
 // returns the created span and the context with the traceparent header matadata.
 func startSpan(ctx context.Context, name string) (*apm.Span, context.Context) {
