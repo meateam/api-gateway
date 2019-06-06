@@ -91,7 +91,6 @@ func authRequired(c *gin.Context) {
 	})
 
 	c.Next()
-
 }
 
 func redirectToAuthService(c *gin.Context) {
