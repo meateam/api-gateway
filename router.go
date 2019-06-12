@@ -30,6 +30,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 	corsConfig.AddExposeHeaders("x-uploadid")
 	corsConfig.AllowAllOrigins = true
 	corsConfig.AddAllowHeaders(
+		"authorization",
 		"cache-control",
 		"x-requested-with",
 		"content-disposition",
@@ -123,10 +124,6 @@ func initServiceConn(url string) (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
-}
-
-func authRequired(c *gin.Context) {
-	c.Set("User", user{id: "testuser"})
 }
 
 // startSpan starts an "external.grpc" span under the transaction in ctx,

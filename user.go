@@ -4,6 +4,8 @@ import "github.com/gin-gonic/gin"
 
 type user struct {
 	id string
+	firstName string
+	lastName string
 }
 
 func extractRequestUser(c *gin.Context) *user {
