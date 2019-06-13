@@ -11,6 +11,7 @@ services:
       GW_UPLOAD_SERVICE: 'upload-service:8080'
       GW_DOWNLOAD_SERVICE: 'download-service:8080'
       GW_FILE_SERVICE: 'file-service:8080'
+      GW_EXTERNAL_APM_URL: http://localhost:8200
       ELASTICSEARCH_URL: http://localhost:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: info
