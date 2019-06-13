@@ -46,7 +46,6 @@ func (ur *uploadRouter) setupGroup(r *gin.RouterGroup, uploadConn *grpc.ClientCo
 }
 
 func (ur *uploadRouter) upload(c *gin.Context) {
-
 	uploadType, exists := c.GetQuery("uploadType")
 	if exists != true {
 		ur.uploadInit(c)
