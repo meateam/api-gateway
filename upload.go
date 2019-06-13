@@ -17,12 +17,13 @@ import (
 )
 
 const (
-	maxSimpleUploadSize = 5 << 20    // 5MB
-	minPartUploadSize   = 5 << 20    // 5MB S3 min limit
-	maxPartUploadSize   = 5120 << 20 // 5GB S3 max limit
-	mediaUploadType     = "media"
-	multipartUploadType = "multipart"
-	resumableUploadType = "resumable"
+	maxSimpleUploadSize  = 5 << 20    // 5MB
+	minPartUploadSize    = 5 << 20    // 5MB S3 min limit
+	maxPartUploadSize    = 5120 << 20 // 5GB S3 max limit
+	mediaUploadType      = "media"
+	multipartUploadType  = "multipart"
+	resumableUploadType  = "resumable"
+	parentQueryStringKey = "parent"
 )
 
 type uploadRouter struct {
@@ -124,12 +125,13 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 
 	fileName := upload.Name
 	createFileResp, err := ur.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
-		Key:      upload.GetKey(),
-		Bucket:   upload.GetBucket(),
-		OwnerID:  reqUser.id,
-		Size:     resp.GetContentLength(),
-		Type:     resp.GetContentType(),
-		FullName: fileName,
+		Key:     upload.GetKey(),
+		Bucket:  upload.GetBucket(),
+		OwnerID: reqUser.id,
+		Size:    resp.GetContentLength(),
+		Type:    resp.GetContentType(),
+		Name:    fileName,
+		Parent:  c.Query(parentQueryStringKey),
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -231,12 +233,13 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 	}
 
 	createFileResp, err := ur.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
-		Key:      key,
-		Bucket:   reqUser.id,
-		OwnerID:  reqUser.id,
-		Size:     int64(len(file)),
-		Type:     contentType,
-		FullName: fileFullName,
+		Key:     key,
+		Bucket:  reqUser.id,
+		OwnerID: reqUser.id,
+		Size:    int64(len(file)),
+		Type:    contentType,
+		Name:    fileFullName,
+		Parent:  c.Query(parentQueryStringKey),
 	})
 
 	if err != nil {
@@ -294,8 +297,10 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 	}
 
 	createUploadResponse, err := ur.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
-		Bucket: reqUser.id,
-		Name:   reqBody.Title,
+		Bucket:  reqUser.id,
+		Name:    reqBody.Title,
+		OwnerID: reqUser.id,
+		Parent:  c.Query(parentQueryStringKey),
 	})
 
 	if err != nil {

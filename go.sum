@@ -89,6 +89,11 @@ github.com/meateam/elogrus/v4 v4.0.2 h1:X+fpps3Ti9vIoqo/wnPcuaB+wxkZwkmTppXnnBe1
 github.com/meateam/elogrus/v4 v4.0.2/go.mod h1:O+KJPmbnEV80u+V8tCYTvcBpzp/HZa7XR4nqDtDMzYg=
 github.com/meateam/file-service v0.0.0-20190507115828-b9a9848f7322 h1:0vC5jxba1Caq9dZrIwpSU3I9XcljxwdqdGWRaABK4ao=
 github.com/meateam/file-service v0.0.0-20190507115828-b9a9848f7322/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190610125028-c59dd72f0973 h1:fz+yG2B16GnPS6tCZ3nzQ3rbr1Bwe6uvgIFL4CMZG8k=
+github.com/meateam/file-service v0.0.0-20190611132757-a1f222c6d57d h1:qLBhe0Mj0aVpMoE/kfOHSuPauMXCIUpirbgptiM0X5A=
+github.com/meateam/file-service v0.0.0-20190611132757-a1f222c6d57d/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190612094334-0bc0e0dc80eb h1:KOWKxc0FTKJtQEhwHmibboZGzGKxG1imDhOiVHF62bc=
+github.com/meateam/file-service v0.0.0-20190612094334-0bc0e0dc80eb/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26 h1:8mWCumautVzGxOMUOGILx7pwFVBoqik5E38v2AzeK9A=
 github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26/go.mod h1:+DKN0naTjr9feBK3gvn+821VKPxQVIp6pkXs85eT29c=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=

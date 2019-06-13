@@ -198,7 +198,7 @@ func (fr *fileRouter) download(c *gin.Context) {
 		return
 	}
 
-	filename := fileMeta.GetFullName()
+	filename := fileMeta.GetName()
 	contentType := fileMeta.GetType()
 	contentLength := fmt.Sprintf("%d", fileMeta.GetSize())
 
@@ -292,7 +292,7 @@ func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
 
 	responseFile := &getFileByIDResponse{
 		ID:          file.GetId(),
-		Name:        file.GetFullName(),
+		Name:        file.GetName(),
 		Type:        file.GetType(),
 		Size:        file.GetSize(),
 		Description: file.GetDescription(),
