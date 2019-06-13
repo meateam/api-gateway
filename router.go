@@ -62,7 +62,7 @@ func setupRouter() (r *gin.Engine, close func()) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"apmServerUrl": os.Getenv("ELASTIC_APM_SERVER_URL"),
+				"apmServerUrl": viper.GetString(configExternalApmURL),
 				"environment":  os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 			},
 		)

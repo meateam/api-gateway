@@ -15,6 +15,7 @@ const (
 	configfileService     = "file_service"
 	configSecret          = "secret"
 	configAuthURL         = "auth_url"
+	configExternalApmURL  = "external_apm_url"
 )
 
 var (
@@ -28,6 +29,7 @@ func init() {
 	viper.SetDefault(configfileService, "file-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
+	viper.SetDefault(configExternalApmURL, "http://localhost/auth/login")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
