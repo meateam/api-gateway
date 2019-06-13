@@ -19,17 +19,17 @@ const redacted = "[REDACTED]"
 
 var (
 	defaultSanitizedFieldNames = []string{
-		"password",
-		"passwd",
-		"pwd",
-		"secret",
-		"*key",
-		"*token*",
-		"*session*",
-		"*credit*",
-		"*card*",
-		"authorization",
-		"set-cookie",
+		`^password`,
+		`^passwd`,
+		`^pwd`,
+		`^secret`,
+		`^*key`,
+		`^*token*`,
+		`^*session*`,
+		`^*credit*`,
+		`^*card*`,
+		`^authorization`,
+		`^set-cookie`,
 	}
 )
 
@@ -45,6 +45,12 @@ type Config struct {
 	SkipPathRegexp     *regexp.Regexp
 }
 
+type request struct {
+	Cookies []*http.Cookie
+	Headers map[string][]string
+	Form    map[string][]string
+}
+
 // SetLogger initializes the logging middleware.
 func SetLogger(config *Config) gin.HandlerFunc {
 	if config == nil {
@@ -58,7 +64,16 @@ func SetLogger(config *Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		fullPath := getRequestFullPath(c)
+		req := request{
+			Cookies: c.Request.Cookies(),
+			Headers: c.Request.Header,
+		}
 
+		if c.Request.Body != nil && c.Request.Form != nil {
+			req.Form = c.Request.Form
+		}
+
+		sanitizeRequest(req, defaultSanitizedFieldNames)
 		requestBodyField := extractRequestBody(c, config, fullPath)
 		c.Next()
 
@@ -80,13 +95,14 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		}
 
 		traceID := extractTraceParent(c)
+		sanitizeHeaders(c.Writer.Header(), defaultSanitizedFieldNames)
 		logger := config.Logger.WithFields(
 			logrus.Fields{
 				"request.method":     c.Request.Method,
 				"request.path":       fullPath,
 				"request.ip":         c.ClientIP(),
 				"request.user-agent": c.Request.UserAgent(),
-				"request.headers":    c.Request.Header,
+				"request.headers":    req.Headers,
 				"request.body":       requestBodyField,
 				"trace.id":           traceID,
 				"response.headers":   c.Writer.Header(),
@@ -109,28 +125,25 @@ func SetLogger(config *Config) gin.HandlerFunc {
 // sanitizeRequest sanitizes HTTP request data, redacting the
 // values of cookies, headers and forms whose corresponding keys
 // match any of the given wildcard patterns.
-func sanitizeRequest(r *http.Request, matchers []string) {
-	cookies := r.Cookies()
-	if cookies != nil {
-		for _, m := range matchers {
-			for _, c := range cookies {
-				if !regexp.MustCompile(m).MatchString(strings.ToLower(c.Name)) {
-					continue
-				}
-				c.Value = redacted
+func sanitizeRequest(r request, matchers []string) {
+	for _, m := range matchers {
+		for _, c := range r.Cookies {
+			if !regexp.MustCompile(m).MatchString(strings.ToLower(c.Name)) {
+				continue
 			}
+			c.Value = redacted
 		}
 	}
-	sanitizeHeaders(r.Header, matchers)
-	if r.Body != nil && r.Form != nil {
-		for _, m := range matchers {
-			for k, v := range r.Form {
-				if !regexp.MustCompile(m).MatchString(k) {
-					continue
-				}
-				for i := range v {
-					v[i] = redacted
-				}
+
+	sanitizeHeaders(r.Headers, matchers)
+
+	for _, m := range matchers {
+		for k, v := range r.Form {
+			if !regexp.MustCompile(m).MatchString(k) {
+				continue
+			}
+			for i := range v {
+				v[i] = redacted
 			}
 		}
 	}
@@ -139,7 +152,7 @@ func sanitizeRequest(r *http.Request, matchers []string) {
 func sanitizeHeaders(headers http.Header, matchers []string) {
 	for _, m := range matchers {
 		for k, v := range headers {
-			if !regexp.MustCompile(m).MatchString(k) || len(v) == 0 {
+			if !regexp.MustCompile(m).MatchString(strings.ToLower(k)) || len(v) == 0 {
 				continue
 			}
 			headers[k] = headers[k][:1]
