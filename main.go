@@ -29,7 +29,7 @@ func init() {
 	viper.SetDefault(configfileService, "file-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
-	viper.SetDefault(configExternalApmURL, "http://localhost/auth/login")
+	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
