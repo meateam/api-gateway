@@ -144,7 +144,11 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	}
 	isUserAllowed, err := fr.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+
 		return
 	}
 	if isUserAllowed == false {
@@ -280,16 +284,6 @@ func (fr *fileRouter) userFilePermission(c *gin.Context, fileID string) (bool, e
 // Creates a file grpc response to http response struct
 func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
-	fileParentID := file.GetParent()
-	if fileParentID == "" {
-		fileParentObject := file.GetParentObject()
-		if fileParentObject == nil {
-			return nil, fmt.Errorf("file parent is invalid")
-		}
-
-		fileParentID = fileParentObject.GetId()
-	}
-
 	responseFile := &getFileByIDResponse{
 		ID:          file.GetId(),
 		Name:        file.GetName(),
@@ -297,9 +291,15 @@ func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
 		Size:        file.GetSize(),
 		Description: file.GetDescription(),
 		OwnerID:     file.GetOwnerID(),
-		Parent:      fileParentID,
+		Parent:      file.GetParent(),
 		CreatedAt:   file.GetCreatedAt(),
 		UpdatedAt:   file.GetUpdatedAt(),
+	}
+
+	// If file contains parent object instead of its id.
+	fileParentObject := file.GetParentObject()
+	if fileParentObject != nil {
+		responseFile.Parent = fileParentObject.GetId()
 	}
 
 	return responseFile, nil

@@ -6,12 +6,31 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmhttp"
+)
+
+const redacted = "[REDACTED]"
+
+var (
+	defaultSanitizedFieldNames = []string{
+		"password",
+		"passwd",
+		"pwd",
+		"secret",
+		"*key",
+		"*token*",
+		"*session*",
+		"*credit*",
+		"*card*",
+		"authorization",
+		"set-cookie",
+	}
 )
 
 // Config is the configuration struct for the logger,
@@ -41,7 +60,6 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		fullPath := getRequestFullPath(c)
 
 		requestBodyField := extractRequestBody(c, config, fullPath)
-
 		c.Next()
 
 		// If skip contains the current path or the path matches the regex, skip it.
@@ -62,7 +80,6 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		}
 
 		traceID := extractTraceParent(c)
-
 		logger := config.Logger.WithFields(
 			logrus.Fields{
 				"request.method":     c.Request.Method,
@@ -85,6 +102,48 @@ func SetLogger(config *Config) gin.HandlerFunc {
 			logger.Error(msg)
 		default:
 			logger.Info(msg)
+		}
+	}
+}
+
+// sanitizeRequest sanitizes HTTP request data, redacting the
+// values of cookies, headers and forms whose corresponding keys
+// match any of the given wildcard patterns.
+func sanitizeRequest(r *http.Request, matchers []string) {
+	cookies := r.Cookies()
+	if cookies != nil {
+		for _, m := range matchers {
+			for _, c := range cookies {
+				if !regexp.MustCompile(m).MatchString(strings.ToLower(c.Name)) {
+					continue
+				}
+				c.Value = redacted
+			}
+		}
+	}
+	sanitizeHeaders(r.Header, matchers)
+	if r.Body != nil && r.Form != nil {
+		for _, m := range matchers {
+			for k, v := range r.Form {
+				if !regexp.MustCompile(m).MatchString(k) {
+					continue
+				}
+				for i := range v {
+					v[i] = redacted
+				}
+			}
+		}
+	}
+}
+
+func sanitizeHeaders(headers http.Header, matchers []string) {
+	for _, m := range matchers {
+		for k, v := range headers {
+			if !regexp.MustCompile(m).MatchString(k) || len(v) == 0 {
+				continue
+			}
+			headers[k] = headers[k][:1]
+			headers[k][0] = redacted
 		}
 	}
 }

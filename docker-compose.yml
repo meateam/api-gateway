@@ -108,7 +108,7 @@ services:
       SAML_CALLBACK_URL: 'http://localhost:8084/auth/metadata.xml/callback'
       USERS_RPC_ENDPOINT: 'user-service:8080'
       SECRET_KEY: pandora@drive
-      CLIENT_ENDPOINT: 'https://cataas.com/cat/says/Auth works!?size=50&color=red'
+      CLIENT_ENDPOINT: 'http://localhost:8080/api/config'
     depends_on:
       - saml-idp
       - user-service
@@ -125,5 +125,5 @@ services:
     ports:
       - '8086:8080'
     environment:
-      KARTOFFEL_URL: ENTER_KARTOFFEL_ROUTE
+      KARTOFFEL_URL: http://localhost:8080
       RPC_PORT: 8080
