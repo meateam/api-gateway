@@ -6,12 +6,31 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmhttp"
+)
+
+const redacted = "[REDACTED]"
+
+var (
+	defaultSanitizedFieldNames = []string{
+		`^password`,
+		`^passwd`,
+		`^pwd`,
+		`^secret`,
+		`^*key`,
+		`^*token*`,
+		`^*session*`,
+		`^*credit*`,
+		`^*card*`,
+		`^authorization`,
+		`^set-cookie`,
+	}
 )
 
 // Config is the configuration struct for the logger,
@@ -24,6 +43,12 @@ type Config struct {
 	SkipBodyPathRegexp *regexp.Regexp
 	SkipPath           []string
 	SkipPathRegexp     *regexp.Regexp
+}
+
+type request struct {
+	Cookies []*http.Cookie
+	Headers map[string][]string
+	Form    map[string][]string
 }
 
 // SetLogger initializes the logging middleware.
@@ -39,9 +64,17 @@ func SetLogger(config *Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		fullPath := getRequestFullPath(c)
+		req := request{
+			Cookies: c.Request.Cookies(),
+			Headers: c.Request.Header,
+		}
 
+		if c.Request.Body != nil && c.Request.Form != nil {
+			req.Form = c.Request.Form
+		}
+
+		sanitizeRequest(req, defaultSanitizedFieldNames)
 		requestBodyField := extractRequestBody(c, config, fullPath)
-
 		c.Next()
 
 		// If skip contains the current path or the path matches the regex, skip it.
@@ -62,14 +95,14 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		}
 
 		traceID := extractTraceParent(c)
-
+		sanitizeHeaders(c.Writer.Header(), defaultSanitizedFieldNames)
 		logger := config.Logger.WithFields(
 			logrus.Fields{
 				"request.method":     c.Request.Method,
 				"request.path":       fullPath,
 				"request.ip":         c.ClientIP(),
 				"request.user-agent": c.Request.UserAgent(),
-				"request.headers":    c.Request.Header,
+				"request.headers":    req.Headers,
 				"request.body":       requestBodyField,
 				"trace.id":           traceID,
 				"response.headers":   c.Writer.Header(),
@@ -85,6 +118,45 @@ func SetLogger(config *Config) gin.HandlerFunc {
 			logger.Error(msg)
 		default:
 			logger.Info(msg)
+		}
+	}
+}
+
+// sanitizeRequest sanitizes HTTP request data, redacting the
+// values of cookies, headers and forms whose corresponding keys
+// match any of the given wildcard patterns.
+func sanitizeRequest(r request, matchers []string) {
+	for _, m := range matchers {
+		for _, c := range r.Cookies {
+			if !regexp.MustCompile(m).MatchString(strings.ToLower(c.Name)) {
+				continue
+			}
+			c.Value = redacted
+		}
+	}
+
+	sanitizeHeaders(r.Headers, matchers)
+
+	for _, m := range matchers {
+		for k, v := range r.Form {
+			if !regexp.MustCompile(m).MatchString(k) {
+				continue
+			}
+			for i := range v {
+				v[i] = redacted
+			}
+		}
+	}
+}
+
+func sanitizeHeaders(headers http.Header, matchers []string) {
+	for _, m := range matchers {
+		for k, v := range headers {
+			if !regexp.MustCompile(m).MatchString(strings.ToLower(k)) || len(v) == 0 {
+				continue
+			}
+			headers[k] = headers[k][:1]
+			headers[k][0] = redacted
 		}
 	}
 }
