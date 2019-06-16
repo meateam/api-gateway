@@ -127,8 +127,9 @@ func SetLogger(config *Config) gin.HandlerFunc {
 // match any of the given wildcard patterns.
 func sanitizeRequest(r request, matchers []string) {
 	for _, m := range matchers {
+		reg := regexp.MustCompile(m)
 		for _, c := range r.Cookies {
-			if !regexp.MustCompile(m).MatchString(strings.ToLower(c.Name)) {
+			if !reg.MatchString(strings.ToLower(c.Name)) {
 				continue
 			}
 			c.Value = redacted
@@ -138,8 +139,9 @@ func sanitizeRequest(r request, matchers []string) {
 	sanitizeHeaders(r.Headers, matchers)
 
 	for _, m := range matchers {
+		reg := regexp.MustCompile(m)
 		for k, v := range r.Form {
-			if !regexp.MustCompile(m).MatchString(k) {
+			if !reg.MatchString(k) {
 				continue
 			}
 			for i := range v {
@@ -151,8 +153,9 @@ func sanitizeRequest(r request, matchers []string) {
 
 func sanitizeHeaders(headers http.Header, matchers []string) {
 	for _, m := range matchers {
+		reg := regexp.MustCompile(m)
 		for k, v := range headers {
-			if !regexp.MustCompile(m).MatchString(strings.ToLower(k)) || len(v) == 0 {
+			if !reg.MatchString(strings.ToLower(k)) || len(v) == 0 {
 				continue
 			}
 			headers[k] = headers[k][:1]
