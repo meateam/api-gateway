@@ -73,9 +73,9 @@ func SetLogger(config *Config) gin.HandlerFunc {
 			req.Form = c.Request.Form
 		}
 
-		sanitizeRequest(req, defaultSanitizedFieldNames)
 		requestBodyField := extractRequestBody(c, config, fullPath)
 		c.Next()
+		sanitizeRequest(req, defaultSanitizedFieldNames)
 
 		// If skip contains the current path or the path matches the regex, skip it.
 		skip := mapStringSlice(config.SkipPath)
