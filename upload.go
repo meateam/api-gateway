@@ -127,14 +127,13 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
-	fileName := upload.Name
 	createFileResp, err := ur.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     upload.GetKey(),
 		Bucket:  upload.GetBucket(),
 		OwnerID: reqUser.id,
 		Size:    resp.GetContentLength(),
 		Type:    resp.GetContentType(),
-		Name:    fileName,
+		Name:    upload.Name,
 		Parent:  c.Query(parentQueryStringKey),
 	})
 	if err != nil {
