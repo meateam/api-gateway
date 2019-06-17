@@ -67,8 +67,8 @@ github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe/go.mod h1:C1wdFJiN
 github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/meateam/download-service v0.0.0-20190505082208-15b980fc9a07/go.mod h1:UiatC7w4geyKhAGyWqpFYDf4VpB2wM/oon+cgPzkr0s=
-github.com/meateam/elasticsearch-logger v1.1.1 h1:Ce0TnDNOxCvY2u0LFKAliSqFRJu7wO7VZq5Q8rPohe8=
-github.com/meateam/elasticsearch-logger v1.1.1/go.mod h1:7/YC3u7mXrwspo+cuvOfM9dpYUlzy/n3Pgc2a5cdNS8=
+github.com/meateam/elasticsearch-logger v1.1.2 h1:krkAKWS5FZcsSNAyCyv2DTmc2RYKxBPmGWXvlQd+LCM=
+github.com/meateam/elasticsearch-logger v1.1.2/go.mod h1:7/YC3u7mXrwspo+cuvOfM9dpYUlzy/n3Pgc2a5cdNS8=
 github.com/meateam/elogrus/v4 v4.0.2 h1:X+fpps3Ti9vIoqo/wnPcuaB+wxkZwkmTppXnnBe1Un4=
 github.com/meateam/elogrus/v4 v4.0.2/go.mod h1:O+KJPmbnEV80u+V8tCYTvcBpzp/HZa7XR4nqDtDMzYg=
 github.com/meateam/file-service v0.0.0-20190617072641-600b1c4d91d3 h1:MITH3076hlu+Y8IvG/HPGowUjF4VtIj9RIXmb3/fcgs=
