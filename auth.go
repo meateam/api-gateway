@@ -15,26 +15,28 @@ import (
 //	If the token is not valid or expired, it will redirect the client to the auth service.
 //	If the token is valid, it will inject user to the gin context.
 func authRequired(c *gin.Context) {
-	auth := c.GetHeader("Authorization")
+	auth, err := c.Cookie("kd-token")
+	if err != nil {
+		authArr := strings.Fields(c.GetHeader("Authorization"))
+		if len(authArr) < 2 {
+			redirectToAuthService(c)
+			return
+		}
+
+		if authArr[0] != "Bearer" {
+			redirectToAuthService(c)
+			return
+		}
+
+		auth = authArr[1]
+	}
+
 	if auth == "" {
 		redirectToAuthService(c)
 		return
 	}
 
-	authArr := strings.Fields(auth)
-	if len(authArr) < 2 {
-		redirectToAuthService(c)
-		return
-	}
-
-	if authArr[0] != "Bearer" {
-		redirectToAuthService(c)
-		return
-	}
-
-	tokenString := authArr[1]
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(auth, func(token *jwt.Token) (interface{}, error) {
 		// Validates the alg is what we expect:
 		secret := viper.GetString(configSecret)
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
