@@ -71,8 +71,8 @@ github.com/meateam/elasticsearch-logger v1.1.1 h1:Ce0TnDNOxCvY2u0LFKAliSqFRJu7wO
 github.com/meateam/elasticsearch-logger v1.1.1/go.mod h1:7/YC3u7mXrwspo+cuvOfM9dpYUlzy/n3Pgc2a5cdNS8=
 github.com/meateam/elogrus/v4 v4.0.2 h1:X+fpps3Ti9vIoqo/wnPcuaB+wxkZwkmTppXnnBe1Un4=
 github.com/meateam/elogrus/v4 v4.0.2/go.mod h1:O+KJPmbnEV80u+V8tCYTvcBpzp/HZa7XR4nqDtDMzYg=
-github.com/meateam/file-service v0.0.0-20190613131908-349d92dab9d8 h1:BqDEcMzE/TxIdE8wCj6AkQ88Cr8QTg5jjNp5pXJrXKw=
-github.com/meateam/file-service v0.0.0-20190613131908-349d92dab9d8/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v0.0.0-20190617071805-d57798dec157 h1:A7mYBd7OyDbr0jPyVZ26PGU1cLYUwzN5V4RIEiHWr84=
+github.com/meateam/file-service v0.0.0-20190617071805-d57798dec157/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26/go.mod h1:+DKN0naTjr9feBK3gvn+821VKPxQVIp6pkXs85eT29c=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
