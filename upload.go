@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -17,17 +18,20 @@ import (
 )
 
 const (
-	maxSimpleUploadSize = 5 << 20    // 5MB
-	minPartUploadSize   = 5 << 20    // 5MB S3 min limit
-	maxPartUploadSize   = 5120 << 20 // 5GB S3 max limit
-	mediaUploadType     = "media"
-	multipartUploadType = "multipart"
-	resumableUploadType = "resumable"
+	maxSimpleUploadSize  = 5 << 20    // 5MB
+	minPartUploadSize    = 5 << 20    // 5MB S3 min limit
+	maxPartUploadSize    = 5120 << 20 // 5GB S3 max limit
+	mediaUploadType      = "media"
+	multipartUploadType  = "multipart"
+	resumableUploadType  = "resumable"
+	parentQueryStringKey = "parent"
+	customContentLength  = "X-Content-Length"
 )
 
 type uploadRouter struct {
 	uploadClient pb.UploadClient
 	fileClient   fpb.FileServiceClient
+	mu           sync.Mutex
 }
 
 type uploadInitBody struct {
@@ -45,7 +49,6 @@ func (ur *uploadRouter) setupGroup(r *gin.RouterGroup, uploadConn *grpc.ClientCo
 }
 
 func (ur *uploadRouter) upload(c *gin.Context) {
-
 	uploadType, exists := c.GetQuery("uploadType")
 	if exists != true {
 		ur.uploadInit(c)
@@ -112,6 +115,8 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		UploadID: upload.GetUploadID(),
 	}
 
+	ur.mu.Lock()
+	defer ur.mu.Unlock()
 	_, err = ur.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -122,14 +127,14 @@ func (ur *uploadRouter) uploadComplete(c *gin.Context) {
 		return
 	}
 
-	fileName := upload.Name
 	createFileResp, err := ur.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
-		Key:      upload.GetKey(),
-		Bucket:   upload.GetBucket(),
-		OwnerID:  reqUser.id,
-		Size:     resp.GetContentLength(),
-		Type:     resp.GetContentType(),
-		FullName: fileName,
+		Key:     upload.GetKey(),
+		Bucket:  upload.GetBucket(),
+		OwnerID: reqUser.id,
+		Size:    resp.GetContentLength(),
+		Type:    resp.GetContentType(),
+		Name:    upload.Name,
+		Parent:  c.Query(parentQueryStringKey),
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -231,12 +236,13 @@ func (ur *uploadRouter) uploadFile(c *gin.Context, fileReader io.ReadCloser, con
 	}
 
 	createFileResp, err := ur.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
-		Key:      key,
-		Bucket:   reqUser.id,
-		OwnerID:  reqUser.id,
-		Size:     int64(len(file)),
-		Type:     contentType,
-		FullName: fileFullName,
+		Key:     key,
+		Bucket:  reqUser.id,
+		OwnerID: reqUser.id,
+		Size:    int64(len(file)),
+		Type:    contentType,
+		Name:    fileFullName,
+		Parent:  c.Query(parentQueryStringKey),
 	})
 
 	if err != nil {
@@ -293,9 +299,22 @@ func (ur *uploadRouter) uploadInit(c *gin.Context) {
 		reqBody.Title = uuid.NewV4().String()
 	}
 
+	fileSize, err := strconv.ParseInt(c.Request.Header.Get(customContentLength), 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Content-Length is invalid")
+		return
+	}
+
+	if fileSize < 0 {
+		fileSize = 0
+	}
+
 	createUploadResponse, err := ur.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
-		Bucket: reqUser.id,
-		Name:   reqBody.Title,
+		Bucket:  reqUser.id,
+		Name:    reqBody.Title,
+		OwnerID: reqUser.id,
+		Parent:  c.Query(parentQueryStringKey),
+		Size:    fileSize,
 	})
 
 	if err != nil {
