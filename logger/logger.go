@@ -15,7 +15,10 @@ import (
 	"go.elastic.co/apm/module/apmhttp"
 )
 
-const redacted = "[REDACTED]"
+const (
+	redacted     = "[REDACTED]"
+	cookieHeader = "Cookie"
+)
 
 var (
 	defaultSanitizedFieldNames = []string{
@@ -30,6 +33,7 @@ var (
 		`^*card*`,
 		`^authorization`,
 		`^set-cookie`,
+		`^phpsessididp`,
 	}
 )
 
@@ -76,6 +80,14 @@ func SetLogger(config *Config) gin.HandlerFunc {
 		requestBodyField := extractRequestBody(c, config, fullPath)
 		c.Next()
 		sanitizeRequest(req, defaultSanitizedFieldNames)
+		if len(req.Cookies) > 0 {
+			cookies := make([]string, 0, len(req.Cookies))
+			for _, v := range req.Cookies {
+				cookies = append(cookies, v.String())
+			}
+
+			req.Headers[cookieHeader] = []string{strings.Join(cookies, "; ")}
+		}
 
 		// If skip contains the current path or the path matches the regex, skip it.
 		skip := mapStringSlice(config.SkipPath)
@@ -96,6 +108,7 @@ func SetLogger(config *Config) gin.HandlerFunc {
 
 		traceID := extractTraceParent(c)
 		sanitizeHeaders(c.Writer.Header(), defaultSanitizedFieldNames)
+
 		logger := config.Logger.WithFields(
 			logrus.Fields{
 				"request.method":     c.Request.Method,
