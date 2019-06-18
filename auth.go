@@ -16,7 +16,7 @@ import (
 //	If the token is valid, it will inject user to the gin context.
 func authRequired(c *gin.Context) {
 	auth, err := c.Cookie("kd-token")
-	if err != nil {
+	if auth == "" || err != nil {
 		authArr := strings.Fields(c.GetHeader("Authorization"))
 		if len(authArr) < 2 {
 			redirectToAuthService(c)
