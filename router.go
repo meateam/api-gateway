@@ -22,7 +22,14 @@ import (
 func setupRouter() (r *gin.Engine, close func()) {
 	// Disable Console Color.
 	gin.DisableConsoleColor()
-	r = gin.Default()
+	r = gin.New()
+
+	// Add default logger middleware with ignored healtcheck route and recovery.
+	r.Use(
+		gin.LoggerWithWriter(gin.DefaultWriter, "/api/healtcheck"),
+		gin.Recovery(),
+	)
+
 	r.Use(apmgin.Middleware(r))
 
 	// Default cors handeling.
