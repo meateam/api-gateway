@@ -534,11 +534,18 @@ func (ur *uploadRouter) uploadPart(c *gin.Context) {
 
 		if err := stream.Send(partRequest); err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			if err := c.AbortWithError(httpStatusCode, err); err != nil {
-				logger.Errorf("%v", err)
+			if abortErr := c.AbortWithError(httpStatusCode, err); abortErr != nil {
+				logger.Errorf("%v", abortErr)
 			}
 
-			return
+			if err == io.EOF {
+				responseWG.Wait()
+				c.Request.Body.Close()
+				return
+			}
+
+			logger.Errorf("%v", err)
+			break
 		}
 
 		rangeStart += int64(bytesRead)
