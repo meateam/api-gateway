@@ -41,7 +41,7 @@ func authRequired(c *gin.Context) {
 		secret := viper.GetString(configSecret)
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			redirectToAuthService(c)
-			logger.Infof("unexpected signing method: %v", token.Header["alg"])
+			logger.Errorf("unexpected signing method: %v", token.Header["alg"])
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
@@ -49,7 +49,7 @@ func authRequired(c *gin.Context) {
 	})
 
 	if err != nil {
-		logger.Infof("error while parsing the token")
+		logger.Errorf("error while parsing the token: %s", err)
 		redirectToAuthService(c)
 		return
 	}
@@ -57,7 +57,7 @@ func authRequired(c *gin.Context) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 
 	if !ok || !token.Valid {
-		logger.Infof("the token is not valid")
+		logger.Errorf("invalid token")
 		redirectToAuthService(c)
 		return
 	}
@@ -69,7 +69,7 @@ func authRequired(c *gin.Context) {
 
 	// If any of the claims are invalid then redirect to authentication
 	if !idOk || !firstNameOk || !lastNameOk {
-		logger.Infof("the token's claims are invalid")
+		logger.Errorf("invalid token claims")
 		redirectToAuthService(c)
 		return
 	}
@@ -78,7 +78,7 @@ func authRequired(c *gin.Context) {
 	// For some reason can't convert directly to int64
 	exp, ok := claims["exp"].(float64)
 	if !ok {
-		logger.Infof("token's exp: %v not valid", claims["exp"])
+		logger.Errorf("invalid token exp: %v", claims["exp"])
 		redirectToAuthService(c)
 		return
 	}
@@ -87,7 +87,7 @@ func authRequired(c *gin.Context) {
 	timeRemaining := time.Until(expTime)
 
 	if timeRemaining <= 0 {
-		logger.Infof("token has expired at %v . The user is %s", expTime, id)
+		logger.Errorf("user %s token expired at %s", expTime, id)
 		redirectToAuthService(c)
 		return
 	}
