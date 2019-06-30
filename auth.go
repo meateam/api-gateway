@@ -84,7 +84,7 @@ func authRequired(c *gin.Context) {
 	}
 
 	expTime := time.Unix(int64(exp), 0)
-	timeRemaining := expTime.Sub(time.Now())
+	timeRemaining := time.Until(expTime)
 
 	if timeRemaining <= 0 {
 		logger.Infof("token has expired at %v . The user is %s", expTime, id)
