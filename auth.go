@@ -62,6 +62,18 @@ func authRequired(c *gin.Context) {
 		return
 	}
 
+	// Check type assertion
+	id, idOk := claims["id"].(string)
+	firstName, firstNameOk := claims["firstName"].(string)
+	lastName, lastNameOk := claims["lastName"].(string)
+
+	// If any of the claims are invalid then redirect to authentication
+	if !idOk || !firstNameOk || !lastNameOk {
+		logger.Infof("the token's claims are invalid")
+		redirectToAuthService(c)
+		return
+	}
+
 	// Check type assertion.
 	// For some reason can't convert directly to int64
 	exp, ok := claims["exp"].(float64)
@@ -76,18 +88,6 @@ func authRequired(c *gin.Context) {
 
 	if timeRemaining <= 0 {
 		logger.Infof("token has expired at %v . The user is %s", expTime, id)
-		redirectToAuthService(c)
-		return
-	}
-
-	// Check type assertion
-	id, idOk := claims["id"].(string)
-	firstName, firstNameOk := claims["firstName"].(string)
-	lastName, lastNameOk := claims["lastName"].(string)
-
-	// If any of the claims are invalid then redirect to authentication
-	if !idOk || !firstNameOk || !lastNameOk {
-		logger.Infof("the token's claims are invalid")
 		redirectToAuthService(c)
 		return
 	}
