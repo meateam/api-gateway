@@ -87,7 +87,7 @@ func authRequired(c *gin.Context) {
 	timeRemaining := time.Until(expTime)
 
 	if timeRemaining <= 0 {
-		logger.Errorf("user %s token expired at %s", expTime, id)
+		logger.Infof("user %s token expired at %s", expTime, id)
 		redirectToAuthService(c)
 		return
 	}
