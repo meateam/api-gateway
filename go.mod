@@ -22,3 +22,9 @@ require (
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger
+
+replace github.com/meateam/api-gateway/user => ./user
+
+replace github.com/meateam/api-gateway/upload => ./upload
+
+replace github.com/meateam/api-gateway/server => ./server

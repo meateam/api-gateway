@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -9,7 +9,11 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/server/auth"
+	"github.com/meateam/api-gateway/upload"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmgin"
@@ -19,43 +23,36 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func setupRouter() (r *gin.Engine, close func()) {
-	// Disable Console Color.
+const (
+	healtcheckRouter  = "/api/healtcheck"
+	uploadRouteRegexp = "/api/upload.+"
+)
+
+// NewRouter creates new gin.Engine for the api-gateway server and sets it up.
+func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
+	// If no logger is given, use a default logger.
+	if logger == nil {
+		logger = logrus.New()
+	}
+
 	gin.DisableConsoleColor()
-	r = gin.New()
+	r := gin.New()
 
-	// Add default logger middleware with ignored healtcheck route and recovery.
+	// Setup logging, metrics, cors middlewares.
 	r.Use(
-		gin.LoggerWithWriter(gin.DefaultWriter, "/api/healtcheck"),
+		// Ignore logging healthcheck routes.
+		gin.LoggerWithWriter(gin.DefaultWriter, healtcheckRouter),
 		gin.Recovery(),
-	)
-
-	r.Use(apmgin.Middleware(r))
-
-	// Default cors handeling.
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AddExposeHeaders("x-uploadid")
-	corsConfig.AllowAllOrigins = true
-	corsConfig.AddAllowHeaders(
-		"x-content-length",
-		"authorization",
-		"cache-control",
-		"x-requested-with",
-		"content-disposition",
-		"content-range",
-		apmhttp.TraceparentHeader,
-	)
-
-	r.Use(cors.New(corsConfig))
-	r.Use(
+		apmgin.Middleware(r),
+		cors.New(corsRouterConfig()),
+		// Elasticsearch logger middleware.
 		loggermiddleware.SetLogger(
 			&loggermiddleware.Config{
 				Logger:             logger,
-				SkipPath:           []string{"/api/healthcheck"},
-				SkipBodyPathRegexp: regexp.MustCompile("/api/upload.+"),
+				SkipPath:           []string{healtcheckRouter},
+				SkipBodyPathRegexp: regexp.MustCompile(uploadRouteRegexp),
 			},
 		),
-		gin.Recovery(),
 	)
 
 	apiRoutesGroup := r.Group("/api")
@@ -93,33 +90,40 @@ func setupRouter() (r *gin.Engine, close func()) {
 	}
 
 	// Initiate file router.
-	fr := &fileRouter{}
+	fr := file.NewRouter(fileConn, downloadConn, logger)
 
 	// Initiate upload router.
-	ur := &uploadRouter{}
+	ur := upload.NewRouter(uploadConn, fileConn, logger)
 
 	// Authentication middleware on routes group.
-	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequired)
+	authRequiredMiddleware := auth.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
+	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequiredMiddleware)
 
 	// Initiate client connection to file service.
-	fr.setupGroup(authRequiredRoutesGroup, fileConn, downloadConn)
+	fr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to upload service.
-	ur.setupGroup(authRequiredRoutesGroup, uploadConn, fileConn)
+	ur.Setup(authRequiredRoutesGroup)
 
-	// Creating a slice to manage connections.
-	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn}
+	// Create a slice to manage connections and return it.
+	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn}
+}
 
-	// Defines a function that is closing all connections in order to defer it outside.
-	close = func() {
-		for _, v := range conns {
-			v.Close()
-		}
+func corsRouterConfig() cors.Config {
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AddExposeHeaders("x-uploadid")
+	corsConfig.AllowAllOrigins = true
+	corsConfig.AddAllowHeaders(
+		"x-content-length",
+		"authorization",
+		"cache-control",
+		"x-requested-with",
+		"content-disposition",
+		"content-range",
+		apmhttp.TraceparentHeader,
+	)
 
-		return
-	}
-
-	return
+	return corsConfig
 }
 
 func initServiceConn(url string) (*grpc.ClientConn, error) {

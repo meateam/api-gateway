@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmhttp"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -247,4 +249,24 @@ func isWarning(c *gin.Context) bool {
 
 func isError(c *gin.Context) bool {
 	return c.Writer.Status() >= http.StatusInternalServerError
+}
+
+// StartSpan starts an "external.grpc" span under the transaction in ctx,
+// returns the created span and the context with the traceparent header matadata.
+func StartSpan(ctx context.Context, name string) (*apm.Span, context.Context) {
+	span, ctx := apm.StartSpan(ctx, name, "external.grpc")
+	if span.Dropped() {
+		return span, ctx
+	}
+
+	traceparentValue := apmhttp.FormatTraceparentHeader(span.TraceContext())
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		md = metadata.Pairs(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
+	} else {
+		md = md.Copy()
+		md.Set(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
+	}
+
+	return span, metadata.NewOutgoingContext(ctx, md)
 }

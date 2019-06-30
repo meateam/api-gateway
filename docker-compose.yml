@@ -11,17 +11,17 @@ services:
       GW_UPLOAD_SERVICE: 'upload-service:8080'
       GW_DOWNLOAD_SERVICE: 'download-service:8080'
       GW_FILE_SERVICE: 'file-service:8080'
-      GW_EXTERNAL_APM_URL: http://localhost:8200
-      ELASTICSEARCH_URL: http://localhost:9200
+      GW_EXTERNAL_APM_URL: http://13.69.137.179:8200
+      ELASTICSEARCH_URL: http://13.69.137.179:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: info
-      ELASTIC_APM_SERVER_URL: http://localhost:8200
+      ELASTIC_APM_SERVER_URL: http://13.69.137.179:8200
       ELASTIC_APM_SERVICE_NAME: api-gateway
       ELASTIC_APM_SERVICE_VERSION: 0.1
       ELASTIC_APM_ENVIRONMENT: development
       ELASTIC_APM_ACTIVE: 'true'
       ELASTIC_APM_IGNORE_URLS: /api/healthcheck
-      ELASTIC_APM_CAPTURE_BODY: all
+      ELASTIC_APM_CAPTURE_BODY: 'off'
       ELASTIC_APM_METRICS_INTERVAL: 10s
       GW_SECRET: pandora@drive
     ports:
@@ -49,15 +49,15 @@ services:
       S3_ENDPOINT: 'http://minio:9000'
       TCP_PORT: 8080
       HOST_NAME: upload-service
-      ELASTICSEARCH_URL: http://localhost:9200
+      ELASTICSEARCH_URL: http://13.69.137.179:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: debug
-      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVER_URL: 'http://13.69.137.179:8200'
       ELASTIC_APM_SERVICE_NAME: 'upload-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_CAPTURE_BODY: 'off'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
     depends_on:
       - minio
@@ -71,15 +71,15 @@ services:
       S3_ENDPOINT: 'http://minio:9000'
       TCP_PORT: 8080
       HOST_NAME: download-service
-      ELASTICSEARCH_URL: http://localhost:9200
+      ELASTICSEARCH_URL: http://13.69.137.179:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: debug
-      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVER_URL: 'http://13.69.137.179:8200'
       ELASTIC_APM_SERVICE_NAME: 'download-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_CAPTURE_BODY: 'off'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
     ports:
       - '8082:8080'
@@ -88,7 +88,7 @@ services:
   file-service:
     image: file-service
     environment:
-      MONGO_HOST: mongo
+      MONGO_HOST: mongodb://mongo:27017/devDB
     ports:
       - '8083:8080'
     depends_on:
@@ -96,7 +96,7 @@ services:
   mongo:
     image: 'mongo:latest'
     ports:
-      - '27018:27017'
+      - '27017:27017'
     volumes:
       - './data/db:/data/db'
   authentication-service:
@@ -126,5 +126,5 @@ services:
     ports:
       - '8086:8080'
     environment:
-      KARTOFFEL_URL: http://localhost:8080
+      KARTOFFEL_URL: http://13.69.137.179:8080
       RPC_PORT: 8080

@@ -1,4 +1,4 @@
-package main
+package file
 
 import (
 	"fmt"
@@ -7,15 +7,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
-type fileRouter struct {
+// Router is a structure that handles upload requests.
+type Router struct {
 	downloadClient dpb.DownloadClient
 	fileClient     fpb.FileServiceClient
+	logger         *logrus.Logger
 }
 
 type getFileByIDResponse struct {
@@ -30,17 +35,33 @@ type getFileByIDResponse struct {
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 }
 
-func (fr *fileRouter) setupGroup(r *gin.RouterGroup, fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn) {
-	fr.fileClient = fpb.NewFileServiceClient(fileConn)
-	fr.downloadClient = dpb.NewDownloadClient(downloadConn)
-	r.GET("/files", fr.getFilesByFolder)
-	r.GET("/files/:id", fr.getFileByID)
-	r.DELETE("/files/:id", fr.deleteFileByID)
+// NewRouter creates a new Router, and initializes clients of File Service
+// and Download Service with the given connections. If logger is non-nil then it will
+// be set as-is, otherwise logger would default to logrus.New().
+func NewRouter(fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn, logger *logrus.Logger) *Router {
+	// If no logger is given, use a default logger.
+	if logger == nil {
+		logger = logrus.New()
+	}
+
+	r := &Router{logger: logger}
+
+	r.fileClient = fpb.NewFileServiceClient(fileConn)
+	r.downloadClient = dpb.NewDownloadClient(downloadConn)
+
+	return r
+}
+
+// Setup sets up r and intializes its routes under rg.
+func (r *Router) Setup(rg *gin.RouterGroup) {
+	rg.GET("/files", r.getFilesByFolder)
+	rg.GET("/files/:id", r.getFileByID)
+	rg.DELETE("/files/:id", r.deleteFileByID)
 
 	return
 }
 
-func (fr *fileRouter) getFileByID(c *gin.Context) {
+func (r *Router) getFileByID(c *gin.Context) {
 	fileID := c.Param("id")
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
@@ -49,10 +70,11 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 
 	alt := c.Query("alt")
 	if alt == "media" {
-		fr.download(c)
+		r.download(c)
 		return
 	}
-	isUserAllowed, err := fr.userFilePermission(c, fileID)
+
+	isUserAllowed, err := r.userFilePermission(c, fileID)
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
 		return
@@ -67,11 +89,11 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 		Id: fileID,
 	}
 
-	file, err := fr.fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
+	file, err := r.fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			logger.Errorf("%v", err)
+			r.logger.Errorf("%v", err)
 		}
 
 		return
@@ -87,8 +109,8 @@ func (fr *fileRouter) getFileByID(c *gin.Context) {
 	return
 }
 
-func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
-	reqUser := extractRequestUser(c)
+func (r *Router) getFilesByFolder(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -96,7 +118,7 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 
 	filesParent, exists := c.GetQuery("parent")
 	if exists == true {
-		isUserAllowed, err := fr.userFilePermission(c, filesParent)
+		isUserAllowed, err := r.userFilePermission(c, filesParent)
 		if err != nil {
 			c.AbortWithError(int(status.Code(err)), err)
 			return
@@ -107,14 +129,14 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 		}
 	}
 
-	filesResp, err := fr.fileClient.GetFilesByFolder(
+	filesResp, err := r.fileClient.GetFilesByFolder(
 		c.Request.Context(),
-		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.id, FolderID: filesParent},
+		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			logger.Errorf("%v", err)
+			r.logger.Errorf("%v", err)
 		}
 
 		return
@@ -136,21 +158,23 @@ func (fr *fileRouter) getFilesByFolder(c *gin.Context) {
 	return
 }
 
-func (fr *fileRouter) deleteFileByID(c *gin.Context) {
+func (r *Router) deleteFileByID(c *gin.Context) {
 	fileID := c.Param("id")
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
 		return
 	}
-	isUserAllowed, err := fr.userFilePermission(c, fileID)
+
+	isUserAllowed, err := r.userFilePermission(c, fileID)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			logger.Errorf("%v", err)
+			r.logger.Errorf("%v", err)
 		}
 
 		return
 	}
+
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -159,11 +183,11 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	deleteFileRequest := &fpb.DeleteFileRequest{
 		Id: fileID,
 	}
-	deleteFileResponse, err := fr.fileClient.DeleteFile(c.Request.Context(), deleteFileRequest)
+	deleteFileResponse, err := r.fileClient.DeleteFile(c.Request.Context(), deleteFileRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			logger.Errorf("%v", err)
+			r.logger.Errorf("%v", err)
 		}
 
 		return
@@ -173,7 +197,7 @@ func (fr *fileRouter) deleteFileByID(c *gin.Context) {
 	return
 }
 
-func (fr *fileRouter) download(c *gin.Context) {
+func (r *Router) download(c *gin.Context) {
 	// Get file ID from param.
 	fileID := c.Param("id")
 	if fileID == "" {
@@ -181,22 +205,23 @@ func (fr *fileRouter) download(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed, err := fr.userFilePermission(c, fileID)
+	isUserAllowed, err := r.userFilePermission(c, fileID)
 	if err != nil {
 		c.AbortWithError(int(status.Code(err)), err)
 		return
 	}
+
 	if isUserAllowed == false {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
 	// Get the file meta from the file service
-	fileMeta, err := fr.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	fileMeta, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			logger.Errorf("%v", err)
+			r.logger.Errorf("%v", err)
 		}
 
 		return
@@ -211,13 +236,14 @@ func (fr *fileRouter) download(c *gin.Context) {
 		Bucket: fileMeta.GetBucket(),
 	}
 
-	span, spanCtx := startSpan(c.Request.Context(), "/download.Download/Download")
+	span, spanCtx := loggermiddleware.StartSpan(c.Request.Context(), "/download.Download/Download")
 	defer span.End()
-	stream, err := fr.downloadClient.Download(spanCtx, downloadRequest)
+
+	stream, err := r.downloadClient.Download(spanCtx, downloadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			logger.Errorf("%v", err)
+			r.logger.Errorf("%v", err)
 		}
 
 		return
@@ -232,6 +258,7 @@ func (fr *fileRouter) download(c *gin.Context) {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
 			c.Status(http.StatusOK)
+
 			// Returns error, need to decide how to handle
 			stream.CloseSend()
 			return
@@ -240,11 +267,11 @@ func (fr *fileRouter) download(c *gin.Context) {
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			if err := c.AbortWithError(httpStatusCode, err); err != nil {
-				logger.Errorf("%v", err)
+				r.logger.Errorf("%v", err)
 			}
 
 			if err := stream.CloseSend(); err != nil {
-				logger.Errorf("%v", err)
+				r.logger.Errorf("%v", err)
 			}
 
 			return
@@ -260,14 +287,14 @@ func (fr *fileRouter) download(c *gin.Context) {
 // the file he's requesting. The function returns (true, nil) if the user is permitted
 // to the file, (false, nil) if the user isn't permitted to it, and (false, error) where
 // error is non-nil if an error occurred when calling FileServiceClient.IsAllowed.
-func (fr *fileRouter) userFilePermission(c *gin.Context, fileID string) (bool, error) {
-	reqUser := extractRequestUser(c)
+func (r *Router) userFilePermission(c *gin.Context, fileID string) (bool, error) {
+	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		return false, nil
 	}
-	isAllowedResp, err := fr.fileClient.IsAllowed(c.Request.Context(), &fpb.IsAllowedRequest{
+	isAllowedResp, err := r.fileClient.IsAllowed(c.Request.Context(), &fpb.IsAllowedRequest{
 		FileID: fileID,
-		UserID: reqUser.id,
+		UserID: reqUser.ID,
 	})
 
 	if err != nil {

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"net/http"
+	"github.com/meateam/api-gateway/server"
 
 	ilogger "github.com/meateam/elasticsearch-logger"
 	"github.com/spf13/viper"
@@ -35,16 +35,5 @@ func init() {
 }
 
 func main() {
-	router, close := setupRouter()
-	defer close()
-	s := &http.Server{
-		Addr:           ":" + viper.GetString(configPort),
-		Handler:        router,
-		MaxHeaderBytes: 1 << 20,
-	}
-
-	logger.Infof("server listening on port: %s", viper.GetString(configPort))
-	if err := s.ListenAndServe(); err != nil {
-		logger.Fatalf("%v", err)
-	}
+	server.NewServer().Listen()
 }
