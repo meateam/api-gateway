@@ -1,9 +1,11 @@
 package upload
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"sync"
@@ -39,11 +41,35 @@ const (
 	// ResumableUploadType resumable upload type name.
 	ResumableUploadType = "resumable"
 
-	// ParentQueryStringKey parent query string key name.
-	ParentQueryStringKey = "parent"
+	// ParentQueryKey parent query string key name.
+	ParentQueryKey = "parent"
 
-	// CustomContentLength custom content length header name.
-	CustomContentLength = "X-Content-Length"
+	// ContentLengthCustomHeader content length custom header name.
+	ContentLengthCustomHeader = "X-Content-Length"
+
+	// ContentRangeHeader content-range header name.
+	ContentRangeHeader = "Content-Range"
+
+	// UploadIDQueryKey the upload id query string key name.
+	UploadIDQueryKey = "uploadId"
+
+	// UploadIDCustomHeader upload id custom header name.
+	UploadIDCustomHeader = "x-uploadid"
+
+	// DefaultContentLength the default content length of a file.
+	DefaultContentLength = "application/octet-stream"
+
+	// ContentTypeHeader content type header name.
+	ContentTypeHeader = "Content-Type"
+
+	// FileFormName the key of the file in a form.
+	FileFormName = "file"
+
+	// ContentDispositionHeader content-disposition header name.
+	ContentDispositionHeader = "Content-Disposition"
+
+	// UploadTypeQueryKey the upload type query string key name.
+	UploadTypeQueryKey = "uploadType"
 )
 
 // Router is a structure that handles upload requests.
@@ -54,9 +80,19 @@ type Router struct {
 	mu           sync.Mutex
 }
 
+// uploadInitBody is a structure of the json body of upload init request.
 type uploadInitBody struct {
 	Title    string `json:"title"`
 	MimeType string `json:"mimeType"`
+}
+
+// resumableFileUploadProgress is a structure of a resumable file upload progress.
+type resumableFileUploadProgress struct {
+	rangeStart int64
+	rangeEnd   int64
+	bufSize    int64
+	upload     *fpb.GetUploadByIDResponse
+	file       *multipart.Part
 }
 
 // NewRouter creates a new Router, and initializes clients of Upload Service
@@ -78,33 +114,35 @@ func NewRouter(uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn, logger *l
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.POST("/upload", r.upload)
+	rg.POST("/upload", r.Upload)
 }
 
-func (r *Router) upload(c *gin.Context) {
-	uploadType, exists := c.GetQuery("uploadType")
+// Upload is the request handler for /upload request.
+func (r *Router) Upload(c *gin.Context) {
+	uploadType, exists := c.GetQuery(UploadTypeQueryKey)
 	if !exists {
-		r.uploadInit(c)
+		r.UploadInit(c)
 		return
 	}
 
 	switch uploadType {
 	case MediaUploadType:
-		r.uploadMedia(c)
+		r.UploadMedia(c)
 	case MultipartUploadType:
-		r.uploadMultipart(c)
+		r.UploadMultipart(c)
 	case ResumableUploadType:
-		r.uploadPart(c)
+		r.UploadPart(c)
 	default:
 		c.String(http.StatusBadRequest, fmt.Sprintf("unknown uploadType=%v", uploadType))
 		return
 	}
 }
 
-func (r *Router) uploadComplete(c *gin.Context) {
-	uploadID, exists := c.GetQuery("uploadId")
+// UploadComplete completes a resumable file upload and creates the uploaded file.
+func (r *Router) UploadComplete(c *gin.Context) {
+	uploadID, exists := c.GetQuery(UploadIDQueryKey)
 	if !exists {
-		c.String(http.StatusBadRequest, "upload id is required")
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", UploadIDQueryKey))
 		return
 	}
 
@@ -117,9 +155,7 @@ func (r *Router) uploadComplete(c *gin.Context) {
 	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -133,9 +169,7 @@ func (r *Router) uploadComplete(c *gin.Context) {
 	resp, err := r.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -149,9 +183,7 @@ func (r *Router) uploadComplete(c *gin.Context) {
 	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -163,13 +195,11 @@ func (r *Router) uploadComplete(c *gin.Context) {
 		Size:    resp.GetContentLength(),
 		Type:    resp.GetContentType(),
 		Name:    upload.Name,
-		Parent:  c.Query(ParentQueryStringKey),
+		Parent:  c.Query(ParentQueryKey),
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -177,7 +207,8 @@ func (r *Router) uploadComplete(c *gin.Context) {
 	c.String(http.StatusOK, createFileResp.GetId())
 }
 
-func (r *Router) uploadMedia(c *gin.Context) {
+// UploadMedia uploads a file from request's body.
+func (r *Router) UploadMedia(c *gin.Context) {
 	fileReader := c.Request.Body
 	if fileReader == nil {
 		c.String(http.StatusBadRequest, "missing file body")
@@ -189,9 +220,9 @@ func (r *Router) uploadMedia(c *gin.Context) {
 		return
 	}
 
-	contentType := c.GetHeader("Content-Type")
+	contentType := c.GetHeader(ContentTypeHeader)
 	fileName := ""
-	contentDisposition := c.GetHeader("Content-Disposition")
+	contentDisposition := c.GetHeader(ContentDispositionHeader)
 	if contentDisposition != "" {
 		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
 		if err != nil {
@@ -199,22 +230,19 @@ func (r *Router) uploadMedia(c *gin.Context) {
 		}
 	}
 
-	r.uploadFile(c, fileReader, contentType, fileName)
+	r.UploadFile(c, fileReader, contentType, fileName)
 }
 
-func (r *Router) uploadMultipart(c *gin.Context) {
+// UploadMultipart uploads a file from multipart/form-data request.
+func (r *Router) UploadMultipart(c *gin.Context) {
 	multipartForm, err := c.MultipartForm()
 	if err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("failed parsing multipart form data: %v", err))
 		return
 	}
-	defer func() {
-		if err := multipartForm.RemoveAll(); err != nil {
-			r.logger.Errorf("%v", err)
-		}
-	}()
+	defer r.logError(multipartForm.RemoveAll())
 
-	fileHeader, err := c.FormFile("file")
+	fileHeader, err := c.FormFile(FileFormName)
 	if err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("failed getting file: %v", err))
 		return
@@ -227,23 +255,21 @@ func (r *Router) uploadMultipart(c *gin.Context) {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(http.StatusInternalServerError, err))
 		return
 	}
 
-	contentType := fileHeader.Header.Get("Content-Type")
+	contentType := fileHeader.Header.Get(ContentTypeHeader)
 
-	r.uploadFile(c, file, contentType, fileHeader.Filename)
+	r.UploadFile(c, file, contentType, fileHeader.Filename)
 }
 
-func (r *Router) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
+// UploadFile uploads file from fileReader of type contentType with name filename to
+// upload service and creates it in file service.
+func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	file, err := ioutil.ReadAll(fileReader)
 	if err != nil {
-		if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(http.StatusInternalServerError, err))
 		return
 	}
 
@@ -256,9 +282,7 @@ func (r *Router) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	keyResp, err := r.fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -276,14 +300,12 @@ func (r *Router) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		Size:    int64(len(file)),
 		Type:    contentType,
 		Name:    fileFullName,
-		Parent:  c.Query(ParentQueryStringKey),
+		Parent:  c.Query(ParentQueryKey),
 	})
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -307,9 +329,7 @@ func (r *Router) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		}
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -317,7 +337,8 @@ func (r *Router) uploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	c.String(http.StatusOK, createFileResp.GetId())
 }
 
-func (r *Router) uploadInit(c *gin.Context) {
+// UploadInit initiates a resumable upload to upload a large file to.
+func (r *Router) UploadInit(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -334,9 +355,9 @@ func (r *Router) uploadInit(c *gin.Context) {
 		reqBody.Title = uuid.NewV4().String()
 	}
 
-	fileSize, err := strconv.ParseInt(c.Request.Header.Get(CustomContentLength), 10, 64)
+	fileSize, err := strconv.ParseInt(c.Request.Header.Get(ContentLengthCustomHeader), 10, 64)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Content-Length is invalid")
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is invalid", ContentLengthCustomHeader))
 		return
 	}
 
@@ -348,15 +369,13 @@ func (r *Router) uploadInit(c *gin.Context) {
 		Bucket:  reqUser.ID,
 		Name:    reqBody.Title,
 		OwnerID: reqUser.ID,
-		Parent:  c.Query(ParentQueryStringKey),
+		Parent:  c.Query(ParentQueryKey),
 		Size:    fileSize,
 	})
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -368,15 +387,13 @@ func (r *Router) uploadInit(c *gin.Context) {
 
 	uploadInitReq.ContentType = reqBody.MimeType
 	if reqBody.MimeType == "" {
-		uploadInitReq.ContentType = "application/octet-stream"
+		uploadInitReq.ContentType = DefaultContentLength
 	}
 
 	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -389,18 +406,17 @@ func (r *Router) uploadInit(c *gin.Context) {
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
 
-	c.Header("x-uploadid", resp.GetUploadId())
+	c.Header(UploadIDCustomHeader, resp.GetUploadId())
 	c.Status(http.StatusOK)
 }
 
-func (r *Router) uploadPart(c *gin.Context) {
+// UploadPart uploads a multipart file to a resumable upload.
+func (r *Router) UploadPart(c *gin.Context) {
 	multipartReader, err := c.Request.MultipartReader()
 	if err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("failed reading multipart form data: %v", err))
@@ -409,32 +425,28 @@ func (r *Router) uploadPart(c *gin.Context) {
 
 	file, err := multipartReader.NextPart()
 	if err != nil {
-		if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(http.StatusInternalServerError, err))
 		return
 	}
 	defer file.Close()
 
-	uploadID, exists := c.GetQuery("uploadId")
+	uploadID, exists := c.GetQuery(UploadIDQueryKey)
 	if !exists {
-		c.String(http.StatusBadRequest, "upload id is required")
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", UploadIDQueryKey))
 		return
 	}
 
 	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		r.logError(c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
 
-	fileRange := c.GetHeader("Content-Range")
+	fileRange := c.GetHeader(ContentRangeHeader)
 	if fileRange == "" {
-		c.String(http.StatusBadRequest, "Content-Range is required")
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", ContentRangeHeader))
 		return
 	}
 
@@ -443,15 +455,199 @@ func (r *Router) uploadPart(c *gin.Context) {
 	fileSize := int64(0)
 	_, err = fmt.Sscanf(fileRange, "bytes %d-%d/%d", &rangeStart, &rangeEnd, &fileSize)
 	if err != nil {
-		if err := c.AbortWithError(
-			http.StatusInternalServerError,
-			fmt.Errorf("Content-Range is invalid: %v", err),
-		); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
+		r.logError(c.AbortWithError(http.StatusInternalServerError, contentRangeErr))
+
 		return
 	}
 
+	bufSize := r.calculateBufSize(fileSize)
+
+	span, spanCtx := loggermiddleware.StartSpan(c.Request.Context(), "/upload.Upload/UploadPart")
+	defer span.End()
+
+	stream, err := r.uploadClient.UploadPart(spanCtx)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		r.logError(c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	errc := make(chan error, 1)
+	defer close(errc)
+
+	responseWG := sync.WaitGroup{}
+	responseWG.Add(1)
+
+	go r.HandleError(spanCtx, c, errc, &responseWG, stream, upload)
+
+	progress := &resumableFileUploadProgress{
+		rangeStart: rangeStart,
+		rangeEnd:   rangeEnd,
+		bufSize:    bufSize,
+		file:       file,
+		upload:     upload,
+	}
+
+	if err := r.HandleUpload(
+		spanCtx,
+		c,
+		errc,
+		&responseWG,
+		progress,
+		stream); err == io.EOF {
+		return
+	}
+
+	// Close the stream after finishing uploading all file parts.
+	r.logError(stream.CloseSend())
+	responseWG.Wait()
+}
+
+// HandleError receive messages from bi-directional stream and handles upload service
+// errors. If received non-nil and non-EOF errors it sends the error through errc,
+// and aborts the upload.
+func (r *Router) HandleError(
+	ctx context.Context,
+	c *gin.Context,
+	errc chan error,
+	wg *sync.WaitGroup,
+	stream upb.Upload_UploadPartClient,
+	upload *fpb.GetUploadByIDResponse) {
+	defer wg.Done()
+	for {
+		partResponse, err := stream.Recv()
+
+		// Upload response that all parts have finished uploading.
+		if err == io.EOF {
+			r.UploadComplete(c)
+			return
+		}
+
+		// If there's an error uploading any part then abort the upload process.
+		if err != nil || partResponse.GetCode() == 500 {
+			if err != nil {
+				errc <- err
+			}
+
+			if partResponse.GetCode() == 500 {
+				errc <- fmt.Errorf(partResponse.GetMessage())
+			}
+
+			return
+		}
+	}
+}
+
+// HandleUpload sends to bi-directional stream file found in progress. Upload file bytes
+// from progress.rangeStart to progress.rangeEnd sending in parts in size of
+// progress.bufSize.
+// Receives errors from errc, if any error is received then the operation would be aborted.
+// Returns nil error when sending is done with no errors, if stream is broken
+// then returns io.EOF.
+func (r *Router) HandleUpload(
+	ctx context.Context,
+	c *gin.Context,
+	errc chan error,
+	wg *sync.WaitGroup,
+	progress *resumableFileUploadProgress,
+	stream upb.Upload_UploadPartClient) error {
+	partNumber := int64(1)
+
+	for {
+		// If there's an error stop uploading file parts.
+		// Otherwise continue uploading the remaining parts.
+		select {
+		case err := <-errc:
+			r.logError(r.AbortUpload(ctx, progress.upload))
+
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			r.logError(c.AbortWithError(httpStatusCode, err))
+
+			break
+		default:
+		}
+
+		if progress.rangeEnd-progress.rangeStart+1 < progress.bufSize {
+			progress.bufSize = progress.rangeEnd - progress.rangeStart + 1
+		}
+
+		if progress.bufSize == 0 {
+			break
+		}
+
+		buf := make([]byte, progress.bufSize)
+		bytesRead, err := io.ReadFull(progress.file, buf)
+		if err != nil {
+			if err == io.ErrUnexpectedEOF {
+				r.logError(r.AbortUpload(ctx, progress.upload))
+				c.Abort()
+
+				break
+			}
+
+			r.logError(c.AbortWithError(http.StatusInternalServerError, err))
+
+			break
+		}
+
+		partRequest := &upb.UploadPartRequest{
+			Part:       buf,
+			Key:        progress.upload.GetKey(),
+			Bucket:     progress.upload.GetBucket(),
+			PartNumber: partNumber,
+			UploadId:   progress.upload.GetUploadID(),
+		}
+
+		if err := stream.Send(partRequest); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			r.logError(c.AbortWithError(httpStatusCode, err))
+
+			// Stream is broken, wait for wg and return.
+			if err == io.EOF {
+				wg.Wait()
+				c.Request.Body.Close()
+
+				return io.EOF
+			}
+
+			break
+		}
+
+		progress.rangeStart += int64(bytesRead)
+		partNumber++
+	}
+
+	return nil
+}
+
+// AbortUpload aborts upload in upload service and file service, returns non-nil error if any occurred.
+func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDResponse) error {
+	abortUploadRequest := &upb.UploadAbortRequest{
+		UploadId: upload.GetUploadID(),
+		Key:      upload.GetKey(),
+		Bucket:   upload.GetBucket(),
+	}
+
+	if _, err := r.uploadClient.UploadAbort(ctx, abortUploadRequest); err != nil {
+		return err
+	}
+
+	deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
+		UploadID: upload.GetUploadID(),
+	}
+
+	if _, err := r.fileClient.DeleteUploadByID(ctx, deleteUploadRequest); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// calculateBufSize gets a file size and calculates the size of the buffer to read the file
+// and stream it to upload service.
+func (r *Router) calculateBufSize(fileSize int64) int64 {
 	bufSize := fileSize / 50
 	if bufSize < MinPartUploadSize {
 		bufSize = MinPartUploadSize
@@ -461,153 +657,12 @@ func (r *Router) uploadPart(c *gin.Context) {
 		bufSize = MaxPartUploadSize
 	}
 
-	partNumber := int64(1)
+	return bufSize
+}
 
-	span, spanCtx := loggermiddleware.StartSpan(c.Request.Context(), "/upload.Upload/UploadPart")
-	defer span.End()
-
-	stream, err := r.uploadClient.UploadPart(spanCtx)
+// logError logs err with r.logger.Errorf if err is non-nil.
+func (r *Router) logError(err error) {
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
-
-		return
-	}
-
-	errc := make(chan error, 1)
-	defer close(errc)
-	responseWG := sync.WaitGroup{}
-	responseWG.Add(1)
-	go func() {
-		defer responseWG.Done()
-		for {
-			partResponse, err := stream.Recv()
-
-			// Upload response that all parts have finished uploading.
-			if err == io.EOF {
-				r.uploadComplete(c)
-				return
-			}
-
-			// If there's an error uploading any part then abort the upload process,
-			// and delete the parts that have finished uploading.
-			if err != nil || partResponse.GetCode() == 500 {
-				if err != nil {
-					errc <- err
-				}
-
-				if partResponse.GetCode() == 500 {
-					errc <- fmt.Errorf(partResponse.GetMessage())
-				}
-
-				abortUploadRequest := &upb.UploadAbortRequest{
-					UploadId: upload.GetUploadID(),
-					Key:      upload.GetKey(),
-					Bucket:   upload.GetBucket(),
-				}
-
-				if _, err := r.uploadClient.UploadAbort(spanCtx, abortUploadRequest); err != nil {
-					r.logger.Errorf("%v", err)
-				}
-
-				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
-					UploadID: upload.GetUploadID(),
-				}
-
-				if _, err := r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest); err != nil {
-					r.logger.Errorf("%v", err)
-				}
-				return
-			}
-		}
-	}()
-
-	for {
-		// If there's an error stop uploading file parts.
-		// Otherwise continue uploading the remaining parts.
-		select {
-		case err := <-errc:
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			if err := c.AbortWithError(httpStatusCode, err); err != nil {
-				r.logger.Errorf("%v", err)
-			}
-
-			break
-		default:
-		}
-
-		if rangeEnd-rangeStart+1 < bufSize {
-			bufSize = rangeEnd - rangeStart + 1
-		}
-
-		if bufSize == 0 {
-			break
-		}
-
-		buf := make([]byte, bufSize)
-		bytesRead, err := io.ReadFull(file, buf)
-		if err != nil {
-			if err == io.ErrUnexpectedEOF {
-				abortUploadRequest := &upb.UploadAbortRequest{
-					UploadId: upload.GetUploadID(),
-					Key:      upload.GetKey(),
-					Bucket:   upload.GetBucket(),
-				}
-
-				if _, err := r.uploadClient.UploadAbort(spanCtx, abortUploadRequest); err != nil {
-					r.logger.Errorf("%v", err)
-				}
-
-				deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
-					UploadID: upload.GetUploadID(),
-				}
-
-				if _, err := r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest); err != nil {
-					r.logger.Errorf("%v", err)
-				}
-				c.Abort()
-				break
-			}
-
-			if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
-				r.logger.Errorf("%v", err)
-			}
-			break
-		}
-
-		partRequest := &upb.UploadPartRequest{
-			Part:       buf,
-			Key:        upload.GetKey(),
-			Bucket:     upload.GetBucket(),
-			PartNumber: partNumber,
-			UploadId:   uploadID,
-		}
-
-		if err := stream.Send(partRequest); err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			if abortErr := c.AbortWithError(httpStatusCode, err); abortErr != nil {
-				r.logger.Errorf("%v", abortErr)
-			}
-
-			if err == io.EOF {
-				responseWG.Wait()
-				c.Request.Body.Close()
-				return
-			}
-
-			r.logger.Errorf("%v", err)
-			break
-		}
-
-		rangeStart += int64(bytesRead)
-		partNumber++
-	}
-
-	// Close the stream after finishing uploading all file parts.
-	if err := stream.CloseSend(); err != nil {
 		r.logger.Errorf("%v", err)
 	}
-	responseWG.Wait()
 }

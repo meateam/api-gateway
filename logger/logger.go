@@ -22,22 +22,20 @@ const (
 	cookieHeader = "Cookie"
 )
 
-var (
-	defaultSanitizedFieldNames = []string{
-		`^password`,
-		`^passwd`,
-		`^pwd`,
-		`^secret`,
-		`^*key`,
-		`^*token*`,
-		`^*session*`,
-		`^*credit*`,
-		`^*card*`,
-		`^authorization`,
-		`^set-cookie`,
-		`^phpsessididp`,
-	}
-)
+var defaultSanitizedFieldNames = []string{
+	`^password`,
+	`^passwd`,
+	`^pwd`,
+	`^secret`,
+	`^*key`,
+	`^*token*`,
+	`^*session*`,
+	`^*credit*`,
+	`^*card*`,
+	`^authorization`,
+	`^set-cookie`,
+	`^phpsessididp`,
+}
 
 // Config is the configuration struct for the logger,
 // Logger - a logrus Logger to use in the logger.
@@ -59,13 +57,7 @@ type request struct {
 
 // SetLogger initializes the logging middleware.
 func SetLogger(config *Config) gin.HandlerFunc {
-	if config == nil {
-		config = &Config{}
-	}
-
-	if config.Logger == nil {
-		config.Logger = logrus.New()
-	}
+	config = setupConfig(config)
 
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -135,6 +127,26 @@ func SetLogger(config *Config) gin.HandlerFunc {
 			logger.Info(msg)
 		}
 	}
+}
+
+// StartSpan starts an "external.grpc" span under the transaction in ctx,
+// returns the created span and the context with the traceparent header matadata.
+func StartSpan(ctx context.Context, name string) (*apm.Span, context.Context) {
+	span, ctx := apm.StartSpan(ctx, name, "external.grpc")
+	if span.Dropped() {
+		return span, ctx
+	}
+
+	traceparentValue := apmhttp.FormatTraceparentHeader(span.TraceContext())
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		md = metadata.Pairs(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
+	} else {
+		md = md.Copy()
+		md.Set(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
+	}
+
+	return span, metadata.NewOutgoingContext(ctx, md)
 }
 
 // sanitizeRequest sanitizes HTTP request data, redacting the
@@ -251,22 +263,14 @@ func isError(c *gin.Context) bool {
 	return c.Writer.Status() >= http.StatusInternalServerError
 }
 
-// StartSpan starts an "external.grpc" span under the transaction in ctx,
-// returns the created span and the context with the traceparent header matadata.
-func StartSpan(ctx context.Context, name string) (*apm.Span, context.Context) {
-	span, ctx := apm.StartSpan(ctx, name, "external.grpc")
-	if span.Dropped() {
-		return span, ctx
+func setupConfig(config *Config) *Config {
+	if config == nil {
+		config = &Config{}
 	}
 
-	traceparentValue := apmhttp.FormatTraceparentHeader(span.TraceContext())
-	md, ok := metadata.FromOutgoingContext(ctx)
-	if !ok {
-		md = metadata.Pairs(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
-	} else {
-		md = md.Copy()
-		md.Set(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
+	if config.Logger == nil {
+		config.Logger = logrus.New()
 	}
 
-	return span, metadata.NewOutgoingContext(ctx, md)
+	return config
 }

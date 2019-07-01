@@ -259,6 +259,12 @@ func (r *Router) download(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
 
+	if err := handleStream(c, stream); err != nil {
+		r.logger.Errorf("%v", err)
+	}
+}
+
+func handleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
@@ -266,27 +272,27 @@ func (r *Router) download(c *gin.Context) {
 
 			// Returns error, need to decide how to handle
 			if err := stream.CloseSend(); err != nil {
-				r.logger.Errorf("%v", err)
+				return err
 			}
-			return
+			return nil
 		}
 
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			if err := c.AbortWithError(httpStatusCode, err); err != nil {
-				r.logger.Errorf("%v", err)
+				return err
 			}
 
 			if err := stream.CloseSend(); err != nil {
-				r.logger.Errorf("%v", err)
+				return err
 			}
 
-			return
+			return nil
 		}
 
 		part := chunk.GetFile()
 		if _, err := c.Writer.Write(part); err != nil {
-			r.logger.Errorf("%v", err)
+			return err
 		}
 		c.Writer.Flush()
 	}
