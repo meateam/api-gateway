@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/meateam/api-gateway/server"
 
-	ilogger "github.com/meateam/elasticsearch-logger"
 	"github.com/spf13/viper"
 )
 
@@ -16,10 +15,6 @@ const (
 	configSecret          = "secret"
 	configAuthURL         = "auth_url"
 	configExternalApmURL  = "external_apm_url"
-)
-
-var (
-	logger = ilogger.NewLogger()
 )
 
 func init() {

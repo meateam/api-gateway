@@ -1,11 +1,9 @@
 package server
 
 import (
-	"context"
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -15,12 +13,10 @@ import (
 	"github.com/meateam/api-gateway/upload"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmgin"
 	"go.elastic.co/apm/module/apmgrpc"
 	"go.elastic.co/apm/module/apmhttp"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -136,22 +132,4 @@ func initServiceConn(url string) (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
-}
-
-// startSpan starts an "external.grpc" span under the transaction in ctx,
-// returns the created span and the context with the traceparent header matadata.
-func startSpan(ctx context.Context, name string) (*apm.Span, context.Context) {
-	span, ctx := apm.StartSpan(ctx, name, "external.grpc")
-	if span.Dropped() {
-		return span, ctx
-	}
-	traceparentValue := apmhttp.FormatTraceparentHeader(span.TraceContext())
-	md, ok := metadata.FromOutgoingContext(ctx)
-	if !ok {
-		md = metadata.Pairs(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
-	} else {
-		md = md.Copy()
-		md.Set(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
-	}
-	return span, metadata.NewOutgoingContext(ctx, md)
 }

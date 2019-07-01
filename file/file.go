@@ -57,8 +57,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.getFilesByFolder)
 	rg.GET("/files/:id", r.getFileByID)
 	rg.DELETE("/files/:id", r.deleteFileByID)
-
-	return
 }
 
 func (r *Router) getFileByID(c *gin.Context) {
@@ -76,11 +74,13 @@ func (r *Router) getFileByID(c *gin.Context) {
 
 	isUserAllowed, err := r.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
+			r.logger.Errorf("%v", err)
+		}
 		return
 	}
 
-	if isUserAllowed == false {
+	if !isUserAllowed {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -101,12 +101,13 @@ func (r *Router) getFileByID(c *gin.Context) {
 
 	responseFile, err := createGetFileResponse(file)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
+			r.logger.Errorf("%v", err)
+		}
 		return
 	}
 
 	c.JSON(http.StatusOK, responseFile)
-	return
 }
 
 func (r *Router) getFilesByFolder(c *gin.Context) {
@@ -117,13 +118,15 @@ func (r *Router) getFilesByFolder(c *gin.Context) {
 	}
 
 	filesParent, exists := c.GetQuery("parent")
-	if exists == true {
+	if exists {
 		isUserAllowed, err := r.userFilePermission(c, filesParent)
 		if err != nil {
-			c.AbortWithError(int(status.Code(err)), err)
+			if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
+				r.logger.Errorf("%v", err)
+			}
 			return
 		}
-		if isUserAllowed == false {
+		if !isUserAllowed {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
@@ -147,7 +150,9 @@ func (r *Router) getFilesByFolder(c *gin.Context) {
 	for _, file := range files {
 		responseFile, err := createGetFileResponse(file)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
+				r.logger.Errorf("%v", err)
+			}
 			return
 		}
 
@@ -155,7 +160,6 @@ func (r *Router) getFilesByFolder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
-	return
 }
 
 func (r *Router) deleteFileByID(c *gin.Context) {
@@ -175,7 +179,7 @@ func (r *Router) deleteFileByID(c *gin.Context) {
 		return
 	}
 
-	if isUserAllowed == false {
+	if !isUserAllowed {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -194,7 +198,6 @@ func (r *Router) deleteFileByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, deleteFileResponse.GetOk())
-	return
 }
 
 func (r *Router) download(c *gin.Context) {
@@ -207,11 +210,13 @@ func (r *Router) download(c *gin.Context) {
 
 	isUserAllowed, err := r.userFilePermission(c, fileID)
 	if err != nil {
-		c.AbortWithError(int(status.Code(err)), err)
+		if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
+			r.logger.Errorf("%v", err)
+		}
 		return
 	}
 
-	if isUserAllowed == false {
+	if !isUserAllowed {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -260,7 +265,9 @@ func (r *Router) download(c *gin.Context) {
 			c.Status(http.StatusOK)
 
 			// Returns error, need to decide how to handle
-			stream.CloseSend()
+			if err := stream.CloseSend(); err != nil {
+				r.logger.Errorf("%v", err)
+			}
 			return
 		}
 
@@ -278,7 +285,9 @@ func (r *Router) download(c *gin.Context) {
 		}
 
 		part := chunk.GetFile()
-		c.Writer.Write(part)
+		if _, err := c.Writer.Write(part); err != nil {
+			r.logger.Errorf("%v", err)
+		}
 		c.Writer.Flush()
 	}
 }
@@ -301,7 +310,7 @@ func (r *Router) userFilePermission(c *gin.Context, fileID string) (bool, error)
 		return false, err
 	}
 
-	if isAllowedResp.GetAllowed() != true {
+	if !isAllowedResp.GetAllowed() {
 		return false, nil
 	}
 

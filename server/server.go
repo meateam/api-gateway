@@ -62,8 +62,6 @@ func (s *Server) Listen() {
 		for _, v := range s.conns {
 			v.Close()
 		}
-
-		return
 	}()
 
 	logger.Infof("server listening on port: %s", viper.GetString(configPort))

@@ -17,7 +17,7 @@ type User struct {
 // ExtractRequestUser gets a gin.Context and extracts the
 func ExtractRequestUser(c *gin.Context) *User {
 	contextUser, exists := c.Get(ContextUserKey)
-	if exists != true {
+	if !exists {
 		return nil
 	}
 
@@ -25,7 +25,6 @@ func ExtractRequestUser(c *gin.Context) *User {
 	switch v := contextUser.(type) {
 	case User:
 		reqUser = v
-		break
 	default:
 		return nil
 	}
