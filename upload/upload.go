@@ -155,7 +155,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -169,7 +169,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	resp, err := r.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -183,7 +183,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -199,7 +199,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -240,7 +240,7 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("failed parsing multipart form data: %v", err))
 		return
 	}
-	defer r.logError(multipartForm.RemoveAll())
+	defer loggermiddleware.LogError(r.logger, multipartForm.RemoveAll())
 
 	fileHeader, err := c.FormFile(FileFormName)
 	if err != nil {
@@ -255,7 +255,7 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		r.logError(c.AbortWithError(http.StatusInternalServerError, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 		return
 	}
 
@@ -269,7 +269,7 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	file, err := ioutil.ReadAll(fileReader)
 	if err != nil {
-		r.logError(c.AbortWithError(http.StatusInternalServerError, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 		return
 	}
 
@@ -282,7 +282,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	keyResp, err := r.fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -305,7 +305,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -329,7 +329,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		}
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -375,7 +375,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -393,7 +393,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -406,7 +406,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -425,7 +425,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 
 	file, err := multipartReader.NextPart()
 	if err != nil {
-		r.logError(c.AbortWithError(http.StatusInternalServerError, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 		return
 	}
 	defer file.Close()
@@ -439,7 +439,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -456,7 +456,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	_, err = fmt.Sscanf(fileRange, "bytes %d-%d/%d", &rangeStart, &rangeEnd, &fileSize)
 	if err != nil {
 		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
-		r.logError(c.AbortWithError(http.StatusInternalServerError, contentRangeErr))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, contentRangeErr))
 
 		return
 	}
@@ -469,7 +469,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	stream, err := r.uploadClient.UploadPart(spanCtx)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		r.logError(c.AbortWithError(httpStatusCode, err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -501,7 +501,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	}
 
 	// Close the stream after finishing uploading all file parts.
-	r.logError(stream.CloseSend())
+	loggermiddleware.LogError(r.logger, stream.CloseSend())
 	responseWG.Wait()
 }
 
@@ -560,10 +560,10 @@ func (r *Router) HandleUpload(
 		// Otherwise continue uploading the remaining parts.
 		select {
 		case err := <-errc:
-			r.logError(r.AbortUpload(ctx, progress.upload))
+			loggermiddleware.LogError(r.logger, r.AbortUpload(ctx, progress.upload))
 
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			r.logError(c.AbortWithError(httpStatusCode, err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 			break
 		default:
@@ -581,13 +581,13 @@ func (r *Router) HandleUpload(
 		bytesRead, err := io.ReadFull(progress.file, buf)
 		if err != nil {
 			if err == io.ErrUnexpectedEOF {
-				r.logError(r.AbortUpload(ctx, progress.upload))
+				loggermiddleware.LogError(r.logger, r.AbortUpload(ctx, progress.upload))
 				c.Abort()
 
 				break
 			}
 
-			r.logError(c.AbortWithError(http.StatusInternalServerError, err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 
 			break
 		}
@@ -602,7 +602,7 @@ func (r *Router) HandleUpload(
 
 		if err := stream.Send(partRequest); err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			r.logError(c.AbortWithError(httpStatusCode, err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 			// Stream is broken, wait for wg and return.
 			if err == io.EOF {
@@ -658,11 +658,4 @@ func (r *Router) calculateBufSize(fileSize int64) int64 {
 	}
 
 	return bufSize
-}
-
-// logError logs err with r.logger.Errorf if err is non-nil.
-func (r *Router) logError(err error) {
-	if err != nil {
-		r.logger.Errorf("%v", err)
-	}
 }

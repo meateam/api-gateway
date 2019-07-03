@@ -129,6 +129,13 @@ func SetLogger(config *Config) gin.HandlerFunc {
 	}
 }
 
+// LogError logs err with logger.Errorf if err is non-nil.
+func LogError(logger *logrus.Logger, err error) {
+	if err != nil {
+		logger.Errorf("%v", err)
+	}
+}
+
 // StartSpan starts an "external.grpc" span under the transaction in ctx,
 // returns the created span and the context with the traceparent header matadata.
 func StartSpan(ctx context.Context, name string) (*apm.Span, context.Context) {
