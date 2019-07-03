@@ -72,16 +72,8 @@ func (r *Router) getFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed, err := r.userFilePermission(c, fileID)
-	if err != nil {
-		if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
-		return
-	}
-
+	isUserAllowed := r.HandleUserFilePermission(c, fileID)
 	if !isUserAllowed {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -119,15 +111,8 @@ func (r *Router) getFilesByFolder(c *gin.Context) {
 
 	filesParent, exists := c.GetQuery("parent")
 	if exists {
-		isUserAllowed, err := r.userFilePermission(c, filesParent)
-		if err != nil {
-			if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
-				r.logger.Errorf("%v", err)
-			}
-			return
-		}
+		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
 		if !isUserAllowed {
-			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 	}
@@ -169,18 +154,8 @@ func (r *Router) deleteFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed, err := r.userFilePermission(c, fileID)
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
-
-		return
-	}
-
+	isUserAllowed := r.HandleUserFilePermission(c, fileID)
 	if !isUserAllowed {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -208,16 +183,8 @@ func (r *Router) download(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed, err := r.userFilePermission(c, fileID)
-	if err != nil {
-		if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
-		return
-	}
-
+	isUserAllowed := r.HandleUserFilePermission(c, fileID)
 	if !isUserAllowed {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -321,6 +288,30 @@ func (r *Router) userFilePermission(c *gin.Context, fileID string) (bool, error)
 	}
 
 	return true, nil
+}
+
+// HandleUserFilePermission gets a gin context and the id of the requested file.
+// The function returns true if the user is permitted to operate on the file.
+// The function returns false if the user isn't permitted to operate on it,
+// The function also returns false if error if error occurred on r.userFilePermission
+// and also log the error.
+// It also handles error cases and Unauthorized operations by aborting with error/status.
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string) bool {
+	isUserAllowed, err := r.userFilePermission(c, fileID)
+
+	if err != nil {
+		if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
+			r.logger.Errorf("%v", err)
+		}
+		return false
+	}
+
+	if !isUserAllowed {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return false
+	}
+
+	return true
 }
 
 // Creates a file grpc response to http response struct
