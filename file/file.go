@@ -84,18 +84,14 @@ func (r *Router) getFileByID(c *gin.Context) {
 	file, err := r.fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
 
 	responseFile, err := createGetFileResponse(file)
 	if err != nil {
-		if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 		return
 	}
 
@@ -123,9 +119,7 @@ func (r *Router) getFilesByFolder(c *gin.Context) {
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -135,9 +129,7 @@ func (r *Router) getFilesByFolder(c *gin.Context) {
 	for _, file := range files {
 		responseFile, err := createGetFileResponse(file)
 		if err != nil {
-			if err := c.AbortWithError(http.StatusInternalServerError, err); err != nil {
-				r.logger.Errorf("%v", err)
-			}
+			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 			return
 		}
 
@@ -165,9 +157,7 @@ func (r *Router) deleteFileByID(c *gin.Context) {
 	deleteFileResponse, err := r.fileClient.DeleteFile(c.Request.Context(), deleteFileRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -192,9 +182,7 @@ func (r *Router) download(c *gin.Context) {
 	fileMeta, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -214,9 +202,7 @@ func (r *Router) download(c *gin.Context) {
 	stream, err := r.downloadClient.Download(spanCtx, downloadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
@@ -226,9 +212,7 @@ func (r *Router) download(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
 
-	if err := handleStream(c, stream); err != nil {
-		r.logger.Errorf("%v", err)
-	}
+	loggermiddleware.LogError(r.logger, handleStream(c, stream))
 }
 
 func handleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
@@ -300,9 +284,7 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string) bool {
 	isUserAllowed, err := r.userFilePermission(c, fileID)
 
 	if err != nil {
-		if err := c.AbortWithError(int(status.Code(err)), err); err != nil {
-			r.logger.Errorf("%v", err)
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
 		return false
 	}
 
