@@ -17,6 +17,9 @@ const (
 
 	// AuthHeader is the key of the authorization header.
 	AuthHeader = "Authorization"
+
+	// AuthHeaderBearer is the prefix for the authorization token in AuthHeader.
+	AuthHeaderBearer = "Bearer"
 )
 
 // Middleware validates the jwt token in c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
@@ -33,7 +36,7 @@ func Middleware(secret string, authURL string) gin.HandlerFunc {
 				return
 			}
 
-			if authArr[0] != "Bearer" {
+			if authArr[0] != AuthHeaderBearer {
 				redirectToAuthService(c, authURL)
 				return
 			}
@@ -69,7 +72,7 @@ func Middleware(secret string, authURL string) gin.HandlerFunc {
 		}
 
 		// Check type assertion.
-		// For some reason can't convert directly to int64
+		// For some reason can't convert directly to int64.
 		iat, ok := claims["iat"].(float64)
 		if !ok {
 			redirectToAuthService(c, authURL)
@@ -78,18 +81,18 @@ func Middleware(secret string, authURL string) gin.HandlerFunc {
 
 		passed := time.Since(time.Unix(int64(iat), 0))
 
-		// Token expired
+		// Token expired.
 		if time.Hour*24 < passed {
 			redirectToAuthService(c, authURL)
 			return
 		}
 
-		// Check type assertion
+		// Check type assertion.
 		id, idOk := claims["id"].(string)
 		firstName, firstNameOk := claims["firstName"].(string)
 		lastName, lastNameOk := claims["lastName"].(string)
 
-		// If any of the claims are invalid then redirect to authentication
+		// If any of the claims are invalid then redirect to authentication.
 		if !idOk || !firstNameOk || !lastNameOk {
 			redirectToAuthService(c, authURL)
 			return
@@ -105,6 +108,7 @@ func Middleware(secret string, authURL string) gin.HandlerFunc {
 	}
 }
 
+// redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
 func redirectToAuthService(c *gin.Context, authURL string) {
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 	c.Abort()

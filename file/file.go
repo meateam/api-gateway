@@ -23,6 +23,7 @@ type Router struct {
 	logger         *logrus.Logger
 }
 
+// getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
 type getFileByIDResponse struct {
 	ID          string `json:"id,omitempty"`
 	Name        string `json:"name,omitempty"`
@@ -54,12 +55,13 @@ func NewRouter(fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn, logger 
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.GET("/files", r.getFilesByFolder)
-	rg.GET("/files/:id", r.getFileByID)
-	rg.DELETE("/files/:id", r.deleteFileByID)
+	rg.GET("/files", r.GetFilesByFolder)
+	rg.GET("/files/:id", r.GetFileByID)
+	rg.DELETE("/files/:id", r.DeleteFileByID)
 }
 
-func (r *Router) getFileByID(c *gin.Context) {
+// GetFileByID is the request handler for GET /files/:id
+func (r *Router) GetFileByID(c *gin.Context) {
 	fileID := c.Param("id")
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
@@ -68,7 +70,7 @@ func (r *Router) getFileByID(c *gin.Context) {
 
 	alt := c.Query("alt")
 	if alt == "media" {
-		r.download(c)
+		r.Download(c)
 		return
 	}
 
@@ -98,7 +100,8 @@ func (r *Router) getFileByID(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFile)
 }
 
-func (r *Router) getFilesByFolder(c *gin.Context) {
+// GetFilesByFolder is the request handler for GET /files request.
+func (r *Router) GetFilesByFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -139,7 +142,8 @@ func (r *Router) getFilesByFolder(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFiles)
 }
 
-func (r *Router) deleteFileByID(c *gin.Context) {
+// DeleteFileByID is the request handler for DELETE /files/:id request.
+func (r *Router) DeleteFileByID(c *gin.Context) {
 	fileID := c.Param("id")
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
@@ -165,7 +169,8 @@ func (r *Router) deleteFileByID(c *gin.Context) {
 	c.JSON(http.StatusOK, deleteFileResponse.GetOk())
 }
 
-func (r *Router) download(c *gin.Context) {
+// Download is the request handler for /files/:id?alt=media request.
+func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
 	fileID := c.Param("id")
 	if fileID == "" {
@@ -212,10 +217,11 @@ func (r *Router) download(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
 
-	loggermiddleware.LogError(r.logger, handleStream(c, stream))
+	loggermiddleware.LogError(r.logger, HandleStream(c, stream))
 }
 
-func handleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
+// HandleStream streams the file bytes from stream to c.
+func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
@@ -296,7 +302,7 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string) bool {
 	return true
 }
 
-// Creates a file grpc response to http response struct
+// createGetFileResponse Creates a file grpc response to http response struct
 func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &getFileByIDResponse{

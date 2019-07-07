@@ -14,7 +14,7 @@ type User struct {
 	LastName  string
 }
 
-// ExtractRequestUser gets a gin.Context and extracts the
+// ExtractRequestUser gets a gin.Context and extracts the user's details from c.
 func ExtractRequestUser(c *gin.Context) *User {
 	contextUser, exists := c.Get(ContextUserKey)
 	if !exists {

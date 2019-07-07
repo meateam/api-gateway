@@ -69,7 +69,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		)
 	})
 
-	// Initiate file router.
+	// Initiate services gRPC connections.
 	fileConn, err := initServiceConn(viper.GetString(configfileService))
 	if err != nil {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
@@ -85,10 +85,8 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup download service connection: %v", err)
 	}
 
-	// Initiate file router.
+	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, logger)
-
-	// Initiate upload router.
 	ur := upload.NewRouter(uploadConn, fileConn, logger)
 
 	// Authentication middleware on routes group.
@@ -105,6 +103,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn}
 }
 
+// corsRouterConfig configures cors policy for cors.New gin middleware.
 func corsRouterConfig() cors.Config {
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AddExposeHeaders("x-uploadid")
@@ -122,6 +121,9 @@ func corsRouterConfig() cors.Config {
 	return corsConfig
 }
 
+// initServiceConn creates a gRPC connection to url, returns the created connection
+// and nil err on success. Returns non-nil error if any error occurred while
+// creating the connection.
 func initServiceConn(url string) (*grpc.ClientConn, error) {
 	conn, err := grpc.Dial(url,
 		grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor()),
