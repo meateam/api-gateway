@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v0.0.0-20190424000812-bd1331c62cae
-	github.com/gin-gonic/gin v1.3.0
+	github.com/gin-gonic/gin v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway v1.8.6
 	github.com/meateam/download-service v0.0.0-20190505082208-15b980fc9a07
 	github.com/meateam/elasticsearch-logger v1.1.2
@@ -28,3 +28,5 @@ replace github.com/meateam/api-gateway/user => ./user
 replace github.com/meateam/api-gateway/upload => ./upload
 
 replace github.com/meateam/api-gateway/server => ./server
+
+replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
