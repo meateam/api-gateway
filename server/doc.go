@@ -17,6 +17,8 @@ GW_FILE_SERVICE: The address of the file-service.
 	default: "file-service:8080"
 GW_EXTERNAL_APM_URL: External server's client APM url.
 	default: "http://localhost:8200"
+GW_ALLOW_ORIGINS: List of allowed origins for the Access-Control-Allow-Origin header.
+	default: "http://localhost*", can be a list of urls.
 
 For configuring the APM agent see https://www.elastic.co/guide/en/apm/agent/go/current/configuration.html
 For configuring the logger of the server see Package logger doc.go

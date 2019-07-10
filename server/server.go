@@ -17,6 +17,7 @@ const (
 	configSecret          = "secret"
 	configAuthURL         = "auth_url"
 	configExternalApmURL  = "external_apm_url"
+	configAllowOrigins    = "allow_origins"
 )
 
 var (
@@ -31,6 +32,7 @@ func init() {
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
+	viper.SetDefault(configAllowOrigins, "http://localhost*")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

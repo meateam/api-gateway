@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -107,7 +108,10 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 func corsRouterConfig() cors.Config {
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AddExposeHeaders("x-uploadid")
-	corsConfig.AllowAllOrigins = true
+	corsConfig.AllowAllOrigins = false
+	corsConfig.AllowWildcard = true
+	corsConfig.AllowOrigins = strings.Split(viper.GetString(configAllowOrigins), ",")
+	corsConfig.AllowCredentials = true
 	corsConfig.AddAllowHeaders(
 		"x-content-length",
 		"authorization",
