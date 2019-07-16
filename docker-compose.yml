@@ -12,6 +12,7 @@ services:
       GW_DOWNLOAD_SERVICE: 'download-service:8080'
       GW_FILE_SERVICE: 'file-service:8080'
       GW_EXTERNAL_APM_URL: http://localhost:8200
+      GW_ALLOW_ORIGINS: http://localhost*
       ELASTICSEARCH_URL: http://localhost:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: info
@@ -21,7 +22,7 @@ services:
       ELASTIC_APM_ENVIRONMENT: development
       ELASTIC_APM_ACTIVE: 'true'
       ELASTIC_APM_IGNORE_URLS: /api/healthcheck
-      ELASTIC_APM_CAPTURE_BODY: all
+      ELASTIC_APM_CAPTURE_BODY: 'off'
       ELASTIC_APM_METRICS_INTERVAL: 10s
       GW_SECRET: pandora@drive
     ports:
@@ -57,7 +58,7 @@ services:
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_CAPTURE_BODY: 'off'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
     depends_on:
       - minio
@@ -79,7 +80,7 @@ services:
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_CAPTURE_BODY: 'off'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
     ports:
       - '8082:8080'
@@ -88,7 +89,7 @@ services:
   file-service:
     image: file-service
     environment:
-      MONGO_HOST: mongo
+      MONGO_HOST: mongodb://mongo:27017/devDB
     ports:
       - '8083:8080'
     depends_on:
@@ -96,7 +97,7 @@ services:
   mongo:
     image: 'mongo:latest'
     ports:
-      - '27018:27017'
+      - '27017:27017'
     volumes:
       - './data/db:/data/db'
   authentication-service:
