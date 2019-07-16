@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,29 +14,31 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.elastic.co/apm"
 	"go.elastic.co/apm/module/apmhttp"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
-	redacted     = "[REDACTED]"
-	cookieHeader = "Cookie"
+	redacted             = "[REDACTED]"
+	cookieHeader         = "Cookie"
+	cookiesSeparator     = "; "
+	requestMsg           = "Request"
+	externalGRPCSpanType = "external.grpc"
 )
 
-var (
-	defaultSanitizedFieldNames = []string{
-		`^password`,
-		`^passwd`,
-		`^pwd`,
-		`^secret`,
-		`^*key`,
-		`^*token*`,
-		`^*session*`,
-		`^*credit*`,
-		`^*card*`,
-		`^authorization`,
-		`^set-cookie`,
-		`^phpsessididp`,
-	}
-)
+var defaultSanitizedFieldNames = []string{
+	`^password`,
+	`^passwd`,
+	`^pwd`,
+	`^secret`,
+	`^*key`,
+	`^*token*`,
+	`^*session*`,
+	`^*credit*`,
+	`^*card*`,
+	`^authorization`,
+	`^set-cookie`,
+	`^phpsessididp`,
+}
 
 // Config is the configuration struct for the logger,
 // Logger - a logrus Logger to use in the logger.
@@ -57,13 +60,7 @@ type request struct {
 
 // SetLogger initializes the logging middleware.
 func SetLogger(config *Config) gin.HandlerFunc {
-	if config == nil {
-		config = &Config{}
-	}
-
-	if config.Logger == nil {
-		config.Logger = logrus.New()
-	}
+	config = setupConfig(config)
 
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -86,7 +83,7 @@ func SetLogger(config *Config) gin.HandlerFunc {
 				cookies = append(cookies, v.String())
 			}
 
-			req.Headers[cookieHeader] = []string{strings.Join(cookies, "; ")}
+			req.Headers[cookieHeader] = []string{strings.Join(cookies, cookiesSeparator)}
 		}
 
 		// If skip contains the current path or the path matches the regex, skip it.
@@ -101,12 +98,12 @@ func SetLogger(config *Config) gin.HandlerFunc {
 
 		end := time.Now().UTC()
 		duration := end.Sub(start)
-		msg := "Request"
+		msg := requestMsg
 		if len(c.Errors) > 0 {
 			msg = c.Errors.String()
 		}
 
-		traceID := extractTraceParent(c)
+		traceID := extractTraceID(c)
 		sanitizeHeaders(c.Writer.Header(), defaultSanitizedFieldNames)
 
 		logger := config.Logger.WithFields(
@@ -135,9 +132,37 @@ func SetLogger(config *Config) gin.HandlerFunc {
 	}
 }
 
+// LogError logs err with logger.Errorf if err is non-nil.
+func LogError(logger *logrus.Logger, err error) {
+	if err != nil {
+		logger.Errorf("%v", err)
+	}
+}
+
+// StartSpan starts an externalGRPCSpanType span under the transaction in ctx,
+// returns the created span and the context with the traceparent header matadata.
+func StartSpan(ctx context.Context, name string) (*apm.Span, context.Context) {
+	span, ctx := apm.StartSpan(ctx, name, externalGRPCSpanType)
+	if span.Dropped() {
+		return span, ctx
+	}
+
+	traceparentValue := apmhttp.FormatTraceparentHeader(span.TraceContext())
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		md = metadata.Pairs(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
+	} else {
+		md = md.Copy()
+		md.Set(strings.ToLower(apmhttp.TraceparentHeader), traceparentValue)
+	}
+
+	return span, metadata.NewOutgoingContext(ctx, md)
+}
+
 // sanitizeRequest sanitizes HTTP request data, redacting the
 // values of cookies, headers and forms whose corresponding keys
-// match any of the given wildcard patterns.
+// match any of the given patterns in matchers.
+// Comparison is case-insensitive.
 func sanitizeRequest(r request, matchers []string) {
 	for _, m := range matchers {
 		reg := regexp.MustCompile(m)
@@ -164,6 +189,9 @@ func sanitizeRequest(r request, matchers []string) {
 	}
 }
 
+// sanitizeHeaders sanitizes HTTP headers, redacting the values of headers
+// whose corresponding keys match any of the given patterns in matchers.
+// Comparison is case-insensitive.
 func sanitizeHeaders(headers http.Header, matchers []string) {
 	for _, m := range matchers {
 		reg := regexp.MustCompile(m)
@@ -177,7 +205,8 @@ func sanitizeHeaders(headers http.Header, matchers []string) {
 	}
 }
 
-func extractTraceParent(c *gin.Context) string {
+// extractTraceID extracts the traceparent header value and returns its trace id.
+func extractTraceID(c *gin.Context) string {
 	// If apmhttp.TraceparentHeader is present in request's headers
 	// then parse the trace id and return it.
 	if values := c.Request.Header[apmhttp.TraceparentHeader]; len(values) == 1 && values[0] != "" {
@@ -192,6 +221,8 @@ func extractTraceParent(c *gin.Context) string {
 	return tx.TraceContext().Trace.String()
 }
 
+// mapStringSlice returns a map of string keys in s to empty struct,
+// used to check if a string key is found in s.
 func mapStringSlice(s []string) map[string]struct{} {
 	var mappedSlice map[string]struct{}
 	if length := len(s); length > 0 {
@@ -204,6 +235,9 @@ func mapStringSlice(s []string) map[string]struct{} {
 	return mappedSlice
 }
 
+// extractRequestBody extracts the body of c and returns its bytes as a string.
+// Extraction is skipped according to config and fullpath, and doesn't apply to bodies
+// bigger than 1MB.
 func extractRequestBody(c *gin.Context, config *Config, fullPath string) string {
 	skipBody := mapStringSlice(config.SkipBodyPath)
 	requestBodyField := ""
@@ -231,6 +265,7 @@ func extractRequestBody(c *gin.Context, config *Config, fullPath string) string 
 	return requestBodyField
 }
 
+// getRequestFullPath returns the full path of the request in c.
 func getRequestFullPath(c *gin.Context) string {
 	path := c.Request.URL.Path
 	raw := c.Request.URL.RawQuery
@@ -241,10 +276,27 @@ func getRequestFullPath(c *gin.Context) string {
 	return path
 }
 
+// isWarning returns true if the response status in c is 4xx.
 func isWarning(c *gin.Context) bool {
 	return c.Writer.Status() >= http.StatusBadRequest && c.Writer.Status() < http.StatusInternalServerError
 }
 
+// isError returns true if the response status in c is >= 500.
 func isError(c *gin.Context) bool {
 	return c.Writer.Status() >= http.StatusInternalServerError
+}
+
+// setupConfig handles config creation based on given config, if config is nil then
+// a default config would be returned. If config.Logger is nil then it would be set
+// to logrus.New.
+func setupConfig(config *Config) *Config {
+	if config == nil {
+		config = &Config{}
+	}
+
+	if config.Logger == nil {
+		config.Logger = logrus.New()
+	}
+
+	return config
 }
