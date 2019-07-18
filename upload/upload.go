@@ -59,6 +59,9 @@ const (
 	// DefaultContentLength the default content length of a file.
 	DefaultContentLength = "application/octet-stream"
 
+	// FolderContentType is the custom content type of a folder.
+	FolderContentType = "application/vnd.drive.folder"
+
 	// ContentTypeHeader content type header name.
 	ContentTypeHeader = "Content-Type"
 
@@ -119,6 +122,11 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
+	if c.ContentType() == FolderContentType {
+		r.UploadFolder(c)
+		return
+	}
+
 	uploadType, exists := c.GetQuery(UploadTypeQueryKey)
 	if !exists {
 		r.UploadInit(c)
@@ -136,6 +144,53 @@ func (r *Router) Upload(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("unknown uploadType=%v", uploadType))
 		return
 	}
+}
+
+func getFileName(c *gin.Context) string {
+	fileName := ""
+	contentDisposition := c.GetHeader(ContentDispositionHeader)
+
+	if contentDisposition != "" {
+		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
+		if err != nil {
+			fileName = ""
+		}
+	}
+
+	return fileName
+}
+
+// UploadFolder creates a folder in file service
+func (r *Router) UploadFolder(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	folderFullName := getFileName(c)
+	if folderFullName == "" {
+		folderFullName = uuid.NewV4().String()
+	}
+
+	createFolderResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
+		Key:     "",
+		Bucket:  "",
+		OwnerID: reqUser.ID,
+		Size:    0,
+		Type:    c.ContentType(),
+		Name:    folderFullName,
+		Parent:  c.Query(ParentQueryKey),
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	c.String(http.StatusOK, createFolderResp.GetId())
 }
 
 // UploadComplete completes a resumable file upload and creates the uploaded file.
@@ -220,15 +275,8 @@ func (r *Router) UploadMedia(c *gin.Context) {
 		return
 	}
 
-	contentType := c.GetHeader(ContentTypeHeader)
-	fileName := ""
-	contentDisposition := c.GetHeader(ContentDispositionHeader)
-	if contentDisposition != "" {
-		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
-		if err != nil {
-			fileName = ""
-		}
-	}
+	contentType := c.ContentType()
+	fileName := getFileName(c)
 
 	r.UploadFile(c, fileReader, contentType, fileName)
 }
