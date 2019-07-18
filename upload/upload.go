@@ -175,7 +175,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 
 	createFolderResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     "",
-		Bucket:  "",
+		Bucket:  "bucket is required currently, so i gotta fill this string",
 		OwnerID: reqUser.ID,
 		Size:    0,
 		Type:    c.ContentType(),
