@@ -122,6 +122,12 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
 	if c.ContentType() == FolderContentType {
 		r.UploadFolder(c)
 		return
@@ -163,10 +169,6 @@ func getFileName(c *gin.Context) string {
 // UploadFolder creates a folder in file service
 func (r *Router) UploadFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
 
 	folderFullName := getFileName(c)
 	if folderFullName == "" {
@@ -195,15 +197,10 @@ func (r *Router) UploadFolder(c *gin.Context) {
 
 // UploadComplete completes a resumable file upload and creates the uploaded file.
 func (r *Router) UploadComplete(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
 	uploadID, exists := c.GetQuery(UploadIDQueryKey)
 	if !exists {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", UploadIDQueryKey))
-		return
-	}
-
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -315,15 +312,10 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 // UploadFile uploads file from fileReader of type contentType with name filename to
 // upload service and creates it in file service.
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
+	reqUser := user.ExtractRequestUser(c)
 	file, err := ioutil.ReadAll(fileReader)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
-		return
-	}
-
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -388,10 +380,6 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 // UploadInit initiates a resumable upload to upload a large file to.
 func (r *Router) UploadInit(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
 
 	var reqBody uploadInitBody
 	if err := c.BindJSON(&reqBody); err != nil {
