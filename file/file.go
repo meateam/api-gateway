@@ -176,7 +176,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	DeleteObjectRequest := &upb.DeleteObjectsRequest{
 		Bucket: file.GetBucket(),
-		Keys:   []string{fileID},
+		Keys:   []string{file.GetKey()},
 	}
 	deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
 	if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
