@@ -87,7 +87,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	}
 
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, logger)
 
 	// Authentication middleware on routes group.

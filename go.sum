@@ -98,8 +98,8 @@ github.com/meateam/elogrus/v4 v4.0.2 h1:X+fpps3Ti9vIoqo/wnPcuaB+wxkZwkmTppXnnBe1
 github.com/meateam/elogrus/v4 v4.0.2/go.mod h1:O+KJPmbnEV80u+V8tCYTvcBpzp/HZa7XR4nqDtDMzYg=
 github.com/meateam/file-service v0.0.0-20190617072641-600b1c4d91d3 h1:MITH3076hlu+Y8IvG/HPGowUjF4VtIj9RIXmb3/fcgs=
 github.com/meateam/file-service v0.0.0-20190617072641-600b1c4d91d3/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
-github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26 h1:8mWCumautVzGxOMUOGILx7pwFVBoqik5E38v2AzeK9A=
-github.com/meateam/upload-service v0.0.0-20190505081218-33fd5544ae26/go.mod h1:+DKN0naTjr9feBK3gvn+821VKPxQVIp6pkXs85eT29c=
+github.com/meateam/upload-service v0.0.0-20190721133242-10bfc81ce835 h1:b4QjEl3hmlS/JSm/TBGMHnc4S8rxpLwac+ktEwOXhuE=
+github.com/meateam/upload-service v0.0.0-20190721133242-10bfc81ce835/go.mod h1:h0Xn5OLsm238+7/GZKxktHIBGtKLfZFyvv91VX+H3lA=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
@@ -238,7 +238,6 @@ google.golang.org/grpc v1.16.0/go.mod h1:0JHn/cJsOMiMfNA9+DeHDlAU7KAAB5GDlYFpa9M
 google.golang.org/grpc v1.17.0/go.mod h1:6QZJwpn2B+Zp71q/5VxRsJ6NXXVCE5NRUHRo+f3cWCs=
 google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZiDr8c=
 google.golang.org/grpc v1.19.1/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZiDr8c=
-google.golang.org/grpc v1.20.1/go.mod h1:10oTOabMzJvdu6/UiuZezV6QK5dSlG84ov/aaiqXj38=
 google.golang.org/grpc v1.21.0 h1:G+97AoqBnmZIT91cLG/EkCoK9NSelj64P8bOHHNmGn0=
 google.golang.org/grpc v1.21.0/go.mod h1:oYelfM1adQP15Ek0mdvEgi9Df8B9CZIaU1084ijfRaM=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
