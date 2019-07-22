@@ -11,6 +11,7 @@ import (
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto"
+	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -20,6 +21,7 @@ import (
 type Router struct {
 	downloadClient dpb.DownloadClient
 	fileClient     fpb.FileServiceClient
+	uploadClient   upb.UploadClient
 	logger         *logrus.Logger
 }
 
@@ -39,7 +41,12 @@ type getFileByIDResponse struct {
 // NewRouter creates a new Router, and initializes clients of File Service
 // and Download Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
-func NewRouter(fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn, logger *logrus.Logger) *Router {
+func NewRouter(
+	fileConn *grpc.ClientConn,
+	downloadConn *grpc.ClientConn,
+	uploadConn *grpc.ClientConn,
+	logger *logrus.Logger,
+) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -49,6 +56,7 @@ func NewRouter(fileConn *grpc.ClientConn, downloadConn *grpc.ClientConn, logger 
 
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
+	r.uploadClient = upb.NewUploadClient(uploadConn)
 
 	return r
 }
@@ -152,6 +160,29 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	isUserAllowed := r.HandleUserFilePermission(c, fileID)
 	if !isUserAllowed {
+		return
+	}
+
+	// Retrieve file details in order to get bucket.
+	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{
+		Id: fileID,
+	})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	DeleteObjectRequest := &upb.DeleteObjectsRequest{
+		Bucket: file.GetBucket(),
+		Keys:   []string{file.GetKey()},
+	}
+	deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
+	if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
 		return
 	}
 
