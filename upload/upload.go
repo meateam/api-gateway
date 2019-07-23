@@ -124,7 +124,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
-		err := c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Error extracting user from request"))
+		err := c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request"))
 		loggermiddleware.LogError(r.logger, err)
 		return
 	}
