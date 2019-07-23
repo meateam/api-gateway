@@ -161,7 +161,6 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
 func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason string) {
 	r.logger.Info(reason)
-	fmt.Printf(reason)
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 	c.Abort()
 }
