@@ -47,55 +47,11 @@ func NewRouter(logger *logrus.Logger) *Router {
 // at user.ContextUserKey.
 func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		auth, err := c.Cookie(AuthCookie)
 
-		// if there is no cookie check if a header exists
-		if auth == "" || err != nil {
-			authArr := strings.Fields(c.GetHeader(AuthHeader))
+		token := r.ExtractToken(secret, authURL, c)
 
-			// no authorization cookie/header sent
-			if len(authArr) == 0 {
-				r.redirectToAuthService(c, authURL, fmt.Sprintf("no authorization cookie/header sent"))
-				return
-			}
-
-			// The header value missing the correct prefix
-			if authArr[0] != AuthHeaderBearer {
-				r.redirectToAuthService(c, authURL,
-					fmt.Sprintf("authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
-				return
-			}
-
-			// the value of the header doesn't contain the token
-			if len(authArr) < 2 {
-				r.redirectToAuthService(c, authURL,
-					fmt.Sprintf("no token sent in header %v", authArr))
-				return
-			}
-
-			auth = authArr[1]
-		}
-
-		// The auth token is empty
-		if auth == "" {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("There is no auth token"))
-			return
-		}
-
-		token, err := jwt.Parse(auth, func(token *jwt.Token) (interface{}, error) {
-			// Validates the alg is what we expect:
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				r.redirectToAuthService(c, authURL,
-					fmt.Sprintf("unexpected signing method: %v", token.Header["alg"]))
-				return nil, nil
-			}
-
-			return []byte(secret), nil
-		})
-
-		// Could be an invalid jwt, a wrong signature, or a passed exp
-		if err != nil {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("Error while parsing the JWT token: %v", auth))
+		// CHeck if the extraction was successful
+		if token == nil {
 			return
 		}
 
@@ -141,6 +97,65 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// ExtractToken extract the jwt token from c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
+// If the token is not valid or expired, it will redirect the client to authURL, and return nil.
+// If the token is valid, it will return the token.
+func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jwt.Token {
+	auth, err := c.Cookie(AuthCookie)
+
+	// if there is no cookie check if a header exists
+	if auth == "" || err != nil {
+		authArr := strings.Fields(c.GetHeader(AuthHeader))
+
+		// no authorization cookie/header sent
+		if len(authArr) == 0 {
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("no authorization cookie/header sent"))
+			return nil
+		}
+
+		// The header value missing the correct prefix
+		if authArr[0] != AuthHeaderBearer {
+			r.redirectToAuthService(c, authURL,
+				fmt.Sprintf("authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
+			return nil
+		}
+
+		// the value of the header doesn't contain the token
+		if len(authArr) < 2 {
+			r.redirectToAuthService(c, authURL,
+				fmt.Sprintf("no token sent in header %v", authArr))
+			return nil
+		}
+
+		auth = authArr[1]
+	}
+
+	// The auth token is empty
+	if auth == "" {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("There is no auth token"))
+		return nil
+	}
+
+	token, err := jwt.Parse(auth, func(token *jwt.Token) (interface{}, error) {
+		// Validates the alg is what we expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			r.redirectToAuthService(c, authURL,
+				fmt.Sprintf("unexpected signing method: %v", token.Header["alg"]))
+			return nil, nil
+		}
+
+		return []byte(secret), nil
+	})
+
+	// Could be an invalid jwt, a wrong signature, or a passed exp
+	if err != nil {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("Error while parsing the JWT token: %v", auth))
+		return nil
+	}
+
+	return token
 }
 
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
