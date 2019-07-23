@@ -9,6 +9,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/user"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -22,79 +23,113 @@ const (
 	AuthHeaderBearer = "Bearer"
 )
 
+// Router is a structure that handels the authentication middleware.
+type Router struct {
+	logger *logrus.Logger
+}
+
+// NewRouter creates a new Router. If logger is non-nil then it will be
+// set as-is, otherwise logger would default to logrus.New().
+func NewRouter(logger *logrus.Logger) *Router {
+	// If no logger is given, use a default logger.
+	if logger == nil {
+		logger = logrus.New()
+	}
+
+	r := &Router{logger: logger}
+
+	return r
+}
+
 // Middleware validates the jwt token in c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
 // If the token is not valid or expired, it will redirect the client to authURL.
 // If the token is valid, it will set the user's data into the gin context
 // at user.ContextUserKey.
-func Middleware(secret string, authURL string) gin.HandlerFunc {
+func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth, err := c.Cookie(AuthCookie)
+
+		// if there is no cookie check if a header exists
 		if auth == "" || err != nil {
 			authArr := strings.Fields(c.GetHeader(AuthHeader))
-			if len(authArr) < 2 {
-				redirectToAuthService(c, authURL)
+
+			// no authorization cookie/header sent
+			if len(authArr) == 0 {
+				r.redirectToAuthService(c, authURL, fmt.Sprintf("no authorization cookie/header sent"))
 				return
 			}
 
+			// The header value missing the correct prefix
 			if authArr[0] != AuthHeaderBearer {
-				redirectToAuthService(c, authURL)
+				r.redirectToAuthService(c, authURL,
+					fmt.Sprintf("authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
+				return
+			}
+
+			// the value of the header doesn't contain the token
+			if len(authArr) < 2 {
+				r.redirectToAuthService(c, authURL,
+					fmt.Sprintf("no token sent in header %v", authArr))
 				return
 			}
 
 			auth = authArr[1]
 		}
 
+		// The auth token is empty
 		if auth == "" {
-			redirectToAuthService(c, authURL)
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("There is no auth token"))
 			return
 		}
 
 		token, err := jwt.Parse(auth, func(token *jwt.Token) (interface{}, error) {
 			// Validates the alg is what we expect:
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				redirectToAuthService(c, authURL)
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				r.redirectToAuthService(c, authURL,
+					fmt.Sprintf("unexpected signing method: %v", token.Header["alg"]))
+				return nil, nil
 			}
 
 			return []byte(secret), nil
 		})
 
+		// Could be an invalid jwt, a wrong signature, or a passed exp
 		if err != nil {
-			redirectToAuthService(c, authURL)
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("Error while parsing the JWT token: %v", auth))
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 
 		if !ok || !token.Valid {
-			redirectToAuthService(c, authURL)
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("Invalid token: %v", token))
 			return
 		}
 
-		// Check type assertion.
-		// For some reason can't convert directly to int64.
-		iat, ok := claims["iat"].(float64)
-		if !ok {
-			redirectToAuthService(c, authURL)
-			return
-		}
-
-		passed := time.Since(time.Unix(int64(iat), 0))
-
-		// Token expired.
-		if time.Hour*24 < passed {
-			redirectToAuthService(c, authURL)
-			return
-		}
-
-		// Check type assertion.
+		// Check type assertion
 		id, idOk := claims["id"].(string)
 		firstName, firstNameOk := claims["firstName"].(string)
 		lastName, lastNameOk := claims["lastName"].(string)
 
-		// If any of the claims are invalid then redirect to authentication.
+		// If any of the claims are invalid then redirect to authentication
 		if !idOk || !firstNameOk || !lastNameOk {
-			redirectToAuthService(c, authURL)
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
+			return
+		}
+
+		// Check type assertion.
+		// For some reason can't convert directly to int64
+		exp, ok := claims["exp"].(float64)
+		if !ok {
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token exp: %v", claims["exp"]))
+			return
+		}
+
+		expTime := time.Unix(int64(exp), 0)
+		timeRemaining := time.Until(expTime)
+
+		if timeRemaining <= 0 {
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("user %s token expired at %s", expTime, id))
 			return
 		}
 
@@ -109,7 +144,8 @@ func Middleware(secret string, authURL string) gin.HandlerFunc {
 }
 
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
-func redirectToAuthService(c *gin.Context, authURL string) {
+func (r *Router) redirectToAuthService(c *gin.Context, authURL string, failureReason string) {
+	r.logger.Info(failureReason)
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 	c.Abort()
 }

@@ -89,9 +89,10 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, logger)
+	ar := auth.NewRouter(logger)
 
 	// Authentication middleware on routes group.
-	authRequiredMiddleware := auth.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
+	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
 	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequiredMiddleware)
 
 	// Initiate client connection to file service.
