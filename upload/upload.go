@@ -124,7 +124,8 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
+		err := c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Error extracting user from request"))
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -152,7 +153,8 @@ func (r *Router) Upload(c *gin.Context) {
 	}
 }
 
-func getFileName(c *gin.Context) string {
+// Extracts the filename from the request header in context
+func extractFileName(c *gin.Context) string {
 	fileName := ""
 	contentDisposition := c.GetHeader(ContentDispositionHeader)
 
@@ -170,14 +172,16 @@ func getFileName(c *gin.Context) string {
 func (r *Router) UploadFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 
-	folderFullName := getFileName(c)
+	folderFullName := extractFileName(c)
 	if folderFullName == "" {
-		folderFullName = uuid.NewV4().String()
+		err := c.AbortWithError(http.StatusBadRequest, fmt.Errorf("Folder name not specified"))
+		loggermiddleware.LogError(r.logger, err)
+		return
 	}
 
 	createFolderResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     "",
-		Bucket:  "bucket is required currently, so i gotta fill this string",
+		Bucket:  reqUser.ID,
 		OwnerID: reqUser.ID,
 		Size:    0,
 		Type:    c.ContentType(),
@@ -188,7 +192,6 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
 		return
 	}
 
@@ -273,7 +276,7 @@ func (r *Router) UploadMedia(c *gin.Context) {
 	}
 
 	contentType := c.ContentType()
-	fileName := getFileName(c)
+	fileName := extractFileName(c)
 
 	r.UploadFile(c, fileReader, contentType, fileName)
 }

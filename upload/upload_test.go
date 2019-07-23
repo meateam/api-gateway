@@ -67,7 +67,7 @@ func TestRouter_UploadFolder(t *testing.T) {
 				filename:              "",
 				setContentDisposition: true,
 			},
-			wantStatusCode: http.StatusOK,
+			wantStatusCode: http.StatusBadRequest,
 		},
 		{
 			name: "create folder without content-disposition header",
@@ -75,7 +75,7 @@ func TestRouter_UploadFolder(t *testing.T) {
 				filename:              "",
 				setContentDisposition: false,
 			},
-			wantStatusCode: http.StatusOK,
+			wantStatusCode: http.StatusBadRequest,
 		},
 	}
 
