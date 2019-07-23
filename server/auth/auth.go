@@ -47,10 +47,8 @@ func NewRouter(logger *logrus.Logger) *Router {
 // at user.ContextUserKey.
 func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		token := r.ExtractToken(secret, authURL, c)
-
-		// CHeck if the extraction was successful
+		// Check if the extraction was successful
 		if token == nil {
 			return
 		}
@@ -58,7 +56,7 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 		claims, ok := token.Claims.(jwt.MapClaims)
 
 		if !ok || !token.Valid {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("Invalid token: %v", token))
+			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token: %v", token))
 			return
 		}
 
@@ -82,9 +80,10 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 		}
 
 		expTime := time.Unix(int64(exp), 0)
-		timeRemaining := time.Until(expTime)
+		timeUntilExp := time.Until(expTime)
 
-		if timeRemaining <= 0 {
+		// Verify again that the token is not expired
+		if timeUntilExp <= 0 {
 			r.redirectToAuthService(c, authURL, fmt.Sprintf("user %s token expired at %s", expTime, id))
 			return
 		}
@@ -100,16 +99,16 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 }
 
 // ExtractToken extract the jwt token from c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
-// If the token is not valid or expired, it will redirect the client to authURL, and return nil.
+// If the token is invalid or expired, it will redirect the client to authURL, and return nil.
 // If the token is valid, it will return the token.
 func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jwt.Token {
 	auth, err := c.Cookie(AuthCookie)
 
-	// if there is no cookie check if a header exists
+	// If there is no cookie check if a header exists
 	if auth == "" || err != nil {
 		authArr := strings.Fields(c.GetHeader(AuthHeader))
 
-		// no authorization cookie/header sent
+		// No authorization cookie/header sent
 		if len(authArr) == 0 {
 			r.redirectToAuthService(c, authURL, fmt.Sprintf("no authorization cookie/header sent"))
 			return nil
@@ -122,7 +121,7 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 			return nil
 		}
 
-		// the value of the header doesn't contain the token
+		// The value of the header doesn't contain the token
 		if len(authArr) < 2 {
 			r.redirectToAuthService(c, authURL,
 				fmt.Sprintf("no token sent in header %v", authArr))
@@ -134,16 +133,16 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 
 	// The auth token is empty
 	if auth == "" {
-		r.redirectToAuthService(c, authURL, fmt.Sprintf("There is no auth token"))
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("there is no auth token"))
 		return nil
 	}
 
 	token, err := jwt.Parse(auth, func(token *jwt.Token) (interface{}, error) {
 		// Validates the alg is what we expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			r.redirectToAuthService(c, authURL,
-				fmt.Sprintf("unexpected signing method: %v", token.Header["alg"]))
-			return nil, nil
+			errMessage := fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			r.redirectToAuthService(c, authURL, errMessage.Error())
+			return nil, errMessage
 		}
 
 		return []byte(secret), nil
@@ -151,7 +150,8 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 
 	// Could be an invalid jwt, a wrong signature, or a passed exp
 	if err != nil {
-		r.redirectToAuthService(c, authURL, fmt.Sprintf("Error while parsing the JWT token: %v", auth))
+		r.redirectToAuthService(c, authURL,
+			fmt.Sprintf("error while parsing the JWT token. %v. token: %v", err, auth))
 		return nil
 	}
 
@@ -159,8 +159,9 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 }
 
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
-func (r *Router) redirectToAuthService(c *gin.Context, authURL string, failureReason string) {
-	r.logger.Info(failureReason)
+func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason string) {
+	r.logger.Info(reason)
+	fmt.Printf(reason)
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 	c.Abort()
 }
