@@ -101,7 +101,7 @@ services:
     volumes:
       - './data/db:/data/db'
   authentication-service:
-    image: authentication-service:latest
+    image: bluehub.azurecr.io/meateam/authentication-service:latest
     ports:
       - '8084:8080'
     environment:
@@ -127,7 +127,7 @@ services:
     ports:
       - '8086:8080'
     environment:
-      KARTOFFEL_URL: 'http://13.69.137.179:8080'
+      KARTOFFEL_URL: http://localhost:8080
       RPC_PORT: 8080
   # For Shraga
   testsamlidp_idp:
@@ -153,6 +153,4 @@ services:
     ports:
      - 3000:3000
     depends_on: 
-     - mongo-shraga
-  mongo-shraga:
-    image: mongo:latest
+     - mongo
