@@ -124,8 +124,11 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
-		err := c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request"))
-		loggermiddleware.LogError(r.logger, err)
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
+		)
+
 		return
 	}
 
@@ -174,8 +177,11 @@ func (r *Router) UploadFolder(c *gin.Context) {
 
 	folderFullName := extractFileName(c)
 	if folderFullName == "" {
-		err := c.AbortWithError(http.StatusBadRequest, fmt.Errorf("Folder name not specified"))
-		loggermiddleware.LogError(r.logger, err)
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("folder name not specified")),
+		)
+
 		return
 	}
 
