@@ -27,15 +27,16 @@ type Router struct {
 
 // getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
 type getFileByIDResponse struct {
-	ID          string `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Type        string `json:"type,omitempty"`
-	Size        int64  `json:"size,omitempty"`
-	Description string `json:"description,omitempty"`
-	OwnerID     string `json:"ownerId,omitempty"`
-	Parent      string `json:"parent,omitempty"`
-	CreatedAt   int64  `json:"createdAt,omitempty"`
-	UpdatedAt   int64  `json:"updatedAt,omitempty"`
+	ID          string      `json:"id,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	Type        string      `json:"type,omitempty"`
+	Size        int64       `json:"size,omitempty"`
+	Description string      `json:"description,omitempty"`
+	OwnerID     string      `json:"ownerId,omitempty"`
+	Parent      string      `json:"parent,omitempty"`
+	CreatedAt   int64       `json:"createdAt,omitempty"`
+	UpdatedAt   int64       `json:"updatedAt,omitempty"`
+	Children    []*fpb.File `json:"children,omitempty"`
 }
 
 // NewRouter creates a new Router, and initializes clients of File Service
@@ -66,6 +67,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.GetFilesByFolder)
 	rg.GET("/files/:id", r.GetFileByID)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
+	rg.GET("/desc", r.GetDescendantsByFolder)
 }
 
 // GetFileByID is the request handler for GET /files/:id
@@ -106,6 +108,49 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, responseFile)
+}
+
+// GetDescendantsByFolder - Trying to implement
+func (r *Router) GetDescendantsByFolder(c *gin.Context) {
+	fmt.Println("in GetDescendantsByFolder")
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	filesParent, exists := c.GetQuery("parent")
+	if exists {
+		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
+		if !isUserAllowed {
+			return
+		}
+	}
+
+	filesResp, err := r.fileClient.GetDescendantsByFolder(
+		c.Request.Context(),
+		&fpb.GetDescendantsByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent},
+	)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	files := filesResp.GetFiles()
+	responseFiles := make([]*getFileByIDResponse, 0, len(files))
+	for _, file := range files {
+		responseFile, err := createGetFileResponse(file)
+		if err != nil {
+			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
+			return
+		}
+
+		responseFiles = append(responseFiles, responseFile)
+	}
+
+	c.JSON(http.StatusOK, responseFiles)
 }
 
 // GetFilesByFolder is the request handler for GET /files request.
@@ -346,6 +391,7 @@ func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
 		Parent:      file.GetParent(),
 		CreatedAt:   file.GetCreatedAt(),
 		UpdatedAt:   file.GetUpdatedAt(),
+		Children:    file.GetChildren(),
 	}
 
 	// If file contains parent object instead of its id.
