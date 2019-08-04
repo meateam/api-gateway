@@ -39,6 +39,29 @@ type getFileByIDResponse struct {
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 }
 
+const (
+	// ParamFileParent is a constant for file parent parameter in a request
+	ParamFileParent = "parent"
+
+	// ParamFileName is a constant for file name parameter in a request
+	ParamFileName = "name"
+
+	// ParamFileType is a constant for file type parameter in a request
+	ParamFileType = "type"
+
+	// ParamFileDescription is a constant for file description parameter in a request
+	ParamFileDescription = "description"
+
+	// ParamFileSize is a constant for file size parameter in a request
+	ParamFileSize = "size"
+
+	// ParamFileCreatedAt is a constant for file created at parameter in a request
+	ParamFileCreatedAt = "createdAt"
+
+	// ParamFileUpdatedAt is a constant for file updated at parameter in a request
+	ParamFileUpdatedAt = "updatedAt"
+)
+
 // NewRouter creates a new Router, and initializes clients of File Service
 // and Download Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
@@ -140,7 +163,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	filesParent, exists := c.GetQuery("parent")
+	filesParent, exists := c.GetQuery(ParamFileParent)
 	if exists {
 		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
 		if !isUserAllowed {
@@ -148,23 +171,16 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 	}
 
-	const (
-		Name        = "name"
-		Type        = "type"
-		Description = "description"
-		Size        = "size"
-		CreatedAt   = "created_at"
-		UpdatedAt   = "updated_at"
-	)
-	paramMap := queryParamsToMap(c, Name, Type, Description, Size, CreatedAt, UpdatedAt)
+	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
+		ParamFileCreatedAt, ParamFileUpdatedAt)
 
 	fileFilter := fpb.File{
-		Name:        paramMap[Name],
-		Type:        paramMap[Description],
-		Description: paramMap[Description],
-		Size:        stringToInt64(paramMap[Size]),
-		CreatedAt:   stringToInt64(paramMap[CreatedAt]),
-		UpdatedAt:   stringToInt64(paramMap[UpdatedAt]),
+		Name:        paramMap[ParamFileName],
+		Type:        paramMap[ParamFileType],
+		Description: paramMap[ParamFileDescription],
+		Size:        stringToInt64(paramMap[ParamFileSize]),
+		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
+		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
 	}
 
 	filesResp, err := r.fileClient.GetFilesByFolder(
