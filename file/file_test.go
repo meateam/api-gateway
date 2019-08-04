@@ -24,6 +24,8 @@ var (
 	authToken         string
 	rootFolderId      = ""
 	rootChildFolderId string
+	folderName        = "TEST"
+	rootId            = ""
 )
 
 func generateJwtToken(key interface{}) (string, error) {
@@ -46,9 +48,6 @@ func init() {
 	if err != nil {
 		fmt.Printf("Error signing jwt token: %s \n", err)
 	}
-
-	const folderName = "TEST"
-	const rootId = ""
 
 	rootFolderId, err = uploadFolder(folderName, rootId)
 	if err != nil {
@@ -96,7 +95,7 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			name: "Get files of root folder",
 			args: args{
 				params: map[string]string{
-					file.ParamFileParent: "",
+					file.ParamFileParent: rootId,
 				},
 			},
 			wantStatusCode: http.StatusOK,
@@ -119,6 +118,31 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			},
 			wantStatusCode: http.StatusOK,
 		},
+		{
+			name: "Get files of root folder filtered by type",
+			args: args{
+				params: map[string]string{
+					file.ParamFileParent: rootFolderId,
+					file.ParamFileType:   upload.FolderContentType,
+				},
+			},
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name: "Get files of root folder filtered by name",
+			args: args{
+				params: map[string]string{
+					file.ParamFileParent: rootFolderId,
+					file.ParamFileName:   folderName,
+				},
+			},
+			wantStatusCode: http.StatusOK,
+		},
+		// TODO: filter by description
+		// Below TODOs may be considered to be treated as range
+		// TODO: filter by size
+		// TODO: filter by date created
+		// TODO: filter by date modified
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
