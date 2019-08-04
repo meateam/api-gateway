@@ -101,7 +101,7 @@ services:
     volumes:
       - './data/db:/data/db'
   authentication-service:
-    image: bluehub.azurecr.io/meateam/authentication-service:latest
+    image: authentication-service:latest
     ports:
       - '8084:8080'
     environment:
