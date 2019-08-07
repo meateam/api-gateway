@@ -7,11 +7,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/file"
+	"github.com/meateam/api-gateway/internal/test"
 	"github.com/meateam/api-gateway/server"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/sirupsen/logrus"
@@ -19,47 +18,40 @@ import (
 
 // Global variables
 var (
-	r                 *gin.Engine
-	jwtKey            = []byte("pandora@drive")
-	authToken         string
-	rootFolderId      = ""
-	rootChildFolderId string
-	folderName        = "TEST"
-	rootId            = ""
+	r                    *gin.Engine
+	authToken            string
+	createdRootFolderId  string
+	createdChildFolderId string
 )
 
-func generateJwtToken(key interface{}) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.MapClaims{
-		"id":        "5cb72ad5b06cc14394c1d632",
-		"firstName": "Elad",
-		"lastName":  "Biran",
-		"mail":      "elad@rabiran",
-		"iat":       time.Now().Unix(),
-	})
-
-	return token.SignedString(jwtKey)
-}
+// Constants
+const (
+	folderName   = "TEST"
+	rootFolderId = ""
+)
 
 func init() {
 	r, _ = server.NewRouter(logrus.New())
 
 	var err error
-	authToken, err = generateJwtToken(jwtKey)
+	authToken, err = test.GenerateJwtToken()
 	if err != nil {
 		fmt.Printf("Error signing jwt token: %s \n", err)
 	}
 
-	rootFolderId, err = uploadFolder(folderName, rootId)
+	createdRootFolderId, err = uploadFolder(folderName, rootFolderId)
 	if err != nil {
 		fmt.Printf("Couldn't upload folder: %v\n", err)
 	}
 
-	rootChildFolderId, err = uploadFolder(folderName, rootFolderId)
+	createdChildFolderId, err = uploadFolder(folderName, createdRootFolderId)
 	if err != nil {
 		fmt.Printf("Couldn't upload folder: %v\n", err)
 	}
 }
 
+// uploadFolder uploads a folder
+// Returns the server's response for uploading a folder
 func uploadFolder(folderName string, parentId string) (string, error) {
 	params := url.Values{}
 	params.Set(file.ParamFileParent, parentId)
@@ -79,6 +71,7 @@ func uploadFolder(folderName string, parentId string) (string, error) {
 	if w.Code != http.StatusOK {
 		return "", fmt.Errorf("Expected to get status %d but instead got %d", http.StatusOK, w.Code)
 	}
+
 	return w.Body.String(), nil
 }
 
@@ -95,7 +88,7 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			name: "Get files of root folder",
 			args: args{
 				params: map[string]string{
-					file.ParamFileParent: rootId,
+					file.ParamFileParent: rootFolderId,
 				},
 			},
 			wantStatusCode: http.StatusOK,
@@ -104,7 +97,7 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			name: "Get files of non root folder",
 			args: args{
 				params: map[string]string{
-					file.ParamFileParent: rootChildFolderId,
+					file.ParamFileParent: createdRootFolderId,
 				},
 			},
 			wantStatusCode: http.StatusOK,
@@ -163,7 +156,6 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			if w.Code != tt.wantStatusCode {
 				t.Fatalf("Expected to get status %d but instead got %d\n", http.StatusOK, w.Code)
 			}
-			fmt.Printf("%v\n", w.Body)
 		})
 	}
 }
