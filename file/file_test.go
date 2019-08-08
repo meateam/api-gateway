@@ -53,10 +53,7 @@ func init() {
 // uploadFolder uploads a folder
 // Returns the server's response for uploading a folder
 func uploadFolder(folderName string, parentId string) (string, error) {
-	params := url.Values{}
-	params.Set(file.ParamFileParent, parentId)
-
-	req, err := http.NewRequest(http.MethodPost, "/api/upload", bytes.NewBufferString(params.Encode()))
+	req, err := http.NewRequest(http.MethodPost, "/api/upload", nil)
 	if err != nil {
 		return "", fmt.Errorf("Couldn't create request: %v", err)
 	}
@@ -64,6 +61,10 @@ func uploadFolder(folderName string, parentId string) (string, error) {
 	req.Header.Set(upload.ContentDispositionHeader, fmt.Sprintf("filename=%s", folderName))
 	req.Header.Set(upload.ContentTypeHeader, upload.FolderContentType)
 	req.AddCookie(&http.Cookie{Name: "kd-token", Value: authToken})
+
+	params := req.URL.Query()
+	params.Set(file.ParamFileParent, parentId)
+	req.URL.RawQuery = params.Encode()
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
