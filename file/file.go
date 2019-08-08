@@ -281,7 +281,7 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 	if c.ShouldBindJSON(&body) != nil {
 		loggermiddleware.LogError(
 			r.logger,
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("error extracting user from request")),
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
 		)
 
 		return
