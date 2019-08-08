@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/internal/test"
 	"github.com/meateam/api-gateway/server"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/sirupsen/logrus"
@@ -17,27 +16,14 @@ import (
 // Global variables
 var (
 	r         *gin.Engine
-	jwtKey    = []byte("pandora@drive")
 	authToken string
 )
-
-func generateJwtToken(key interface{}) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.MapClaims{
-		"id":        "5cb72ad5b06cc14394c1d632",
-		"firstName": "Elad",
-		"lastName":  "Biran",
-		"mail":      "elad@rabiran",
-		"iat":       time.Now().Unix(),
-	})
-
-	return token.SignedString(jwtKey)
-}
 
 func init() {
 	r, _ = server.NewRouter(logrus.New())
 
 	var err error
-	authToken, err = generateJwtToken(jwtKey)
+	authToken, err = test.GenerateJwtToken()
 	if err != nil {
 		fmt.Printf("Error signing jwt token: %s \n", err)
 	}
