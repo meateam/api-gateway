@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -163,29 +164,6 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	// Retrieve file details in order to get bucket.
-	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{
-		Id: fileID,
-	})
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-	}
-
-	DeleteObjectRequest := &upb.DeleteObjectsRequest{
-		Bucket: file.GetBucket(),
-		Keys:   []string{file.GetKey()},
-	}
-	deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
-	if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-	}
-
 	deleteFileRequest := &fpb.DeleteFileRequest{
 		Id: fileID,
 	}
@@ -197,7 +175,33 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, deleteFileResponse.GetOk())
+	bucketKeysMap := make(map[string][]string)
+	ids := make([]string, len(deleteFileResponse.GetFiles()))
+	for i, file := range deleteFileResponse.GetFiles() {
+		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
+		ids[i] = file.GetKey()
+	}
+
+	var wg sync.WaitGroup
+
+	for bucket, keys := range bucketKeysMap {
+		wg.Add(1)
+		go func(bucket string, keys []string) {
+			DeleteObjectRequest := &upb.DeleteObjectsRequest{
+				Bucket: bucket,
+				Keys:   keys,
+			}
+			deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
+			if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
+				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+				loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			}
+			wg.Done()
+		}(bucket, keys)
+	}
+
+	c.JSON(http.StatusOK, ids)
+	wg.Wait()
 }
 
 // Download is the request handler for /files/:id?alt=media request.
