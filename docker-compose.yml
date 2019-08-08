@@ -101,7 +101,7 @@ services:
     volumes:
       - './data/db:/data/db'
   authentication-service:
-    image: bluehub.azurecr.io/meateam/authentication-service:latest
+    image: authentication-service:latest
     ports:
       - '8084:8080'
     environment:
@@ -111,6 +111,7 @@ services:
       USERS_RPC_ENDPOINT: 'user-service:8080'
       SECRET_KEY: pandora@drive
       CLIENT_ENDPOINT: 'http://localhost:8080/api/config'
+      STRATEGY: 'saml'
     depends_on:
       - saml-idp
       - user-service
