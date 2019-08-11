@@ -38,6 +38,23 @@ type getFileByIDResponse struct {
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 }
 
+type partialFile struct {
+	ID          string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	Description string `json:"description,omitempty"`
+	OwnerID     string `json:"ownerId,omitempty"`
+	Parent      string `json:"parent,omitempty"`
+	CreatedAt   int64  `json:"createdAt,omitempty"`
+	UpdatedAt   int64  `json:"updatedAt,omitempty"`
+}
+
+type updateFilesRequest struct {
+	IDList      []string    `json:"idList"`
+	PartialFile partialFile `json:"partialFile"`
+}
+
 // NewRouter creates a new Router, and initializes clients of File Service
 // and Download Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
@@ -249,6 +266,72 @@ func (r *Router) Download(c *gin.Context) {
 	c.Header("Content-Length", contentLength)
 
 	loggermiddleware.LogError(r.logger, HandleStream(c, stream))
+}
+
+// UpdateFiles Updates many files with the same value.
+// The function gets slice of ids and the partial file to update.
+// It returns the updated file id's.
+func (r *Router) UpdateFiles(c *gin.Context) {
+	var body updateFilesRequest
+	if c.ShouldBindJSON(&body) != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
+		)
+
+		return
+	}
+	isUserAllowed := r.HandleUserFilePermission(c, body.PartialFile.Parent)
+	if !isUserAllowed {
+		return
+	}
+
+	allowedIds := make([]string, 0, len(body.IDList))
+
+	for _, id := range body.IDList {
+		isUserAllowed, err := r.userFilePermission(c, id)
+
+		if err != nil {
+			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
+		}
+
+		if isUserAllowed {
+			allowedIds = append(allowedIds, id)
+		}
+	}
+
+	if err := r.handleUpdate(c, allowedIds, body.PartialFile); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+}
+
+func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) error {
+	updatedData := &fpb.File{
+		FileOrId: &fpb.File_Parent{
+			Parent: pf.Parent,
+		},
+	}
+	if len(ids) == 1 {
+		updatedData.Name = pf.Name
+		updatedData.Description = pf.Description
+	}
+
+	updateFilesResponse, err := r.fileClient.UpdateFiles(
+		c.Request.Context(),
+		&fpb.UpdateFilesRequest{
+			IdList:      ids,
+			PartialFile: updatedData,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, updateFilesResponse.GetUpdated())
+	return nil
 }
 
 // HandleStream streams the file bytes from stream to c.
