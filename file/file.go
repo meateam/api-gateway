@@ -67,7 +67,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.GetFilesByFolder)
 	rg.GET("/files/:id", r.GetFileByID)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
-	rg.PUT("/files", r.UpdateFiles)
 }
 
 // GetFileByID is the request handler for GET /files/:id
