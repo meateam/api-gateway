@@ -83,6 +83,8 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.GetFilesByFolder)
 	rg.GET("/files/:id", r.GetFileByID)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
+	rg.PUT("/files/:id", r.UpdateFile)
+	rg.PUT("/files", r.UpdateFiles)
 }
 
 // GetFileByID is the request handler for GET /files/:id
@@ -266,6 +268,41 @@ func (r *Router) Download(c *gin.Context) {
 	c.Header("Content-Length", contentLength)
 
 	loggermiddleware.LogError(r.logger, HandleStream(c, stream))
+}
+
+// UpdateFile Updates single file.
+// The function gets an id as a parameter and the partial file to update.
+// It returns the updated file id.
+func (r *Router) UpdateFile(c *gin.Context) {
+	fileID := c.Param("id")
+	if fileID == "" {
+		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+
+	if isUserAllowed := r.HandleUserFilePermission(c, fileID); !isUserAllowed {
+		return
+	}
+
+	var pf partialFile
+	if c.ShouldBindJSON(&pf) != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
+		)
+
+		return
+	}
+	if isUserAllowed := r.HandleUserFilePermission(c, pf.Parent); !isUserAllowed {
+		return
+	}
+
+	if err := r.handleUpdate(c, []string{fileID}, pf); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
 }
 
 // UpdateFiles Updates many files with the same value.
