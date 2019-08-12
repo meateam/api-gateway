@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -127,6 +128,29 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFile)
 }
 
+// Extracts parameters from request query to a map, non-existing parameter has a value of ""
+func queryParamsToMap(c *gin.Context, paramNames ...string) map[string]string {
+	paramMap := make(map[string]string)
+	for _, paramName := range paramNames {
+		param, exists := c.GetQuery(paramName)
+		if exists {
+			paramMap[paramName] = param
+		} else {
+			paramMap[paramName] = ""
+		}
+	}
+	return paramMap
+}
+
+// Converts a string to int64, 0 is returned on failure
+func stringToInt64(s string) int64 {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		n = 0
+	}
+	return n
+}
+
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -135,7 +159,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	filesParent, exists := c.GetQuery("parent")
+	filesParent, exists := c.GetQuery(ParamFileParent)
 	if exists {
 		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
 		if !isUserAllowed {
@@ -143,9 +167,21 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 	}
 
+	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
+		ParamFileCreatedAt, ParamFileUpdatedAt)
+
+	fileFilter := fpb.File{
+		Name:        paramMap[ParamFileName],
+		Type:        paramMap[ParamFileType],
+		Description: paramMap[ParamFileDescription],
+		Size:        stringToInt64(paramMap[ParamFileSize]),
+		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
+		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
+	}
+
 	filesResp, err := r.fileClient.GetFilesByFolder(
 		c.Request.Context(),
-		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent},
+		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent, QueryFile: &fileFilter},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
