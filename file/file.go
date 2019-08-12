@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -37,6 +38,29 @@ type getFileByIDResponse struct {
 	CreatedAt   int64  `json:"createdAt,omitempty"`
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 }
+
+const (
+	// ParamFileParent is a constant for file parent parameter in a request
+	ParamFileParent = "parent"
+
+	// ParamFileName is a constant for file name parameter in a request
+	ParamFileName = "name"
+
+	// ParamFileType is a constant for file type parameter in a request
+	ParamFileType = "type"
+
+	// ParamFileDescription is a constant for file description parameter in a request
+	ParamFileDescription = "description"
+
+	// ParamFileSize is a constant for file size parameter in a request
+	ParamFileSize = "size"
+
+	// ParamFileCreatedAt is a constant for file created at parameter in a request
+	ParamFileCreatedAt = "createdAt"
+
+	// ParamFileUpdatedAt is a constant for file updated at parameter in a request
+	ParamFileUpdatedAt = "updatedAt"
+)
 
 // NewRouter creates a new Router, and initializes clients of File Service
 // and Download Service with the given connections. If logger is non-nil then it will
@@ -108,6 +132,29 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFile)
 }
 
+// Extracts parameters from request query to a map, non-existing parameter has a value of ""
+func queryParamsToMap(c *gin.Context, paramNames ...string) map[string]string {
+	paramMap := make(map[string]string)
+	for _, paramName := range paramNames {
+		param, exists := c.GetQuery(paramName)
+		if exists {
+			paramMap[paramName] = param
+		} else {
+			paramMap[paramName] = ""
+		}
+	}
+	return paramMap
+}
+
+// Converts a string to int64, 0 is returned on failure
+func stringToInt64(s string) int64 {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		n = 0
+	}
+	return n
+}
+
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -116,7 +163,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	filesParent, exists := c.GetQuery("parent")
+	filesParent, exists := c.GetQuery(ParamFileParent)
 	if exists {
 		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
 		if !isUserAllowed {
@@ -124,9 +171,21 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 	}
 
+	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
+		ParamFileCreatedAt, ParamFileUpdatedAt)
+
+	fileFilter := fpb.File{
+		Name:        paramMap[ParamFileName],
+		Type:        paramMap[ParamFileType],
+		Description: paramMap[ParamFileDescription],
+		Size:        stringToInt64(paramMap[ParamFileSize]),
+		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
+		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
+	}
+
 	filesResp, err := r.fileClient.GetFilesByFolder(
 		c.Request.Context(),
-		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent},
+		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent, QueryFile: &fileFilter},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
