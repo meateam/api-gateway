@@ -18,6 +18,29 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	// ParamFileParent is a constant for file parent parameter in a request
+	ParamFileParent = "parent"
+
+	// ParamFileName is a constant for file name parameter in a request
+	ParamFileName = "name"
+
+	// ParamFileType is a constant for file type parameter in a request
+	ParamFileType = "type"
+
+	// ParamFileDescription is a constant for file description parameter in a request
+	ParamFileDescription = "description"
+
+	// ParamFileSize is a constant for file size parameter in a request
+	ParamFileSize = "size"
+
+	// ParamFileCreatedAt is a constant for file created at parameter in a request
+	ParamFileCreatedAt = "createdAt"
+
+	// ParamFileUpdatedAt is a constant for file updated at parameter in a request
+	ParamFileUpdatedAt = "updatedAt"
+)
+
 // Router is a structure that handles upload requests.
 type Router struct {
 	downloadClient dpb.DownloadClient
