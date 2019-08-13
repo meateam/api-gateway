@@ -179,7 +179,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	ids := make([]string, len(deleteFileResponse.GetFiles()))
 	for i, file := range deleteFileResponse.GetFiles() {
 		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
-		ids[i] = file.GetKey()
+		ids[i] = file.GetId()
 	}
 
 	var wg sync.WaitGroup
@@ -193,8 +193,13 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 			}
 			deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
 			if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
-				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-				loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+				loggermiddleware.LogError(r.logger, err)
+			}
+			if len(deleteObjectResponse.GetFailed()) > 0 {
+				loggermiddleware.LogError(
+					r.logger,
+					fmt.Errorf("failed to delete keys: %v", deleteObjectResponse.GetFailed()),
+				)
 			}
 			wg.Done()
 		}(bucket, keys)
