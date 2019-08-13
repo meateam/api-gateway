@@ -9,7 +9,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.8.6
 	github.com/meateam/download-service v0.0.0-20190505082208-15b980fc9a07
 	github.com/meateam/elasticsearch-logger v1.1.2
-	github.com/meateam/file-service v0.0.0-20190811084032-932e1fbc4f8d
+	github.com/meateam/file-service v0.0.0-20190813093227-eeee5a1aceba
 	github.com/meateam/upload-service v0.0.0-20190721133242-10bfc81ce835
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
