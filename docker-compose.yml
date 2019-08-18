@@ -13,6 +13,7 @@ services:
       GW_FILE_SERVICE: 'file-service:8080'
       GW_EXTERNAL_APM_URL: http://localhost:8200
       GW_ALLOW_ORIGINS: http://localhost*
+      GW_SUPPORT_LINK: "https://open.rocket.chat"
       ELASTICSEARCH_URL: http://localhost:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: info
