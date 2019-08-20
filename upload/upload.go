@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 
@@ -164,7 +165,12 @@ func extractFileName(c *gin.Context) string {
 	if contentDisposition != "" {
 		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
 		if err != nil {
-			fileName = ""
+			return ""
+		}
+
+		fileName, err = url.QueryUnescape(fileName)
+		if err != nil {
+			return ""
 		}
 	}
 
