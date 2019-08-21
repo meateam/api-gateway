@@ -414,11 +414,20 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 }
 
 func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) error {
-	updatedData := &fpb.File{
-		FileOrId: &fpb.File_Parent{
-			Parent: pf.Parent,
-		},
+	parent := &fpb.File_Parent{
+		Parent: pf.Parent,
 	}
+
+	if pf.Parent == "" {
+		parent = &fpb.File_Parent{
+			Parent: "null",
+		}
+	}
+
+	updatedData := &fpb.File{
+		FileOrId: parent,
+	}
+
 	if len(ids) == 1 {
 		updatedData.Name = pf.Name
 		updatedData.Description = pf.Description
@@ -509,8 +518,10 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string) bool {
 	isUserAllowed, err := r.userFilePermission(c, fileID)
 
 	if err != nil {
-		loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
-		return false
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			return false
+		}
 	}
 
 	if !isUserAllowed {
