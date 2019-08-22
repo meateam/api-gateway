@@ -64,15 +64,15 @@ type getFileByIDResponse struct {
 }
 
 type partialFile struct {
-	ID          string `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Type        string `json:"type,omitempty"`
-	Size        int64  `json:"size,omitempty"`
-	Description string `json:"description,omitempty"`
-	OwnerID     string `json:"ownerId,omitempty"`
-	Parent      string `json:"parent,omitempty"`
-	CreatedAt   int64  `json:"createdAt,omitempty"`
-	UpdatedAt   int64  `json:"updatedAt,omitempty"`
+	ID          string  `json:"id,omitempty"`
+	Name        string  `json:"name,omitempty"`
+	Type        string  `json:"type,omitempty"`
+	Size        int64   `json:"size,omitempty"`
+	Description string  `json:"description,omitempty"`
+	OwnerID     string  `json:"ownerId,omitempty"`
+	Parent      *string `json:"parent,omitempty"`
+	CreatedAt   int64   `json:"createdAt,omitempty"`
+	UpdatedAt   int64   `json:"updatedAt,omitempty"`
 }
 
 type updateFilesRequest struct {
@@ -361,8 +361,12 @@ func (r *Router) UpdateFile(c *gin.Context) {
 
 		return
 	}
-	if isUserAllowed := r.HandleUserFilePermission(c, pf.Parent); !isUserAllowed {
-		return
+
+	// If the parent should be updated then check permissions for the new parent.
+	if pf.Parent != nil {
+		if isUserAllowed := r.HandleUserFilePermission(c, *pf.Parent); !isUserAllowed {
+			return
+		}
 	}
 
 	if err := r.handleUpdate(c, []string{fileID}, pf); err != nil {
@@ -386,9 +390,12 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 
 		return
 	}
-	isUserAllowed := r.HandleUserFilePermission(c, body.PartialFile.Parent)
-	if !isUserAllowed {
-		return
+
+	// If the parent should be updated then check permissions for the new parent.
+	if body.PartialFile.Parent != nil {
+		if isUserAllowed := r.HandleUserFilePermission(c, *body.PartialFile.Parent); !isUserAllowed {
+			return
+		}
 	}
 
 	allowedIds := make([]string, 0, len(body.IDList))
@@ -414,13 +421,17 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 }
 
 func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) error {
-	parent := &fpb.File_Parent{
-		Parent: pf.Parent,
-	}
+	var parent *fpb.File_Parent
 
-	if pf.Parent == "" {
-		parent = &fpb.File_Parent{
-			Parent: "null",
+	if pf.Parent != nil {
+		if *pf.Parent == "" {
+			parent = &fpb.File_Parent{
+				Parent: "null",
+			}
+		} else {
+			parent = &fpb.File_Parent{
+				Parent: *pf.Parent,
+			}
 		}
 	}
 
