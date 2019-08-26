@@ -193,7 +193,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 
 	createFolderResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     "",
-		Bucket:  reqUser.ID,
+		Bucket:  reqUser.Bucket,
 		OwnerID: reqUser.ID,
 		Size:    0,
 		Type:    c.ContentType(),
@@ -350,7 +350,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     key,
-		Bucket:  reqUser.ID,
+		Bucket:  reqUser.Bucket,
 		OwnerID: reqUser.ID,
 		Size:    int64(len(file)),
 		Type:    contentType,
@@ -367,7 +367,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	ureq := &upb.UploadMediaRequest{
 		Key:    key,
-		Bucket: reqUser.ID,
+		Bucket: reqUser.Bucket,
 		File:   file,
 	}
 
@@ -417,7 +417,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 	}
 
 	createUploadResponse, err := r.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
-		Bucket:  reqUser.ID,
+		Bucket:  reqUser.Bucket,
 		Name:    reqBody.Title,
 		OwnerID: reqUser.ID,
 		Parent:  c.Query(ParentQueryKey),
@@ -433,7 +433,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	uploadInitReq := &upb.UploadInitRequest{
 		Key:    createUploadResponse.GetKey(),
-		Bucket: reqUser.ID,
+		Bucket: reqUser.Bucket,
 	}
 
 	uploadInitReq.ContentType = reqBody.MimeType
@@ -451,7 +451,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
 		Key:      createUploadResponse.GetKey(),
-		Bucket:   reqUser.ID,
+		Bucket:   reqUser.Bucket,
 		UploadID: resp.GetUploadId(),
 	})
 
