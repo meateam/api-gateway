@@ -1,6 +1,11 @@
 package user
 
-import "github.com/gin-gonic/gin"
+import (
+	"regexp"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
 
 const (
 	// ContextUserKey is the context key used to get and set the user's data in the context.
@@ -12,6 +17,7 @@ type User struct {
 	ID        string
 	FirstName string
 	LastName  string
+	Bucket    string
 }
 
 // ExtractRequestUser gets a gin.Context and extracts the user's details from c.
@@ -25,9 +31,20 @@ func ExtractRequestUser(c *gin.Context) *User {
 	switch v := contextUser.(type) {
 	case User:
 		reqUser = v
+		reqUser.Bucket = normalizeCephBucketName(reqUser.ID)
 	default:
 		return nil
 	}
 
 	return &reqUser
+}
+
+// NormalizeCephBucketName gets a bucket name and normalizes it
+// according to ceph s3's constraints.
+func normalizeCephBucketName(bucketName string) string {
+	lowerCaseBucketName := strings.ToLower(bucketName)
+
+	// Make a Regex for catching only letters and numbers.
+	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
+	return reg.ReplaceAllString(lowerCaseBucketName, "-")
 }
