@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/sirupsen/logrus"
@@ -64,10 +65,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"apmServerUrl": viper.GetString(configExternalApmURL),
-				"environment":  os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"authUrl":      viper.GetString(configAuthURL),
-				"supportLink":  viper.GetString(configSupportLink),
+				"chromeDownloadLink": viper.GetString(configDownloadChromeURL),
+				"apmServerUrl":       viper.GetString(configExternalApmURL),
+				"environment":        os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+				"authUrl":            viper.GetString(configAuthURL),
+				"supportLink":        viper.GetString(configSupportLink),
 			},
 		)
 	})
@@ -92,6 +94,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, logger)
 	ar := auth.NewRouter(logger)
+	qr := quota.NewRouter(fileConn, logger)
 
 	// Authentication middleware on routes group.
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
@@ -99,6 +102,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to quota service.
+	qr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to upload service.
 	ur.Setup(authRequiredRoutesGroup)

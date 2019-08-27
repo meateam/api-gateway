@@ -12,7 +12,7 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
-	fpb "github.com/meateam/file-service/proto"
+	fpb "github.com/meateam/file-service/proto/file"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
