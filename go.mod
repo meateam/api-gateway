@@ -30,6 +30,8 @@ replace github.com/meateam/api-gateway/upload => ./upload
 
 replace github.com/meateam/api-gateway/server => ./server
 
+replace github.com/meateam/api-gateway/file => ./file
+
 replace github.com/meateam/api-gateway/quota => ./quota
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
