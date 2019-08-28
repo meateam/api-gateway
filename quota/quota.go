@@ -11,17 +11,17 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Router is a structure that handles upload requests.
+// Router is a structure that handles quota related requests.
 type Router struct {
 	quotaClient qpb.QuotaServiceClient
 	logger      *logrus.Logger
 }
 
-// NewRouter creates a new Router, and initializes clients of File Service
-// and Download Service with the given connections. If logger is non-nil then it will
+// NewRouter creates a new Router, and initializes clients of the quota Service
+// with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	fileConn *grpc.ClientConn,
+	quotaConn *grpc.ClientConn,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -31,7 +31,7 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.quotaClient = qpb.NewQuotaServiceClient(fileConn)
+	r.quotaClient = qpb.NewQuotaServiceClient(quotaConn)
 
 	return r
 }
