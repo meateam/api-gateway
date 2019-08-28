@@ -15,7 +15,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
-	fpb "github.com/meateam/file-service/proto"
+	fpb "github.com/meateam/file-service/proto/file"
 	upb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"

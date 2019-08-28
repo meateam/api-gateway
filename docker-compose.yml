@@ -14,6 +14,7 @@ services:
       GW_EXTERNAL_APM_URL: http://localhost:8200
       GW_ALLOW_ORIGINS: http://localhost*
       GW_SUPPORT_LINK: "https://open.rocket.chat"
+      GW_CHROME_DOWNLOAD_URL: "https://google.com/chrome/"
       ELASTICSEARCH_URL: http://localhost:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: info

@@ -9,16 +9,17 @@ import (
 )
 
 const (
-	envPrefix             = "GW"
-	configPort            = "port"
-	configUploadService   = "upload_service"
-	configDownloadService = "download_service"
-	configfileService     = "file_service"
-	configSecret          = "secret"
-	configAuthURL         = "auth_url"
-	configExternalApmURL  = "external_apm_url"
-	configAllowOrigins    = "allow_origins"
-	configSupportLink     = "support_link"
+	envPrefix               = "GW"
+	configPort              = "port"
+	configUploadService     = "upload_service"
+	configDownloadService   = "download_service"
+	configfileService       = "file_service"
+	configSecret            = "secret"
+	configAuthURL           = "auth_url"
+	configExternalApmURL    = "external_apm_url"
+	configAllowOrigins      = "allow_origins"
+	configSupportLink       = "support_link"
+	configDownloadChromeURL = "chrome_download_url"
 )
 
 var (
