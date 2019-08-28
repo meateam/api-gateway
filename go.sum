@@ -103,10 +103,6 @@ github.com/meateam/elasticsearch-logger v1.1.2 h1:krkAKWS5FZcsSNAyCyv2DTmc2RYKxB
 github.com/meateam/elasticsearch-logger v1.1.2/go.mod h1:7/YC3u7mXrwspo+cuvOfM9dpYUlzy/n3Pgc2a5cdNS8=
 github.com/meateam/elogrus/v4 v4.0.2 h1:X+fpps3Ti9vIoqo/wnPcuaB+wxkZwkmTppXnnBe1Un4=
 github.com/meateam/elogrus/v4 v4.0.2/go.mod h1:O+KJPmbnEV80u+V8tCYTvcBpzp/HZa7XR4nqDtDMzYg=
-github.com/meateam/file-service v0.0.0-20190623133051-3a3184a8f89e h1:n+NifrTU/BYEZOfDgtrbdeLIz/oJ4T1FacJFXbmszuI=
-github.com/meateam/file-service v0.0.0-20190623133051-3a3184a8f89e/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
-github.com/meateam/file-service/proto v0.0.0-20190827100921-6989a132bda6 h1:akJiH6+DTw8MILy8ZcTVsVeOp0TsnZbbil+Mqj3cjZs=
-github.com/meateam/file-service/proto v0.0.0-20190827100921-6989a132bda6/go.mod h1:1WteQ2NeqiJiUiCtxQy8AfjSf+pJSOFBZZWgLpWlQJ8=
 github.com/meateam/file-service/proto v0.0.0-20190827112839-f820f8cbdfbf h1:YVLmWczKhljDJc1J+A2mp843EhT/dwf0+vl7yRv3Tf8=
 github.com/meateam/file-service/proto v0.0.0-20190827112839-f820f8cbdfbf/go.mod h1:1WteQ2NeqiJiUiCtxQy8AfjSf+pJSOFBZZWgLpWlQJ8=
 github.com/meateam/upload-service v0.0.0-20190721133242-10bfc81ce835 h1:b4QjEl3hmlS/JSm/TBGMHnc4S8rxpLwac+ktEwOXhuE=
