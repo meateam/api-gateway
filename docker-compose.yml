@@ -13,6 +13,8 @@ services:
       GW_FILE_SERVICE: 'file-service:8080'
       GW_EXTERNAL_APM_URL: http://localhost:8200
       GW_ALLOW_ORIGINS: http://localhost*
+      GW_SUPPORT_LINK: "https://open.rocket.chat"
+      GW_CHROME_DOWNLOAD_URL: "https://google.com/chrome/"
       ELASTICSEARCH_URL: http://localhost:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: info
@@ -101,7 +103,7 @@ services:
     volumes:
       - './data/db:/data/db'
   authentication-service:
-    image: bluehub.azurecr.io/meateam/authentication-service:latest
+    image: authentication-service:latest
     ports:
       - '8084:8080'
     environment:
@@ -111,6 +113,7 @@ services:
       USERS_RPC_ENDPOINT: 'user-service:8080'
       SECRET_KEY: pandora@drive
       CLIENT_ENDPOINT: 'http://localhost:8080/api/config'
+      STRATEGY: 'saml'
     depends_on:
       - saml-idp
       - user-service
@@ -129,3 +132,28 @@ services:
     environment:
       KARTOFFEL_URL: http://localhost:8080
       RPC_PORT: 8080
+  # For Shraga
+  testsamlidp_idp:
+    image: kristophjunge/test-saml-idp
+    environment:
+      SIMPLESAMLPHP_SP_ENTITY_ID: http://localhost:3000/metadata.xml
+      SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: http://localhost:3000/auth/saml
+      SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: http://localhost/simplesaml/module.php/saml/sp/saml2-logout.php/test-sp
+      SAML_ISSUER: http://localhost:3000/metadata.xml
+      SAML_CALLBACK_URL: http://localhost:3000/auth/saml/callback
+      SIMPLESAMLPHP_ADMIN_PASSWORD: test
+      SIMPLESAMLPHP_SECRET_SALT: salt
+    ports:
+    - "8087:8080"
+    - "8443:8443"
+  shraga-proxy:
+    image: shragauser/shraga-proxy
+    environment:
+      SAML_ENTRY_POINT: 'http://localhost:8087/simplesaml/saml2/idp/SSOService.php'
+      MONGODB_URL: mongodb://mongo-shraga:27017
+      MONGODB_NAME: shraga-proxy
+      SESSION_SECRET: Secret
+    ports:
+     - 3000:3000
+    depends_on: 
+     - mongo

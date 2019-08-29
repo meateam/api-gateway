@@ -4,17 +4,42 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
-	fpb "github.com/meateam/file-service/proto"
+	fpb "github.com/meateam/file-service/proto/file"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	// ParamFileParent is a constant for file parent parameter in a request
+	ParamFileParent = "parent"
+
+	// ParamFileName is a constant for file name parameter in a request
+	ParamFileName = "name"
+
+	// ParamFileType is a constant for file type parameter in a request
+	ParamFileType = "type"
+
+	// ParamFileDescription is a constant for file description parameter in a request
+	ParamFileDescription = "description"
+
+	// ParamFileSize is a constant for file size parameter in a request
+	ParamFileSize = "size"
+
+	// ParamFileCreatedAt is a constant for file created at parameter in a request
+	ParamFileCreatedAt = "createdAt"
+
+	// ParamFileUpdatedAt is a constant for file updated at parameter in a request
+	ParamFileUpdatedAt = "updatedAt"
 )
 
 // Router is a structure that handles upload requests.
@@ -36,6 +61,23 @@ type getFileByIDResponse struct {
 	Parent      string `json:"parent,omitempty"`
 	CreatedAt   int64  `json:"createdAt,omitempty"`
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
+}
+
+type partialFile struct {
+	ID          string  `json:"id,omitempty"`
+	Name        string  `json:"name,omitempty"`
+	Type        string  `json:"type,omitempty"`
+	Size        int64   `json:"size,omitempty"`
+	Description string  `json:"description,omitempty"`
+	OwnerID     string  `json:"ownerId,omitempty"`
+	Parent      *string `json:"parent,omitempty"`
+	CreatedAt   int64   `json:"createdAt,omitempty"`
+	UpdatedAt   int64   `json:"updatedAt,omitempty"`
+}
+
+type updateFilesRequest struct {
+	IDList      []string    `json:"idList"`
+	PartialFile partialFile `json:"partialFile"`
 }
 
 // NewRouter creates a new Router, and initializes clients of File Service
@@ -66,6 +108,8 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.GetFilesByFolder)
 	rg.GET("/files/:id", r.GetFileByID)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
+	rg.PUT("/files/:id", r.UpdateFile)
+	rg.PUT("/files", r.UpdateFiles)
 }
 
 // GetFileByID is the request handler for GET /files/:id
@@ -108,6 +152,29 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFile)
 }
 
+// Extracts parameters from request query to a map, non-existing parameter has a value of ""
+func queryParamsToMap(c *gin.Context, paramNames ...string) map[string]string {
+	paramMap := make(map[string]string)
+	for _, paramName := range paramNames {
+		param, exists := c.GetQuery(paramName)
+		if exists {
+			paramMap[paramName] = param
+		} else {
+			paramMap[paramName] = ""
+		}
+	}
+	return paramMap
+}
+
+// Converts a string to int64, 0 is returned on failure
+func stringToInt64(s string) int64 {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		n = 0
+	}
+	return n
+}
+
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -116,7 +183,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	filesParent, exists := c.GetQuery("parent")
+	filesParent, exists := c.GetQuery(ParamFileParent)
 	if exists {
 		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
 		if !isUserAllowed {
@@ -124,9 +191,21 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 	}
 
+	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
+		ParamFileCreatedAt, ParamFileUpdatedAt)
+
+	fileFilter := fpb.File{
+		Name:        paramMap[ParamFileName],
+		Type:        paramMap[ParamFileType],
+		Description: paramMap[ParamFileDescription],
+		Size:        stringToInt64(paramMap[ParamFileSize]),
+		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
+		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
+	}
+
 	filesResp, err := r.fileClient.GetFilesByFolder(
 		c.Request.Context(),
-		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent},
+		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent, QueryFile: &fileFilter},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -163,29 +242,6 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	// Retrieve file details in order to get bucket.
-	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{
-		Id: fileID,
-	})
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-	}
-
-	DeleteObjectRequest := &upb.DeleteObjectsRequest{
-		Bucket: file.GetBucket(),
-		Keys:   []string{file.GetKey()},
-	}
-	deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
-	if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-	}
-
 	deleteFileRequest := &fpb.DeleteFileRequest{
 		Id: fileID,
 	}
@@ -197,7 +253,38 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, deleteFileResponse.GetOk())
+	bucketKeysMap := make(map[string][]string)
+	ids := make([]string, len(deleteFileResponse.GetFiles()))
+	for i, file := range deleteFileResponse.GetFiles() {
+		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
+		ids[i] = file.GetId()
+	}
+
+	var wg sync.WaitGroup
+
+	for bucket, keys := range bucketKeysMap {
+		wg.Add(1)
+		go func(bucket string, keys []string) {
+			DeleteObjectRequest := &upb.DeleteObjectsRequest{
+				Bucket: bucket,
+				Keys:   keys,
+			}
+			deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
+			if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
+				loggermiddleware.LogError(r.logger, err)
+			}
+			if len(deleteObjectResponse.GetFailed()) > 0 {
+				loggermiddleware.LogError(
+					r.logger,
+					fmt.Errorf("failed to delete keys: %v", deleteObjectResponse.GetFailed()),
+				)
+			}
+			wg.Done()
+		}(bucket, keys)
+	}
+
+	c.JSON(http.StatusOK, ids)
+	wg.Wait()
 }
 
 // Download is the request handler for /files/:id?alt=media request.
@@ -249,6 +336,127 @@ func (r *Router) Download(c *gin.Context) {
 	c.Header("Content-Length", contentLength)
 
 	loggermiddleware.LogError(r.logger, HandleStream(c, stream))
+}
+
+// UpdateFile Updates single file.
+// The function gets an id as a parameter and the partial file to update.
+// It returns the updated file id.
+func (r *Router) UpdateFile(c *gin.Context) {
+	fileID := c.Param("id")
+	if fileID == "" {
+		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+
+	if isUserAllowed := r.HandleUserFilePermission(c, fileID); !isUserAllowed {
+		return
+	}
+
+	var pf partialFile
+	if c.ShouldBindJSON(&pf) != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
+		)
+
+		return
+	}
+
+	// If the parent should be updated then check permissions for the new parent.
+	if pf.Parent != nil {
+		if isUserAllowed := r.HandleUserFilePermission(c, *pf.Parent); !isUserAllowed {
+			return
+		}
+	}
+
+	if err := r.handleUpdate(c, []string{fileID}, pf); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+}
+
+// UpdateFiles Updates many files with the same value.
+// The function gets slice of ids and the partial file to update.
+// It returns the updated file id's.
+func (r *Router) UpdateFiles(c *gin.Context) {
+	var body updateFilesRequest
+	if c.ShouldBindJSON(&body) != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
+		)
+
+		return
+	}
+
+	// If the parent should be updated then check permissions for the new parent.
+	if body.PartialFile.Parent != nil {
+		if isUserAllowed := r.HandleUserFilePermission(c, *body.PartialFile.Parent); !isUserAllowed {
+			return
+		}
+	}
+
+	allowedIds := make([]string, 0, len(body.IDList))
+
+	for _, id := range body.IDList {
+		isUserAllowed, err := r.userFilePermission(c, id)
+
+		if err != nil {
+			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
+		}
+
+		if isUserAllowed {
+			allowedIds = append(allowedIds, id)
+		}
+	}
+
+	if err := r.handleUpdate(c, allowedIds, body.PartialFile); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+}
+
+func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) error {
+	var parent *fpb.File_Parent
+
+	if pf.Parent != nil {
+		if *pf.Parent == "" {
+			parent = &fpb.File_Parent{
+				Parent: "null",
+			}
+		} else {
+			parent = &fpb.File_Parent{
+				Parent: *pf.Parent,
+			}
+		}
+	}
+
+	updatedData := &fpb.File{
+		FileOrId: parent,
+	}
+
+	if len(ids) == 1 {
+		updatedData.Name = pf.Name
+		updatedData.Description = pf.Description
+	}
+
+	updateFilesResponse, err := r.fileClient.UpdateFiles(
+		c.Request.Context(),
+		&fpb.UpdateFilesRequest{
+			IdList:      ids,
+			PartialFile: updatedData,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, updateFilesResponse.GetUpdated())
+	return nil
 }
 
 // HandleStream streams the file bytes from stream to c.
@@ -321,8 +529,10 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string) bool {
 	isUserAllowed, err := r.userFilePermission(c, fileID)
 
 	if err != nil {
-		loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
-		return false
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if err := c.AbortWithError(httpStatusCode, err); err != nil {
+			return false
+		}
 	}
 
 	if !isUserAllowed {

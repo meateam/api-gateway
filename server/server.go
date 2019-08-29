@@ -9,15 +9,17 @@ import (
 )
 
 const (
-	envPrefix             = "GW"
-	configPort            = "port"
-	configUploadService   = "upload_service"
-	configDownloadService = "download_service"
-	configfileService     = "file_service"
-	configSecret          = "secret"
-	configAuthURL         = "auth_url"
-	configExternalApmURL  = "external_apm_url"
-	configAllowOrigins    = "allow_origins"
+	envPrefix               = "GW"
+	configPort              = "port"
+	configUploadService     = "upload_service"
+	configDownloadService   = "download_service"
+	configfileService       = "file_service"
+	configSecret            = "secret"
+	configAuthURL           = "auth_url"
+	configExternalApmURL    = "external_apm_url"
+	configAllowOrigins      = "allow_origins"
+	configSupportLink       = "support_link"
+	configDownloadChromeURL = "chrome_download_url"
 )
 
 var (
@@ -33,6 +35,7 @@ func init() {
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetDefault(configAllowOrigins, "http://localhost*")
+	viper.SetDefault(configSupportLink, "https://open.rocket.chat")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

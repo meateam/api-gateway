@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 
@@ -14,7 +15,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
-	fpb "github.com/meateam/file-service/proto"
+	fpb "github.com/meateam/file-service/proto/file"
 	upb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
@@ -58,6 +59,9 @@ const (
 
 	// DefaultContentLength the default content length of a file.
 	DefaultContentLength = "application/octet-stream"
+
+	// FolderContentType is the custom content type of a folder.
+	FolderContentType = "application/vnd.drive.folder"
 
 	// ContentTypeHeader content type header name.
 	ContentTypeHeader = "Content-Type"
@@ -119,6 +123,21 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
+		)
+
+		return
+	}
+
+	if c.ContentType() == FolderContentType {
+		r.UploadFolder(c)
+		return
+	}
+
 	uploadType, exists := c.GetQuery(UploadTypeQueryKey)
 	if !exists {
 		r.UploadInit(c)
@@ -138,17 +157,65 @@ func (r *Router) Upload(c *gin.Context) {
 	}
 }
 
-// UploadComplete completes a resumable file upload and creates the uploaded file.
-func (r *Router) UploadComplete(c *gin.Context) {
-	uploadID, exists := c.GetQuery(UploadIDQueryKey)
-	if !exists {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", UploadIDQueryKey))
+// Extracts the filename from the request header in context
+func extractFileName(c *gin.Context) string {
+	fileName := ""
+	contentDisposition := c.GetHeader(ContentDispositionHeader)
+
+	if contentDisposition != "" {
+		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
+		if err != nil {
+			return ""
+		}
+
+		fileName, err = url.QueryUnescape(fileName)
+		if err != nil {
+			return ""
+		}
+	}
+
+	return fileName
+}
+
+// UploadFolder creates a folder in file service
+func (r *Router) UploadFolder(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+
+	folderFullName := extractFileName(c)
+	if folderFullName == "" {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("folder name not specified")),
+		)
+
 		return
 	}
 
+	createFolderResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
+		Key:     "",
+		Bucket:  reqUser.Bucket,
+		OwnerID: reqUser.ID,
+		Size:    0,
+		Type:    c.ContentType(),
+		Name:    folderFullName,
+		Parent:  c.Query(ParentQueryKey),
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.String(http.StatusOK, createFolderResp.GetId())
+}
+
+// UploadComplete completes a resumable file upload and creates the uploaded file.
+func (r *Router) UploadComplete(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
+	uploadID, exists := c.GetQuery(UploadIDQueryKey)
+	if !exists {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", UploadIDQueryKey))
 		return
 	}
 
@@ -220,15 +287,8 @@ func (r *Router) UploadMedia(c *gin.Context) {
 		return
 	}
 
-	contentType := c.GetHeader(ContentTypeHeader)
-	fileName := ""
-	contentDisposition := c.GetHeader(ContentDispositionHeader)
-	if contentDisposition != "" {
-		_, err := fmt.Sscanf(contentDisposition, "filename=%s", &fileName)
-		if err != nil {
-			fileName = ""
-		}
-	}
+	contentType := c.ContentType()
+	fileName := extractFileName(c)
 
 	r.UploadFile(c, fileReader, contentType, fileName)
 }
@@ -267,15 +327,10 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 // UploadFile uploads file from fileReader of type contentType with name filename to
 // upload service and creates it in file service.
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
+	reqUser := user.ExtractRequestUser(c)
 	file, err := ioutil.ReadAll(fileReader)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
-		return
-	}
-
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -295,7 +350,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     key,
-		Bucket:  reqUser.ID,
+		Bucket:  reqUser.Bucket,
 		OwnerID: reqUser.ID,
 		Size:    int64(len(file)),
 		Type:    contentType,
@@ -312,7 +367,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	ureq := &upb.UploadMediaRequest{
 		Key:    key,
-		Bucket: reqUser.ID,
+		Bucket: reqUser.Bucket,
 		File:   file,
 	}
 
@@ -340,10 +395,6 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 // UploadInit initiates a resumable upload to upload a large file to.
 func (r *Router) UploadInit(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
 
 	var reqBody uploadInitBody
 	if err := c.BindJSON(&reqBody); err != nil {
@@ -366,7 +417,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 	}
 
 	createUploadResponse, err := r.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
-		Bucket:  reqUser.ID,
+		Bucket:  reqUser.Bucket,
 		Name:    reqBody.Title,
 		OwnerID: reqUser.ID,
 		Parent:  c.Query(ParentQueryKey),
@@ -382,7 +433,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	uploadInitReq := &upb.UploadInitRequest{
 		Key:    createUploadResponse.GetKey(),
-		Bucket: reqUser.ID,
+		Bucket: reqUser.Bucket,
 	}
 
 	uploadInitReq.ContentType = reqBody.MimeType
@@ -400,7 +451,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
 		Key:      createUploadResponse.GetKey(),
-		Bucket:   reqUser.ID,
+		Bucket:   reqUser.Bucket,
 		UploadID: resp.GetUploadId(),
 	})
 
