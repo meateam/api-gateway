@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
+	"go.elastic.co/apm"
 )
 
 const (
@@ -70,6 +71,9 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
 			return
 		}
+
+		ctx := apm.TransactionFromContext(c.Request.Context())
+		ctx.Context.SetUserID(id)
 
 		// Check type assertion.
 		// For some reason can't convert directly to int64
