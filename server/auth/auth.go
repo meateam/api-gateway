@@ -72,8 +72,9 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 			return
 		}
 
-		ctx := apm.TransactionFromContext(c.Request.Context())
-		ctx.Context.SetUserID(id)
+		// ct is the current transaction of the apm. adding the user id to the context.
+		ct := apm.TransactionFromContext(c.Request.Context())
+		ct.Context.SetUserID(id)
 
 		// Check type assertion.
 		// For some reason can't convert directly to int64
