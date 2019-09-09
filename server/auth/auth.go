@@ -75,6 +75,7 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 		// The current transaction of the apm, adding the user id to the context.
 		currentTarnasction := apm.TransactionFromContext(c.Request.Context())
 		currentTarnasction.Context.SetUserID(id)
+		currentTarnasction.Context.SetCustom("username", firstName+" "+lastName)
 
 		// Check type assertion.
 		// For some reason can't convert directly to int64

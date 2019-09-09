@@ -14,10 +14,10 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.3.2
-	go.elastic.co/apm v1.3.0
-	go.elastic.co/apm/module/apmgin v1.3.0
+	go.elastic.co/apm v1.5.0
+	go.elastic.co/apm/module/apmgin v1.5.0
 	go.elastic.co/apm/module/apmgrpc v1.3.0
-	go.elastic.co/apm/module/apmhttp v1.3.0
+	go.elastic.co/apm/module/apmhttp v1.5.0
 	google.golang.org/grpc v1.23.0
 )
 
