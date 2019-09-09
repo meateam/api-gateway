@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
+	"go.elastic.co/apm"
 )
 
 const (
@@ -21,6 +22,15 @@ const (
 
 	// AuthHeaderBearer is the prefix for the authorization token in AuthHeader.
 	AuthHeaderBearer = "Bearer"
+
+	// FirstNameClaim is the claim name for the firstname of the user
+	FirstNameClaim = "firstName"
+
+	// LastNameClaim is the claim name for the lastname of the user
+	LastNameClaim = "lastName"
+
+	// UserNameLabel is the label for the full user name.
+	UserNameLabel = "username"
 )
 
 // Router is a structure that handels the authentication middleware.
@@ -62,14 +72,19 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 
 		// Check type assertion
 		id, idOk := claims["id"].(string)
-		firstName, firstNameOk := claims["firstName"].(string)
-		lastName, lastNameOk := claims["lastName"].(string)
+		firstName, firstNameOk := claims[FirstNameClaim].(string)
+		lastName, lastNameOk := claims[LastNameClaim].(string)
 
 		// If any of the claims are invalid then redirect to authentication
 		if !idOk || !firstNameOk || !lastNameOk {
 			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
 			return
 		}
+
+		// The current transaction of the apm, adding the user id to the context.
+		currentTarnasction := apm.TransactionFromContext(c.Request.Context())
+		currentTarnasction.Context.SetUserID(id)
+		currentTarnasction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
 
 		// Check type assertion.
 		// For some reason can't convert directly to int64
