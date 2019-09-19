@@ -16,6 +16,7 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
+	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
@@ -78,10 +79,11 @@ const (
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	uploadClient upb.UploadClient
-	fileClient   fpb.FileServiceClient
-	logger       *logrus.Logger
-	mu           sync.Mutex
+	uploadClient     upb.UploadClient
+	fileClient       fpb.FileServiceClient
+	permissionClient ppb.PermissionClient
+	logger           *logrus.Logger
+	mu               sync.Mutex
 }
 
 // uploadInitBody is a structure of the json body of upload init request.
@@ -177,6 +179,18 @@ func extractFileName(c *gin.Context) string {
 	return fileName
 }
 
+// createOwnerPermission creates owner permission for a given owner with a given file
+func (r *Router) createOwnerPermission(c *gin.Context, ownerID string, fileID string) error {
+	permissionRequest := ppb.CreatePermissionRequest{FileID: fileID, UserID: ownerID, Role: ppb.Role_OWNER}
+	_, err := r.permissionClient.CreatePermission(c, &permissionRequest)
+
+	if err != nil {
+		return fmt.Errorf("Couldn't create owner permission")
+	}
+
+	return nil
+}
+
 // UploadFolder creates a folder in file service
 func (r *Router) UploadFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -205,6 +219,21 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
+	}
+
+	if r.createOwnerPermission(c, reqUser.ID, createFolderResp.GetId()) != nil {
+		deleteRequest := fpb.DeleteFileRequest{Id: createFolderResp.GetId()}
+		deleteResponse, err := r.fileClient.DeleteFile(c, &deleteRequest)
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			return
+		}
+
+		if len(deleteResponse.GetFiles()) == 0 {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	c.String(http.StatusOK, createFolderResp.GetId())
