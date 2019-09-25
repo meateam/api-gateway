@@ -28,11 +28,11 @@ const (
 	// MaxSimpleUploadSize 5MB.
 	MaxSimpleUploadSize = 5 << 20
 
-	// MinPartUploadSize 5MB S3 min limit.
+	// MinPartUploadSize 5MB min limit.
 	MinPartUploadSize = 5 << 20
 
-	// MaxPartUploadSize 5GB S3 max limit.
-	MaxPartUploadSize = 5120 << 20
+	// MaxPartUploadSize 500MB max limit.
+	MaxPartUploadSize = 512 << 20
 
 	// MediaUploadType media upload type name.
 	MediaUploadType = "media"
