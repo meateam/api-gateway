@@ -1,8 +1,8 @@
 package permission
 
 import (
+	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -15,15 +15,20 @@ import (
 )
 
 const (
-	// ParamFileID is the name of the file id param in URL
-	ParamFileID = "file-id"
+	// ParamFileID is the name of the file id param in URL.
+	ParamFileID = "fileId"
 
-	// ParamPermissionID is the name of the permission id param in URL
-	ParamPermissionID = "permission-id"
+	// ParamPermissionID is the name of the permission id param in URL.
+	ParamPermissionID = "permissionId"
 
-	// FormKeyRole is the key of role in post data
-	FormKeyRole = "role"
+	// QueryDeleteUserPermission is the id of the user to delete its permission to a file.
+	QueryDeleteUserPermission = "userId"
 )
+
+type permission struct {
+	UserID string `json:"userID,omitempty"`
+	Role   string `json:"role,omitempty"`
+}
 
 // Router is a structure that handles permission requests.
 type Router struct {
@@ -52,10 +57,9 @@ func NewRouter(
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.POST("/files/:file-id/permissions", r.CreateFilePermission)
-	rg.PUT("/files/:file-id/permissions/:permission-id", r.UpdateFilePermission)
-	rg.GET("/files/:file-id/permissions", r.GetFilePermissions)
-	rg.DELETE("/files/:file-id/permissions/:permission-id", r.DeleteFilePermission)
+	rg.GET(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.GetFilePermissions)
+	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.CreateFilePermission)
+	rg.DELETE(fmt.Sprintf("/files/:%s/permissions/:%s", ParamFileID, ParamPermissionID), r.DeleteFilePermission)
 }
 
 // GetFilePermissions is a route function for retrieving permissions of a file
@@ -73,23 +77,12 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	isPermittedRequest := ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: ppb.Role_OWNER}
-	isPermittedResponse, err := r.permissionClient.IsPermitted(c, &isPermittedRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	if permitted := r.IsPermitted(c, fileID, reqUser.ID, ppb.Role_READ); !permitted {
 		return
 	}
 
-	if !isPermittedResponse.Permitted {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	permissionsRequest := ppb.GetFilePermissionsRequest{FileID: fileID}
-	permissionsResponse, err := r.permissionClient.GetFilePermissions(c, &permissionsRequest)
-
+	permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: fileID}
+	permissionsResponse, err := r.permissionClient.GetFilePermissions(c, permissionsRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -100,7 +93,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 }
 
 // CreateFilePermission creates a permission for a given file
-// File id is extracted from url params, role is extracted from form data
+// File id is extracted from url params, role is extracted from request body
 func (r *Router) CreateFilePermission(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
@@ -114,106 +107,35 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	isPermittedRequest := ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: ppb.Role_OWNER}
-	isPermittedResponse, err := r.permissionClient.IsPermitted(c, &isPermittedRequest)
+	if permitted := r.IsPermitted(c, fileID, reqUser.ID, ppb.Role_OWNER); !permitted {
+		return
+	}
 
+	permission := &permission{}
+	if err := c.ShouldBindJSON(permission); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	permissionRequest := &ppb.CreatePermissionRequest{
+		FileID: fileID,
+		UserID: permission.UserID,
+		Role:   ppb.Role(ppb.Role_value[permission.Role]),
+	}
+	createdPermission, err := r.permissionClient.CreatePermission(c, permissionRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
 
-	if !isPermittedResponse.Permitted {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
+	createdPermission.Id = ""
 
-	value, exists := c.GetPostForm(FormKeyRole)
-	if !exists {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	role, err := strconv.Atoi(value)
-	if err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	permissionRequest := ppb.CreatePermissionRequest{FileID: fileID, UserID: reqUser.ID, Role: ppb.Role(role)}
-	permission, err := r.permissionClient.CreatePermission(c, &permissionRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	c.String(http.StatusOK, permission.GetId())
-}
-
-// UpdateFilePermission updates a file permission
-// File id is extracted from url params, role is extracted from form data
-func (r *Router) UpdateFilePermission(c *gin.Context) {
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	fileID := c.Param(ParamFileID)
-	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	isPermittedRequest := ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: ppb.Role_WRITE}
-	isPermittedResponse, err := r.permissionClient.IsPermitted(c, &isPermittedRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	if !isPermittedResponse.Permitted {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	value, exists := c.GetPostForm(FormKeyRole)
-	if !exists {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	role, err := strconv.Atoi(value)
-	if err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	permissionRequest := ppb.CreatePermissionRequest{FileID: fileID, UserID: reqUser.ID, Role: ppb.Role(role)}
-	permission, err := r.permissionClient.CreatePermission(c, &permissionRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	c.String(http.StatusOK, permission.GetId())
+	c.JSON(http.StatusOK, createdPermission)
 }
 
 // DeleteFilePermission deletes a file permission
 // File id and permission id are extracted from url params
 func (r *Router) DeleteFilePermission(c *gin.Context) {
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
 	fileID := c.Param(ParamFileID)
 	permissionID := c.Param(ParamPermissionID)
 	if fileID == "" || permissionID == "" {
@@ -221,60 +143,57 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		return
 	}
 
-	isPermittedRequest := ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: ppb.Role_WRITE}
-	isPermittedResponse, err := r.permissionClient.IsPermitted(c, &isPermittedRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	if !isPermittedResponse.Permitted {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	deleteRequest := ppb.DeletePermissionRequest{FileID: fileID, UserID: reqUser.ID}
-	permission, err := r.permissionClient.DeletePermission(c, &deleteRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	c.String(http.StatusOK, permission.GetId())
-}
-
-// IsPermitted checks if the requesting user has a given role for the given file
-// File id is extracted from url params
-func (r *Router) IsPermitted(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
-	fileID := c.Param(ParamFileID)
-	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
+	deleteUserPermission := reqUser.ID
+	requiredRole := ppb.Role_OWNER
+	userID, exists := c.GetQuery(QueryDeleteUserPermission)
+	if exists {
+		deleteUserPermission = userID
 	}
 
-	isPermittedRequest := ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: ppb.Role_WRITE}
-	isPermittedResponse, err := r.permissionClient.IsPermitted(c, &isPermittedRequest)
-
+	if reqUser.ID == deleteUserPermission {
+		// Should be lowest permission that can be given to a user.
+		requiredRole = ppb.Role_READ
+	}
+	if permitted := r.IsPermitted(c, fileID, deleteUserPermission, requiredRole); !permitted {
+		return
+	}
+	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: deleteUserPermission}
+	permission, err := r.permissionClient.DeletePermission(c, deleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
 
-	if !isPermittedResponse.Permitted {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+	permission.Id = ""
+	c.JSON(http.StatusOK, permission)
+}
+
+// IsPermitted checks if the requesting user has a given role for the given file
+// File id is extracted from url params
+func (r *Router) IsPermitted(c *gin.Context, fileID string, userID string, role ppb.Role) bool {
+	isPermittedRequest := &ppb.IsPermittedRequest{
+		FileID: fileID,
+		UserID: userID,
+		Role:   role,
+	}
+	isPermittedResponse, err := r.permissionClient.IsPermitted(c, isPermittedRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return false
 	}
 
-	c.String(http.StatusOK, strconv.FormatBool(isPermittedResponse.Permitted))
+	if !isPermittedResponse.Permitted {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return false
+	}
+
+	return isPermittedResponse.GetPermitted()
 }
