@@ -1,6 +1,7 @@
 package permission
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -16,7 +17,7 @@ import (
 
 const (
 	// ParamFileID is the name of the file id param in URL.
-	ParamFileID = "fileId"
+	ParamFileID = "id"
 
 	// ParamPermissionID is the name of the permission id param in URL.
 	ParamPermissionID = "permissionId"
@@ -25,9 +26,16 @@ const (
 	QueryDeleteUserPermission = "userId"
 )
 
-type permission struct {
+type createPermissionRequest struct {
 	UserID string `json:"userID,omitempty"`
 	Role   string `json:"role,omitempty"`
+}
+
+// Permission is a struct that describes a user's permission to a file.
+type Permission struct {
+	UserID string
+	FileID string
+	Role   string
 }
 
 // Router is a structure that handles permission requests.
@@ -82,7 +90,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 	}
 
 	permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: fileID}
-	permissionsResponse, err := r.permissionClient.GetFilePermissions(c, permissionsRequest)
+	permissionsResponse, err := r.permissionClient.GetFilePermissions(c.Request.Context(), permissionsRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -111,17 +119,16 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	permission := &permission{}
+	permission := &createPermissionRequest{}
 	if err := c.ShouldBindJSON(permission); err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	permissionRequest := &ppb.CreatePermissionRequest{
+	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient, Permission{
 		FileID: fileID,
 		UserID: permission.UserID,
-		Role:   ppb.Role(ppb.Role_value[permission.Role]),
-	}
-	createdPermission, err := r.permissionClient.CreatePermission(c, permissionRequest)
+		Role:   permission.Role,
+	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -164,7 +171,7 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		return
 	}
 	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: deleteUserPermission}
-	permission, err := r.permissionClient.DeletePermission(c, deleteRequest)
+	permission, err := r.permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -178,12 +185,7 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 // IsPermitted checks if the requesting user has a given role for the given file
 // File id is extracted from url params
 func (r *Router) IsPermitted(c *gin.Context, fileID string, userID string, role ppb.Role) bool {
-	isPermittedRequest := &ppb.IsPermittedRequest{
-		FileID: fileID,
-		UserID: userID,
-		Role:   role,
-	}
-	isPermittedResponse, err := r.permissionClient.IsPermitted(c, isPermittedRequest)
+	isPermittedResponse, err := IsPermitted(c.Request.Context(), r.permissionClient, fileID, userID, role)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -196,4 +198,34 @@ func (r *Router) IsPermitted(c *gin.Context, fileID string, userID string, role 
 	}
 
 	return isPermittedResponse.GetPermitted()
+}
+
+// IsPermitted checks if the userID has a permission with role for fileID.
+func IsPermitted(ctx context.Context, permissionClient ppb.PermissionClient, fileID string, userID string, role ppb.Role) (*ppb.IsPermittedResponse, error) {
+	isPermittedRequest := &ppb.IsPermittedRequest{
+		FileID: fileID,
+		UserID: userID,
+		Role:   role,
+	}
+	isPermittedResponse, err := permissionClient.IsPermitted(ctx, isPermittedRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return isPermittedResponse, nil
+}
+
+// CreatePermission creates permission in the permission-service.
+func CreatePermission(ctx context.Context, permissionClient ppb.PermissionClient, permission Permission) (*ppb.PermissionObject, error) {
+	permissionRequest := &ppb.CreatePermissionRequest{
+		FileID: permission.FileID,
+		UserID: permission.UserID,
+		Role:   ppb.Role(ppb.Role_value[permission.Role]),
+	}
+	createdPermission, err := permissionClient.CreatePermission(ctx, permissionRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdPermission, nil
 }

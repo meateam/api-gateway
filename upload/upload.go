@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
@@ -21,6 +22,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -104,7 +106,7 @@ type resumableFileUploadProgress struct {
 // NewRouter creates a new Router, and initializes clients of Upload Service
 // and File Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
-func NewRouter(uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn, logger *logrus.Logger) *Router {
+func NewRouter(uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn, permissionConn *grpc.ClientConn, logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -114,6 +116,7 @@ func NewRouter(uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn, logger *l
 
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
+	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 
 	return r
 }
@@ -180,12 +183,40 @@ func extractFileName(c *gin.Context) string {
 }
 
 // createOwnerPermission creates owner permission for a given owner with a given file
-func (r *Router) createOwnerPermission(c *gin.Context, ownerID string, fileID string) error {
-	permissionRequest := ppb.CreatePermissionRequest{FileID: fileID, UserID: ownerID, Role: ppb.Role_OWNER}
-	_, err := r.permissionClient.CreatePermission(c, &permissionRequest)
+func (r *Router) createOwnerPermission(c *gin.Context, userID string, fileID string, parent string, role ppb.Role) error {
+	// Go up the hirarchy searching for an owner permission.
+	// Fetch fileID's parents, each at a time, and check permission to a parent,
+	// If reached a parent that userID isn't permitted to then return with error,
+	// If reached a parent that userID is permissited to then create the owner permission
+	// for userID to fileID and return.
+	currentParent := parent
+	for {
+		if parent == "" {
+			break
+		}
+
+		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: currentParent})
+		if err != nil {
+			return fmt.Errorf("failed fetching file: %v", err)
+		}
+
+		isPermitted, err := permission.IsPermitted(c.Request.Context(), r.permissionClient, file.GetId(), userID, ppb.Role_OWNER)
+		if err != nil && status.Code(err) != codes.Unimplemented {
+			return fmt.Errorf("failed fetching file permission: %v", err)
+		}
+
+		if !isPermitted.GetPermitted() {
+			return fmt.Errorf("no permission to create file")
+		}
+
+		currentParent = file.GetParent()
+	}
+
+	permissionRequest := ppb.CreatePermissionRequest{FileID: fileID, UserID: userID, Role: ppb.Role_OWNER}
+	_, err := r.permissionClient.CreatePermission(c.Request.Context(), &permissionRequest)
 
 	if err != nil {
-		return fmt.Errorf("Couldn't create owner permission")
+		return fmt.Errorf("failed creating owner permission: %v", err)
 	}
 
 	return nil
@@ -221,7 +252,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		return
 	}
 
-	if r.createOwnerPermission(c, reqUser.ID, createFolderResp.GetId()) != nil {
+	if r.createOwnerPermission(c, reqUser.ID, createFolderResp.GetId(), createFolderResp.GetParent()) != nil {
 		deleteRequest := fpb.DeleteFileRequest{Id: createFolderResp.GetId()}
 		deleteResponse, err := r.fileClient.DeleteFile(c, &deleteRequest)
 		if err != nil {

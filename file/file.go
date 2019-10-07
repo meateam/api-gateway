@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,44 +11,51 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
+	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 const (
-	// ParamFileParent is a constant for file parent parameter in a request
+	// ParamFileParent is a constant for file parent parameter in a request.
 	ParamFileParent = "parent"
 
-	// ParamFileName is a constant for file name parameter in a request
+	// ParamFileName is a constant for file name parameter in a request.
 	ParamFileName = "name"
 
-	// ParamFileType is a constant for file type parameter in a request
+	// ParamFileType is a constant for file type parameter in a request.
 	ParamFileType = "type"
 
-	// ParamFileDescription is a constant for file description parameter in a request
+	// ParamFileDescription is a constant for file description parameter in a request.
 	ParamFileDescription = "description"
 
-	// ParamFileSize is a constant for file size parameter in a request
+	// ParamFileSize is a constant for file size parameter in a request.
 	ParamFileSize = "size"
 
-	// ParamFileCreatedAt is a constant for file created at parameter in a request
+	// ParamFileCreatedAt is a constant for file created at parameter in a request.
 	ParamFileCreatedAt = "createdAt"
 
-	// ParamFileUpdatedAt is a constant for file updated at parameter in a request
+	// ParamFileUpdatedAt is a constant for file updated at parameter in a request.
 	ParamFileUpdatedAt = "updatedAt"
+
+	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
+	QueryShareFiles = "shares"
 )
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	downloadClient dpb.DownloadClient
-	fileClient     fpb.FileServiceClient
-	uploadClient   upb.UploadClient
-	logger         *logrus.Logger
+	downloadClient   dpb.DownloadClient
+	fileClient       fpb.FileServiceClient
+	uploadClient     upb.UploadClient
+	permissionClient ppb.PermissionClient
+	logger           *logrus.Logger
 }
 
 // getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
@@ -87,6 +95,7 @@ func NewRouter(
 	fileConn *grpc.ClientConn,
 	downloadConn *grpc.ClientConn,
 	uploadConn *grpc.ClientConn,
+	permissionConn *grpc.ClientConn,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -99,6 +108,7 @@ func NewRouter(
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.uploadClient = upb.NewUploadClient(uploadConn)
+	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 
 	return r
 }
@@ -183,6 +193,12 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
+	_, exists := c.GetQuery(QueryShareFiles)
+	if exists {
+		r.GetSharedFiles(c)
+		return
+	}
+
 	filesParent, exists := c.GetQuery(ParamFileParent)
 	if exists {
 		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
@@ -227,6 +243,29 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
+}
+
+// GetSharedFiles is the request handler for GET /files?shares
+func (r *Router) GetSharedFiles(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	permissions, err := r.permissionClient.GetUserPermissions(
+		c.Request.Context(),
+		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID, IsOwner: false},
+	)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, permissions.GetPermissions())
 }
 
 // DeleteFileByID is the request handler for DELETE /files/:id request.
@@ -490,29 +529,26 @@ func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 		if _, err := c.Writer.Write(part); err != nil {
 			return err
 		}
+
 		c.Writer.Flush()
 	}
 }
 
-// userFilePermission gets a gin context holding the requesting user and the id of
-// the file he's requesting. The function returns (true, nil) if the user is permitted
-// to the file, (false, nil) if the user isn't permitted to it, and (false, error) where
-// error is non-nil if an error occurred when calling FileServiceClient.IsAllowed.
-func (r *Router) userFilePermission(c *gin.Context, fileID string) (bool, error) {
-	reqUser := user.ExtractRequestUser(c)
+// userFilePermission checks if user in ctx is permitted with role to fileID.
+// The function returns true if the user is permitted to the file and no error encountered,
+// otherwise false and non-nil err if any encountered where.
+func userFilePermission(ctx context.Context, permissionClient ppb.PermissionClient, fileID string, role ppb.Role) (bool, error) {
+	reqUser := user.ExtractRequestUser(ctx)
 	if reqUser == nil {
-		return false, nil
+		return false, fmt.Errorf("no user found in ctx")
 	}
-	isAllowedResp, err := r.fileClient.IsAllowed(c.Request.Context(), &fpb.IsAllowedRequest{
-		FileID: fileID,
-		UserID: reqUser.ID,
-	})
 
+	isPermitted, err := permission.IsPermitted(ctx, permissionClient, fileID, reqUser.ID, role)
 	if err != nil {
 		return false, err
 	}
 
-	if !isAllowedResp.GetAllowed() {
+	if !isPermitted.GetPermitted() {
 		return false, nil
 	}
 
@@ -525,19 +561,52 @@ func (r *Router) userFilePermission(c *gin.Context, fileID string) (bool, error)
 // The function also returns false if error if error occurred on r.userFilePermission
 // and also log the error.
 // It also handles error cases and Unauthorized operations by aborting with error/status.
-func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string) bool {
-	isUserAllowed, err := r.userFilePermission(c, fileID)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			return false
-		}
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
+	if fileID == "" {
+		return true
 	}
 
-	if !isUserAllowed {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return false
+	// Go up the hirarchy searching for an owner permission.
+	// Fetch fileID's parents, each at a time, and check permission to a parent,
+	// If reached a parent that userID isn't permitted to then return with error,
+	// If reached a parent that userID is permissited to then create the owner permission
+	// for userID to fileID and return.
+	currentFile := fileID
+	for {
+		if currentFile == "" {
+			return false
+		}
+
+		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: currentFile})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return false
+		}
+
+		isPermitted, err := userFilePermission(c, r.permissionClient, file.GetId(), role)
+		if err != nil && status.Code(err) != codes.Unimplemented {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return false
+		}
+
+		if !isPermitted && err == nil {
+			loggermiddleware.LogError(
+				r.logger,
+				c.AbortWithError(http.StatusBadRequest, fmt.Errorf("no permission to the file %s", fileID)),
+			)
+
+			return false
+		}
+
+		if isPermitted {
+			return true
+		}
+
+		currentFile = file.GetParent()
 	}
 
 	return true
