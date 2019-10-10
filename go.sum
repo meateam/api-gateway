@@ -126,6 +126,8 @@ github.com/meateam/file-service/proto v0.0.0-20190829065145-d4d5344e0b43 h1:tXMR
 github.com/meateam/file-service/proto v0.0.0-20190829065145-d4d5344e0b43/go.mod h1:Hf7K+gmsRn0yVRU3oSGb5r3JkPXGstUnT9Gh8+0fR6U=
 github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676 h1:iZEgLcC9WY/USnCn0jwbzW0C1U59WMZ+GlfmC4kQY/w=
 github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676/go.mod h1:h0Xn5OLsm238+7/GZKxktHIBGtKLfZFyvv91VX+H3lA=
+github.com/meateam/user-service v0.0.0-20191010061405-c3f52ca3152f h1:6WlJqm3KGg1hT6Ob+ajmFjbIgcgWl/o3C5Kpsckp10E=
+github.com/meateam/user-service v0.0.0-20191010061405-c3f52ca3152f/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=

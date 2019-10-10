@@ -1,10 +1,17 @@
 package user
 
 import (
+	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	loggermiddleware "github.com/meateam/api-gateway/logger"
+	uspb "github.com/meateam/user-service/proto"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -12,12 +19,87 @@ const (
 	ContextUserKey = "User"
 )
 
+//Router is a structure that handles users requests.
+type Router struct {
+	userClient uspb.UsersClient
+	logger     *logrus.Logger
+}
+
 // User is a structure of an authenticated user.
 type User struct {
 	ID        string
 	FirstName string
 	LastName  string
 	Bucket    string
+}
+
+// NewRouter creates a new Router, and initializes clients of User Service
+//  with the given connections. If logger is non-nil then it will
+// be set as-is, otherwise logger would default to logrus.New().
+func NewRouter(
+	userConn *grpc.ClientConn,
+	logger *logrus.Logger,
+) *Router {
+	// If no logger is given, use a default logger.
+	if logger == nil {
+		logger = logrus.New()
+	}
+
+	r := &Router{logger: logger}
+
+	r.userClient = uspb.NewUsersClient(userConn)
+
+	return r
+}
+
+// Setup sets up r and intializes its routes under rg.
+func (r *Router) Setup(rg *gin.RouterGroup) {
+	rg.GET("/users/:id", r.GetUserByID)
+	rg.GET("/users/:mail", r.GetUserByMail)
+}
+
+// GetUserByID is the request handler for GET /users/:id
+func (r *Router) GetUserByID(c *gin.Context) {
+	userID := c.Param("id")
+	if userID == "" {
+		c.String(http.StatusBadRequest, "id is required")
+		return
+	}
+
+	getUserByIDRequest := &uspb.GetByIDRequest{
+		Id: userID,
+	}
+
+	user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+// GetUserByMail is the request handler for GET /users/:id
+func (r *Router) GetUserByMail(c *gin.Context) {
+	userMail := c.Param("mail")
+	if userMail == "" {
+		c.String(http.StatusBadRequest, "mail is required")
+		return
+	}
+
+	GetUserByMailRequest := &uspb.GetByMailRequest{
+		Mail: userMail,
+	}
+
+	user, err := r.userClient.GetUserByMail(c.Request.Context(), GetUserByMailRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	}
+
+	c.JSON(http.StatusOK, user)
 }
 
 // ExtractRequestUser gets a gin.Context and extracts the user's details from c.

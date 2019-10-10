@@ -11,6 +11,7 @@ require (
 	github.com/meateam/elasticsearch-logger v1.1.2
 	github.com/meateam/file-service/proto v0.0.0-20190829065145-d4d5344e0b43
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
+	github.com/meateam/user-service v0.0.0-20191010061405-c3f52ca3152f
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.4.0
