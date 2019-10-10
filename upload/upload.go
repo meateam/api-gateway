@@ -13,8 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
@@ -22,7 +22,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -162,7 +161,7 @@ func (r *Router) Upload(c *gin.Context) {
 	}
 }
 
-// Extracts the filename from the request header in context
+// Extracts the filename from the request header in context.
 func extractFileName(c *gin.Context) string {
 	fileName := ""
 	contentDisposition := c.GetHeader(ContentDispositionHeader)
@@ -182,49 +181,16 @@ func extractFileName(c *gin.Context) string {
 	return fileName
 }
 
-// createOwnerPermission creates owner permission for a given owner with a given file
-func (r *Router) createOwnerPermission(c *gin.Context, userID string, fileID string, parent string, role ppb.Role) error {
-	// Go up the hirarchy searching for an owner permission.
-	// Fetch fileID's parents, each at a time, and check permission to a parent,
-	// If reached a parent that userID isn't permitted to then return with error,
-	// If reached a parent that userID is permissited to then create the owner permission
-	// for userID to fileID and return.
-	currentParent := parent
-	for {
-		if parent == "" {
-			break
-		}
-
-		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: currentParent})
-		if err != nil {
-			return fmt.Errorf("failed fetching file: %v", err)
-		}
-
-		isPermitted, err := permission.IsPermitted(c.Request.Context(), r.permissionClient, file.GetId(), userID, ppb.Role_OWNER)
-		if err != nil && status.Code(err) != codes.Unimplemented {
-			return fmt.Errorf("failed fetching file permission: %v", err)
-		}
-
-		if !isPermitted.GetPermitted() {
-			return fmt.Errorf("no permission to create file")
-		}
-
-		currentParent = file.GetParent()
-	}
-
-	permissionRequest := ppb.CreatePermissionRequest{FileID: fileID, UserID: userID, Role: ppb.Role_OWNER}
-	_, err := r.permissionClient.CreatePermission(c.Request.Context(), &permissionRequest)
-
-	if err != nil {
-		return fmt.Errorf("failed creating owner permission: %v", err)
-	}
-
-	return nil
-}
-
-// UploadFolder creates a folder in file service
+// UploadFolder creates a folder in file service.
 func (r *Router) UploadFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
+	parent := c.Query(ParentQueryKey)
+
+	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	if err != nil || !isPermitted {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
 
 	folderFullName := extractFileName(c)
 	if folderFullName == "" {
@@ -243,7 +209,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		Size:    0,
 		Type:    c.ContentType(),
 		Name:    folderFullName,
-		Parent:  c.Query(ParentQueryKey),
+		Parent:  parent,
 	})
 
 	if err != nil {
@@ -252,19 +218,27 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		return
 	}
 
-	if r.createOwnerPermission(c, reqUser.ID, createFolderResp.GetId(), createFolderResp.GetParent()) != nil {
-		deleteRequest := fpb.DeleteFileRequest{Id: createFolderResp.GetId()}
-		deleteResponse, err := r.fileClient.DeleteFile(c, &deleteRequest)
-		if err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-			return
+	newPermission := ppb.PermissionObject{
+		FileID: createFolderResp.GetId(),
+		UserID: reqUser.ID,
+		Role:   ppb.Role_OWNER,
+	}
+	err = file.CreatePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		newPermission,
+	)
+	if err != nil {
+		_, deleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, createFolderResp.GetId())
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if deleteErr != nil {
+			err = fmt.Errorf("%v: %v", err, deleteErr)
 		}
 
-		if len(deleteResponse.GetFiles()) == 0 {
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
 	}
 
 	c.String(http.StatusOK, createFolderResp.GetId())
@@ -273,6 +247,22 @@ func (r *Router) UploadFolder(c *gin.Context) {
 // UploadComplete completes a resumable file upload and creates the uploaded file.
 func (r *Router) UploadComplete(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
+	parent := c.Query(ParentQueryKey)
+
+	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	if !isPermitted {
+		c.AbortWithStatus(http.StatusForbidden)
+
+		return
+	}
+
 	uploadID, exists := c.GetQuery(UploadIDQueryKey)
 	if !exists {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", UploadIDQueryKey))
@@ -322,13 +312,37 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		Size:    resp.GetContentLength(),
 		Type:    resp.GetContentType(),
 		Name:    upload.Name,
-		Parent:  c.Query(ParentQueryKey),
+		Parent:  parent,
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
+	}
+
+	newPermission := ppb.PermissionObject{
+		FileID: createFileResp.GetId(),
+		UserID: reqUser.ID,
+		Role:   ppb.Role_OWNER,
+	}
+	err = file.CreatePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		newPermission,
+	)
+	if err != nil {
+		_, deleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, createFileResp.GetId())
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if deleteErr != nil {
+			err = fmt.Errorf("%v: %v", err, deleteErr)
+		}
+
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+
 	}
 
 	c.String(http.StatusOK, createFileResp.GetId())
@@ -388,7 +402,15 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 // upload service and creates it in file service.
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	reqUser := user.ExtractRequestUser(c)
-	file, err := ioutil.ReadAll(fileReader)
+	parent := c.Query(ParentQueryKey)
+
+	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	if err != nil || !isPermitted {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	fileBytes, err := ioutil.ReadAll(fileReader)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 		return
@@ -412,10 +434,10 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		Key:     key,
 		Bucket:  reqUser.Bucket,
 		OwnerID: reqUser.ID,
-		Size:    int64(len(file)),
+		Size:    int64(len(fileBytes)),
 		Type:    contentType,
 		Name:    fileFullName,
-		Parent:  c.Query(ParentQueryKey),
+		Parent:  parent,
 	})
 
 	if err != nil {
@@ -428,7 +450,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	ureq := &upb.UploadMediaRequest{
 		Key:    key,
 		Bucket: reqUser.Bucket,
-		File:   file,
+		File:   fileBytes,
 	}
 
 	if contentType != "" {
@@ -437,13 +459,12 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	_, err = r.uploadClient.UploadMedia(c.Request.Context(), ureq)
 	if err != nil {
-		if _, err := r.fileClient.DeleteFile(c.Request.Context(), &fpb.DeleteFileRequest{
-			Id: createFileResp.GetId(),
-		}); err != nil {
-			r.logger.Errorf("%v", err)
+		_, deleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, reqUser.ID)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		if deleteErr != nil {
+			err = fmt.Errorf("%v: %v", err, deleteErr)
 		}
 
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
@@ -455,6 +476,12 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 // UploadInit initiates a resumable upload to upload a large file to.
 func (r *Router) UploadInit(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
+	parent := c.Query(ParentQueryKey)
+	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	if err != nil || !isPermitted {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
 
 	var reqBody uploadInitBody
 	if err := c.BindJSON(&reqBody); err != nil {
@@ -480,7 +507,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 		Bucket:  reqUser.Bucket,
 		Name:    reqBody.Title,
 		OwnerID: reqUser.ID,
-		Parent:  c.Query(ParentQueryKey),
+		Parent:  parent,
 		Size:    fileSize,
 	})
 
@@ -652,8 +679,7 @@ func (r *Router) HandleError(
 }
 
 // HandleUpload sends to bi-directional stream file found in progress. Upload file bytes
-// from progress.rangeStart to progress.rangeEnd sending in parts in size of
-// progress.bufSize.
+// from progress.rangeStart to progress.rangeEnd sending in parts in size of progress.bufSize.
 // Receives errors from errc, if any error is received then the operation would be aborted.
 // Returns nil error when sending is done with no errors, if stream is broken
 // then returns io.EOF.
@@ -754,6 +780,11 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 	}
 
 	return nil
+}
+
+// isUploadPermitted checks if userID has permission to upload a file to fileID, requires ppb.Role_OWNER permission.
+func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
+	return file.CheckUserFilePermission(ctx, r.fileClient, r.permissionClient, userID, fileID, ppb.Role_OWNER)
 }
 
 // calculateBufSize gets a file size and calculates the size of the buffer to read the file

@@ -6,12 +6,10 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -280,11 +278,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	if !isUserAllowed {
 		return
 	}
-
-	deleteFileRequest := &fpb.DeleteFileRequest{
-		Id: fileID,
-	}
-	deleteFileResponse, err := r.fileClient.DeleteFile(c.Request.Context(), deleteFileRequest)
+	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, fileID)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -292,38 +286,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	bucketKeysMap := make(map[string][]string)
-	ids := make([]string, len(deleteFileResponse.GetFiles()))
-	for i, file := range deleteFileResponse.GetFiles() {
-		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
-		ids[i] = file.GetId()
-	}
-
-	var wg sync.WaitGroup
-
-	for bucket, keys := range bucketKeysMap {
-		wg.Add(1)
-		go func(bucket string, keys []string) {
-			DeleteObjectRequest := &upb.DeleteObjectsRequest{
-				Bucket: bucket,
-				Keys:   keys,
-			}
-			deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
-			if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
-				loggermiddleware.LogError(r.logger, err)
-			}
-			if len(deleteObjectResponse.GetFailed()) > 0 {
-				loggermiddleware.LogError(
-					r.logger,
-					fmt.Errorf("failed to delete keys: %v", deleteObjectResponse.GetFailed()),
-				)
-			}
-			wg.Done()
-		}(bucket, keys)
-	}
-
 	c.JSON(http.StatusOK, ids)
-	wg.Wait()
 }
 
 // Download is the request handler for /files/:id?alt=media request.
@@ -534,82 +497,125 @@ func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 	}
 }
 
-// userFilePermission checks if user in ctx is permitted with role to fileID.
-// The function returns true if the user is permitted to the file and no error encountered,
-// otherwise false and non-nil err if any encountered where.
-func userFilePermission(ctx context.Context, permissionClient ppb.PermissionClient, fileID string, role ppb.Role) (bool, error) {
-	reqUser := user.ExtractRequestUser(ctx)
-	if reqUser == nil {
-		return false, fmt.Errorf("no user found in ctx")
+// CheckUserFilePermission checks if userID is permitted to fileID with the wanted role.
+// The function returns true if the user is permitted to the file and nil error,
+// otherwise false and non-nil err if any encountered.
+func CheckUserFilePermission(ctx context.Context, fileClient fpb.FileServiceClient, permissionClient ppb.PermissionClient, userID string, fileID string, role ppb.Role) (bool, error) {
+	if userID == "" {
+		return false, fmt.Errorf("userID is required")
 	}
 
-	isPermitted, err := permission.IsPermitted(ctx, permissionClient, fileID, reqUser.ID, role)
-	if err != nil {
-		return false, err
-	}
-
-	if !isPermitted.GetPermitted() {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// HandleUserFilePermission gets a gin context and the id of the requested file.
-// The function returns true if the user is permitted to operate on the file.
-// The function returns false if the user isn't permitted to operate on it,
-// The function also returns false if error if error occurred on r.userFilePermission
-// and also log the error.
-// It also handles error cases and Unauthorized operations by aborting with error/status.
-func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
+	// Everyone is permitted to their root, since all actions on root are authenticated,
+	// and it's impossible to create a permission for root (aka sharing a user's whole drive).
 	if fileID == "" {
-		return true
+		return true, nil
 	}
 
-	// Go up the hirarchy searching for an owner permission.
-	// Fetch fileID's parents, each at a time, and check permission to a parent,
+	// Go up the hirarchy searching for a permission for userID to fileID with role.
+	// Fetch fileID's parents, each at a time, and check permission to each parent.
 	// If reached a parent that userID isn't permitted to then return with error,
-	// If reached a parent that userID is permissited to then create the owner permission
-	// for userID to fileID and return.
+	// If reached a parent that userID is permitted to then return true with nil error.
+	// If any error encountered then return false and the encountered error.
 	currentFile := fileID
 	for {
 		if currentFile == "" {
-			return false
+			return false, nil
 		}
 
-		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: currentFile})
+		file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: currentFile})
 		if err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-			return false
+			return false, err
 		}
 
-		isPermitted, err := userFilePermission(c, r.permissionClient, file.GetId(), role)
+		isPermitted, err := permissionClient.IsPermitted(ctx, &ppb.IsPermittedRequest{FileID: currentFile, UserID: userID, Role: role})
 		if err != nil && status.Code(err) != codes.Unimplemented {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-			return false
+			return false, err
 		}
 
-		if !isPermitted && err == nil {
-			loggermiddleware.LogError(
-				r.logger,
-				c.AbortWithError(http.StatusBadRequest, fmt.Errorf("no permission to the file %s", fileID)),
-			)
-
-			return false
+		if !isPermitted.GetPermitted() && err == nil {
+			return false, nil
 		}
 
-		if isPermitted {
-			return true
+		if isPermitted.GetPermitted() {
+			return true, nil
 		}
 
 		currentFile = file.GetParent()
 	}
+}
 
-	return true
+// CreatePermission creates permission in permission service only if userID has
+// ppb.Role_OWNER permission to permission.FileID.
+func CreatePermission(ctx context.Context,
+	fileClient fpb.FileServiceClient,
+	permissionClient ppb.PermissionClient,
+	userID string,
+	permission ppb.PermissionObject) error {
+	// If the permission we want to create is ppb.Role_OWNER then check that there's
+	// no other user that has owner permission to permission.FileID.
+	if permission.GetRole() == ppb.Role_OWNER {
+		filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: permission.GetFileID()})
+		if err != nil {
+			return fmt.Errorf("failed creating permission: %v", err)
+		}
+
+		// If there's a user with role ppb.Role_OWNER to permission.FileID
+		// then we can't create another owner permission to the permission.FileID.
+		for _, userPermission := range filePermissions.GetPermissions() {
+			if userPermission.GetRole() == ppb.Role_OWNER {
+				return fmt.Errorf("failed creating permission: there's already an owner for file %s", permission.GetFileID())
+			}
+		}
+	} else {
+		// Check if userID has ppb.Role_OWNER permission to permission.FileID.
+		isPermitted, err := CheckUserFilePermission(ctx, fileClient, permissionClient, userID, permission.GetFileID(), ppb.Role_OWNER)
+		if err != nil {
+			return fmt.Errorf("failed creating permission: %v", err)
+		}
+
+		if !isPermitted {
+			return fmt.Errorf("failed creating permission: %s is not the owner of %s", userID, permission.GetFileID())
+		}
+
+		if permission.GetRole() == ppb.Role_NONE && permission.GetUserID() == userID {
+			return fmt.Errorf("failed creating permission: cannot remove the permission of the file owner")
+		}
+	}
+
+	createPermissionRequest := ppb.CreatePermissionRequest{
+		FileID: permission.GetFileID(),
+		UserID: permission.GetUserID(),
+		Role:   permission.GetRole(),
+	}
+	_, err := permissionClient.CreatePermission(ctx, &createPermissionRequest)
+	if err != nil {
+		return fmt.Errorf("failed creating permission: %v", err)
+	}
+
+	return nil
+}
+
+// HandleUserFilePermission gets a gin context and the id of the requested file.
+// Returns true if the user is permitted to operate on the file.
+// Returns false if the user isn't permitted to operate on it,
+// Returns false if any error occurred and logs the error.
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+
+		return false
+	}
+
+	isPermitted, err := CheckUserFilePermission(c.Request.Context(), r.fileClient, r.permissionClient, reqUser.ID, fileID, role)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return false
+	}
+
+	return isPermitted
 }
 
 // createGetFileResponse Creates a file grpc response to http response struct
