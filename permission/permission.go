@@ -101,7 +101,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 }
 
 // CreateFilePermission creates a permission for a given file
-// File id is extracted from url params, role is extracted from request body
+// File id is extracted from url params, role is extracted from request body.
 func (r *Router) CreateFilePermission(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
