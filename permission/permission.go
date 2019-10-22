@@ -109,6 +109,23 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
+	permission := &createPermissionRequest{}
+	if err := c.ShouldBindJSON(permission); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	// Forbid creating a permission of NONE or OWNER or WRITE.
+	switch ppb.Role(ppb.Role_value[permission.Role]) {
+	case ppb.Role_NONE:
+	case ppb.Role_OWNER:
+	case ppb.Role_WRITE:
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	default:
+		break
+	}
+
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
@@ -119,11 +136,6 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	permission := &createPermissionRequest{}
-	if err := c.ShouldBindJSON(permission); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
 	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient, Permission{
 		FileID: fileID,
 		UserID: permission.UserID,
