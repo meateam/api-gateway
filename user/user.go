@@ -55,7 +55,7 @@ func NewRouter(
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/users/:id", r.GetUserByID)
-	rg.GET("/users/:mail", r.GetUserByMail)
+	// rg.GET("/users/:mail", r.GetUserByMail)
 }
 
 // GetUserByID is the request handler for GET /users/:id
