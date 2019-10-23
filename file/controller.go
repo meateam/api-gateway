@@ -12,7 +12,7 @@ import (
 )
 
 // DeleteFile deletes fileID from file service and upload service, returns a slice of IDs of the files
-// that were deleted if there were any files that are descendants of fileID and any error if occured.
+// that were deleted if there were any files that are descendants of fileID and any error if occurred.
 func DeleteFile(ctx context.Context,
 	logger *logrus.Logger,
 	fileClient fpb.FileServiceClient,
