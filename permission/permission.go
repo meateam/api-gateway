@@ -115,6 +115,12 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
+	// Forbid a user to give himself any permission.
+	if permission.UserID == reqUser.ID {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
 	// Forbid creating a permission of NONE or OWNER or WRITE.
 	switch ppb.Role(ppb.Role_value[permission.Role]) {
 	case ppb.Role_NONE:
