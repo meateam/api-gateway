@@ -163,13 +163,13 @@ services:
       SIMPLESAMLPHP_ADMIN_PASSWORD: test
       SIMPLESAMLPHP_SECRET_SALT: salt
     ports:
-    - "8087:8080"
+    - "8088:8080"
     - "8443:8443"
   shraga-proxy:
     image: shragauser/shraga-proxy
     environment:
-      SAML_ENTRY_POINT: 'http://localhost:8087/simplesaml/saml2/idp/SSOService.php'
-      MONGODB_URL: mongodb://mongo-shraga:27017
+      SAML_ENTRY_POINT: 'http://localhost:8088/simplesaml/saml2/idp/SSOService.php'
+      MONGODB_URL: mongodb://mongo:27017
       MONGODB_NAME: shraga-proxy
       SESSION_SECRET: Secret
     ports:
