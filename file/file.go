@@ -45,6 +45,30 @@ const (
 
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
+
+	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the GetFileByID action.
+	GetFileByIDRole = ppb.Role_READ
+
+	// GetFilesByFolderRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the GetFilesByFolder action.
+	GetFilesByFolderRole = ppb.Role_READ
+
+	// DeleteFileByIDRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the DeleteFileByID action.
+	DeleteFileByIDRole = ppb.Role_OWNER
+
+	// DownloadRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the Download action.
+	DownloadRole = ppb.Role_READ
+
+	// UpdateFileRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the UpdateFile action.
+	UpdateFileRole = ppb.Role_OWNER
+
+	// UpdateFilesRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the UpdateFiles action.
+	UpdateFilesRole = ppb.Role_OWNER
 )
 
 // Router is a structure that handles upload requests.
@@ -134,7 +158,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID)
+	isUserAllowed := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 	if !isUserAllowed {
 		return
 	}
@@ -197,12 +221,10 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	filesParent, exists := c.GetQuery(ParamFileParent)
-	if exists {
-		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
-		if !isUserAllowed {
-			return
-		}
+	filesParent := c.Query(ParamFileParent)
+	isUserAllowed := r.HandleUserFilePermission(c, filesParent, GetFilesByFolderRole)
+	if !isUserAllowed {
+		return
 	}
 
 	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
@@ -274,7 +296,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID)
+	isUserAllowed := r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole)
 	if !isUserAllowed {
 		return
 	}
@@ -298,7 +320,7 @@ func (r *Router) Download(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID)
+	isUserAllowed := r.HandleUserFilePermission(c, fileID, DownloadRole)
 	if !isUserAllowed {
 		return
 	}
@@ -350,7 +372,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 		return
 	}
 
-	if isUserAllowed := r.HandleUserFilePermission(c, fileID); !isUserAllowed {
+	if isUserAllowed := r.HandleUserFilePermission(c, fileID, UpdateFileRole); !isUserAllowed {
 		return
 	}
 
@@ -366,7 +388,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 
 	// If the parent should be updated then check permissions for the new parent.
 	if pf.Parent != nil {
-		if isUserAllowed := r.HandleUserFilePermission(c, *pf.Parent); !isUserAllowed {
+		if isUserAllowed := r.HandleUserFilePermission(c, *pf.Parent, UpdateFileRole); !isUserAllowed {
 			return
 		}
 	}
@@ -383,6 +405,8 @@ func (r *Router) UpdateFile(c *gin.Context) {
 // The function gets slice of ids and the partial file to update.
 // It returns the updated file id's.
 func (r *Router) UpdateFiles(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+
 	var body updateFilesRequest
 	if c.ShouldBindJSON(&body) != nil {
 		loggermiddleware.LogError(
@@ -395,7 +419,7 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 
 	// If the parent should be updated then check permissions for the new parent.
 	if body.PartialFile.Parent != nil {
-		if isUserAllowed := r.HandleUserFilePermission(c, *body.PartialFile.Parent); !isUserAllowed {
+		if !r.HandleUserFilePermission(c, *body.PartialFile.Parent, UpdateFilesRole) {
 			return
 		}
 	}
@@ -403,8 +427,7 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 	allowedIds := make([]string, 0, len(body.IDList))
 
 	for _, id := range body.IDList {
-		isUserAllowed, err := r.userFilePermission(c, id)
-
+		isUserAllowed, err := CheckUserFilePermission(c.Request.Context(), r.fileClient, r.permissionClient, reqUser.ID, id, UpdateFilesRole)
 		if err != nil {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
 		}
@@ -595,8 +618,8 @@ func CreatePermission(ctx context.Context,
 	return nil
 }
 
-// HandleUserFilePermission gets a gin context and the id of the requested file.
-// Returns true if the user is permitted to operate on the file.
+// HandleUserFilePermission gets a gin context and the id of the requested file,
+// returns true if the user is permitted to operate on the file.
 // Returns false if the user isn't permitted to operate on it,
 // Returns false if any error occurred and logs the error.
 func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
