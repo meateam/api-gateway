@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
@@ -75,7 +76,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	})
 
 	// Initiate services gRPC connections.
-	fileConn, err := initServiceConn(viper.GetString(configfileService))
+	fileConn, err := initServiceConn(viper.GetString(configFileService))
 	if err != nil {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
 	}
@@ -90,11 +91,17 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup download service connection: %v", err)
 	}
 
+	permissionConn, err := initServiceConn(viper.GetString(configPermissionService))
+	if err != nil {
+		logger.Fatalf("couldn't setup permission service connection: %v", err)
+	}
+
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
+	pr := permission.NewRouter(permissionConn, logger)
 
 	// Authentication middleware on routes group.
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
@@ -109,8 +116,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate client connection to upload service.
 	ur.Setup(authRequiredRoutesGroup)
 
+	// Initiate client connection to permission service.
+	pr.Setup(authRequiredRoutesGroup)
+
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn}
+	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn}
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.

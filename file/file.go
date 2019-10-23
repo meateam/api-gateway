@@ -1,11 +1,11 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -13,41 +13,71 @@ import (
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
+	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 const (
-	// ParamFileParent is a constant for file parent parameter in a request
+	// ParamFileParent is a constant for file parent parameter in a request.
 	ParamFileParent = "parent"
 
-	// ParamFileName is a constant for file name parameter in a request
+	// ParamFileName is a constant for file name parameter in a request.
 	ParamFileName = "name"
 
-	// ParamFileType is a constant for file type parameter in a request
+	// ParamFileType is a constant for file type parameter in a request.
 	ParamFileType = "type"
 
-	// ParamFileDescription is a constant for file description parameter in a request
+	// ParamFileDescription is a constant for file description parameter in a request.
 	ParamFileDescription = "description"
 
-	// ParamFileSize is a constant for file size parameter in a request
+	// ParamFileSize is a constant for file size parameter in a request.
 	ParamFileSize = "size"
 
-	// ParamFileCreatedAt is a constant for file created at parameter in a request
+	// ParamFileCreatedAt is a constant for file created at parameter in a request.
 	ParamFileCreatedAt = "createdAt"
 
-	// ParamFileUpdatedAt is a constant for file updated at parameter in a request
+	// ParamFileUpdatedAt is a constant for file updated at parameter in a request.
 	ParamFileUpdatedAt = "updatedAt"
+
+	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
+	QueryShareFiles = "shares"
+
+	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the GetFileByID action.
+	GetFileByIDRole = ppb.Role_READ
+
+	// GetFilesByFolderRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the GetFilesByFolder action.
+	GetFilesByFolderRole = ppb.Role_READ
+
+	// DeleteFileByIDRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the DeleteFileByID action.
+	DeleteFileByIDRole = ppb.Role_OWNER
+
+	// DownloadRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the Download action.
+	DownloadRole = ppb.Role_READ
+
+	// UpdateFileRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the UpdateFile action.
+	UpdateFileRole = ppb.Role_OWNER
+
+	// UpdateFilesRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the UpdateFiles action.
+	UpdateFilesRole = ppb.Role_OWNER
 )
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	downloadClient dpb.DownloadClient
-	fileClient     fpb.FileServiceClient
-	uploadClient   upb.UploadClient
-	logger         *logrus.Logger
+	downloadClient   dpb.DownloadClient
+	fileClient       fpb.FileServiceClient
+	uploadClient     upb.UploadClient
+	permissionClient ppb.PermissionClient
+	logger           *logrus.Logger
 }
 
 // getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
@@ -87,6 +117,7 @@ func NewRouter(
 	fileConn *grpc.ClientConn,
 	downloadConn *grpc.ClientConn,
 	uploadConn *grpc.ClientConn,
+	permissionConn *grpc.ClientConn,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -99,6 +130,7 @@ func NewRouter(
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.uploadClient = upb.NewUploadClient(uploadConn)
+	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 
 	return r
 }
@@ -126,8 +158,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID)
-	if !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, GetFileByIDRole) {
 		return
 	}
 
@@ -183,12 +214,15 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	filesParent, exists := c.GetQuery(ParamFileParent)
+	_, exists := c.GetQuery(QueryShareFiles)
 	if exists {
-		isUserAllowed := r.HandleUserFilePermission(c, filesParent)
-		if !isUserAllowed {
-			return
-		}
+		r.GetSharedFiles(c)
+		return
+	}
+
+	filesParent := c.Query(ParamFileParent)
+	if !r.HandleUserFilePermission(c, filesParent, GetFilesByFolderRole) {
+		return
 	}
 
 	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
@@ -229,6 +263,29 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFiles)
 }
 
+// GetSharedFiles is the request handler for GET /files?shares
+func (r *Router) GetSharedFiles(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	permissions, err := r.permissionClient.GetUserPermissions(
+		c.Request.Context(),
+		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID, IsOwner: false},
+	)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	c.JSON(http.StatusOK, permissions.GetPermissions())
+}
+
 // DeleteFileByID is the request handler for DELETE /files/:id request.
 func (r *Router) DeleteFileByID(c *gin.Context) {
 	fileID := c.Param("id")
@@ -237,15 +294,10 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID)
-	if !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole) {
 		return
 	}
-
-	deleteFileRequest := &fpb.DeleteFileRequest{
-		Id: fileID,
-	}
-	deleteFileResponse, err := r.fileClient.DeleteFile(c.Request.Context(), deleteFileRequest)
+	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, fileID)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -253,38 +305,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	bucketKeysMap := make(map[string][]string)
-	ids := make([]string, len(deleteFileResponse.GetFiles()))
-	for i, file := range deleteFileResponse.GetFiles() {
-		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
-		ids[i] = file.GetId()
-	}
-
-	var wg sync.WaitGroup
-
-	for bucket, keys := range bucketKeysMap {
-		wg.Add(1)
-		go func(bucket string, keys []string) {
-			DeleteObjectRequest := &upb.DeleteObjectsRequest{
-				Bucket: bucket,
-				Keys:   keys,
-			}
-			deleteObjectResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), DeleteObjectRequest)
-			if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
-				loggermiddleware.LogError(r.logger, err)
-			}
-			if len(deleteObjectResponse.GetFailed()) > 0 {
-				loggermiddleware.LogError(
-					r.logger,
-					fmt.Errorf("failed to delete keys: %v", deleteObjectResponse.GetFailed()),
-				)
-			}
-			wg.Done()
-		}(bucket, keys)
-	}
-
 	c.JSON(http.StatusOK, ids)
-	wg.Wait()
 }
 
 // Download is the request handler for /files/:id?alt=media request.
@@ -296,8 +317,7 @@ func (r *Router) Download(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID)
-	if !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, DownloadRole) {
 		return
 	}
 
@@ -348,7 +368,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 		return
 	}
 
-	if isUserAllowed := r.HandleUserFilePermission(c, fileID); !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, UpdateFileRole) {
 		return
 	}
 
@@ -364,7 +384,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 
 	// If the parent should be updated then check permissions for the new parent.
 	if pf.Parent != nil {
-		if isUserAllowed := r.HandleUserFilePermission(c, *pf.Parent); !isUserAllowed {
+		if !r.HandleUserFilePermission(c, *pf.Parent, UpdateFileRole) {
 			return
 		}
 	}
@@ -381,6 +401,8 @@ func (r *Router) UpdateFile(c *gin.Context) {
 // The function gets slice of ids and the partial file to update.
 // It returns the updated file id's.
 func (r *Router) UpdateFiles(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+
 	var body updateFilesRequest
 	if c.ShouldBindJSON(&body) != nil {
 		loggermiddleware.LogError(
@@ -393,7 +415,7 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 
 	// If the parent should be updated then check permissions for the new parent.
 	if body.PartialFile.Parent != nil {
-		if isUserAllowed := r.HandleUserFilePermission(c, *body.PartialFile.Parent); !isUserAllowed {
+		if !r.HandleUserFilePermission(c, *body.PartialFile.Parent, UpdateFilesRole) {
 			return
 		}
 	}
@@ -401,8 +423,12 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 	allowedIds := make([]string, 0, len(body.IDList))
 
 	for _, id := range body.IDList {
-		isUserAllowed, err := r.userFilePermission(c, id)
-
+		isUserAllowed, err := CheckUserFilePermission(c.Request.Context(),
+			r.fileClient,
+			r.permissionClient,
+			reqUser.ID,
+			id,
+			UpdateFilesRole)
 		if err != nil {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
 		}
@@ -490,57 +516,149 @@ func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 		if _, err := c.Writer.Write(part); err != nil {
 			return err
 		}
+
 		c.Writer.Flush()
 	}
 }
 
-// userFilePermission gets a gin context holding the requesting user and the id of
-// the file he's requesting. The function returns (true, nil) if the user is permitted
-// to the file, (false, nil) if the user isn't permitted to it, and (false, error) where
-// error is non-nil if an error occurred when calling FileServiceClient.IsAllowed.
-func (r *Router) userFilePermission(c *gin.Context, fileID string) (bool, error) {
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		return false, nil
-	}
-	isAllowedResp, err := r.fileClient.IsAllowed(c.Request.Context(), &fpb.IsAllowedRequest{
-		FileID: fileID,
-		UserID: reqUser.ID,
-	})
-
-	if err != nil {
-		return false, err
+// CheckUserFilePermission checks if userID is permitted to fileID with the wanted role.
+// The function returns true if the user is permitted to the file and nil error,
+// otherwise false and non-nil err if any encountered.
+func CheckUserFilePermission(ctx context.Context,
+	fileClient fpb.FileServiceClient,
+	permissionClient ppb.PermissionClient,
+	userID string,
+	fileID string,
+	role ppb.Role) (bool, error) {
+	if userID == "" {
+		return false, fmt.Errorf("userID is required")
 	}
 
-	if !isAllowedResp.GetAllowed() {
-		return false, nil
+	// Everyone is permitted to their root, since all actions on root are authenticated,
+	// and it's impossible to create a permission for root (aka sharing a user's whole drive).
+	if fileID == "" {
+		return true, nil
 	}
 
-	return true, nil
+	// Go up the hirarchy searching for a permission for userID to fileID with role.
+	// Fetch fileID's parents, each at a time, and check permission to each parent.
+	// If reached a parent that userID isn't permitted to then return with error,
+	// If reached a parent that userID is permitted to then return true with nil error.
+	// If any error encountered then return false and the encountered error.
+	currentFile := fileID
+	for {
+		if currentFile == "" {
+			return false, nil
+		}
+
+		file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: currentFile})
+		if err != nil {
+			return false, err
+		}
+
+		isPermitted, err := permissionClient.IsPermitted(ctx,
+			&ppb.IsPermittedRequest{FileID: currentFile, UserID: userID, Role: role})
+		if err != nil && status.Code(err) != codes.Unimplemented {
+			return false, err
+		}
+
+		if !isPermitted.GetPermitted() && err == nil {
+			return false, nil
+		}
+
+		if isPermitted.GetPermitted() {
+			return true, nil
+		}
+
+		currentFile = file.GetParent()
+	}
 }
 
-// HandleUserFilePermission gets a gin context and the id of the requested file.
-// The function returns true if the user is permitted to operate on the file.
-// The function returns false if the user isn't permitted to operate on it,
-// The function also returns false if error if error occurred on r.userFilePermission
-// and also log the error.
-// It also handles error cases and Unauthorized operations by aborting with error/status.
-func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string) bool {
-	isUserAllowed, err := r.userFilePermission(c, fileID)
+// CreatePermission creates permission in permission service only if userID has
+// ppb.Role_OWNER permission to permission.FileID.
+func CreatePermission(ctx context.Context,
+	fileClient fpb.FileServiceClient,
+	permissionClient ppb.PermissionClient,
+	userID string,
+	permission ppb.PermissionObject) error {
+	// If the permission we want to create is ppb.Role_OWNER then check that there's
+	// no other user that has owner permission to permission.FileID.
+	if permission.GetRole() == ppb.Role_OWNER {
+		filePermissions, err := permissionClient.GetFilePermissions(ctx,
+			&ppb.GetFilePermissionsRequest{FileID: permission.GetFileID()})
+		if err != nil {
+			return fmt.Errorf("failed creating permission: %v", err)
+		}
 
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if err := c.AbortWithError(httpStatusCode, err); err != nil {
-			return false
+		// If there's a user with role ppb.Role_OWNER to permission.FileID
+		// then we can't create another owner permission to the permission.FileID.
+		for _, userPermission := range filePermissions.GetPermissions() {
+			if userPermission.GetRole() == ppb.Role_OWNER {
+				return fmt.Errorf("failed creating permission: there's already an owner for file %s",
+					permission.GetFileID())
+			}
+		}
+	} else {
+		// Check if userID has ppb.Role_OWNER permission to permission.FileID.
+		isPermitted, err := CheckUserFilePermission(ctx,
+			fileClient,
+			permissionClient,
+			userID,
+			permission.GetFileID(),
+			ppb.Role_OWNER)
+		if err != nil {
+			return fmt.Errorf("failed creating permission: %v", err)
+		}
+
+		if !isPermitted {
+			return fmt.Errorf("failed creating permission: %s is not the owner of %s",
+				userID, permission.GetFileID())
+		}
+
+		if permission.GetRole() == ppb.Role_NONE && permission.GetUserID() == userID {
+			return fmt.Errorf("failed creating permission: cannot remove the permission of the file owner")
 		}
 	}
 
-	if !isUserAllowed {
+	createPermissionRequest := ppb.CreatePermissionRequest{
+		FileID: permission.GetFileID(),
+		UserID: permission.GetUserID(),
+		Role:   permission.GetRole(),
+	}
+	_, err := permissionClient.CreatePermission(ctx, &createPermissionRequest)
+	if err != nil {
+		return fmt.Errorf("failed creating permission: %v", err)
+	}
+
+	return nil
+}
+
+// HandleUserFilePermission gets a gin context and the id of the requested file,
+// returns true if the user is permitted to operate on the file.
+// Returns false if the user isn't permitted to operate on it,
+// Returns false if any error occurred and logs the error.
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
+
 		return false
 	}
 
-	return true
+	isPermitted, err := CheckUserFilePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		fileID,
+		role)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return false
+	}
+
+	return isPermitted
 }
 
 // createGetFileResponse Creates a file grpc response to http response struct
