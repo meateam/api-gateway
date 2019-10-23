@@ -158,8 +158,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
-	if !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, GetFileByIDRole) {
 		return
 	}
 
@@ -222,8 +221,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	filesParent := c.Query(ParamFileParent)
-	isUserAllowed := r.HandleUserFilePermission(c, filesParent, GetFilesByFolderRole)
-	if !isUserAllowed {
+	if !r.HandleUserFilePermission(c, filesParent, GetFilesByFolderRole) {
 		return
 	}
 
@@ -296,8 +294,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole)
-	if !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole) {
 		return
 	}
 	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, fileID)
@@ -320,8 +317,7 @@ func (r *Router) Download(c *gin.Context) {
 		return
 	}
 
-	isUserAllowed := r.HandleUserFilePermission(c, fileID, DownloadRole)
-	if !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, DownloadRole) {
 		return
 	}
 
@@ -372,7 +368,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 		return
 	}
 
-	if isUserAllowed := r.HandleUserFilePermission(c, fileID, UpdateFileRole); !isUserAllowed {
+	if !r.HandleUserFilePermission(c, fileID, UpdateFileRole) {
 		return
 	}
 
@@ -388,7 +384,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 
 	// If the parent should be updated then check permissions for the new parent.
 	if pf.Parent != nil {
-		if isUserAllowed := r.HandleUserFilePermission(c, *pf.Parent, UpdateFileRole); !isUserAllowed {
+		if !r.HandleUserFilePermission(c, *pf.Parent, UpdateFileRole) {
 			return
 		}
 	}
@@ -427,7 +423,12 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 	allowedIds := make([]string, 0, len(body.IDList))
 
 	for _, id := range body.IDList {
-		isUserAllowed, err := CheckUserFilePermission(c.Request.Context(), r.fileClient, r.permissionClient, reqUser.ID, id, UpdateFilesRole)
+		isUserAllowed, err := CheckUserFilePermission(c.Request.Context(),
+			r.fileClient,
+			r.permissionClient,
+			reqUser.ID,
+			id,
+			UpdateFilesRole)
 		if err != nil {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
 		}
@@ -523,7 +524,12 @@ func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 // CheckUserFilePermission checks if userID is permitted to fileID with the wanted role.
 // The function returns true if the user is permitted to the file and nil error,
 // otherwise false and non-nil err if any encountered.
-func CheckUserFilePermission(ctx context.Context, fileClient fpb.FileServiceClient, permissionClient ppb.PermissionClient, userID string, fileID string, role ppb.Role) (bool, error) {
+func CheckUserFilePermission(ctx context.Context,
+	fileClient fpb.FileServiceClient,
+	permissionClient ppb.PermissionClient,
+	userID string,
+	fileID string,
+	role ppb.Role) (bool, error) {
 	if userID == "" {
 		return false, fmt.Errorf("userID is required")
 	}
@@ -550,7 +556,8 @@ func CheckUserFilePermission(ctx context.Context, fileClient fpb.FileServiceClie
 			return false, err
 		}
 
-		isPermitted, err := permissionClient.IsPermitted(ctx, &ppb.IsPermittedRequest{FileID: currentFile, UserID: userID, Role: role})
+		isPermitted, err := permissionClient.IsPermitted(ctx,
+			&ppb.IsPermittedRequest{FileID: currentFile, UserID: userID, Role: role})
 		if err != nil && status.Code(err) != codes.Unimplemented {
 			return false, err
 		}
@@ -577,7 +584,8 @@ func CreatePermission(ctx context.Context,
 	// If the permission we want to create is ppb.Role_OWNER then check that there's
 	// no other user that has owner permission to permission.FileID.
 	if permission.GetRole() == ppb.Role_OWNER {
-		filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: permission.GetFileID()})
+		filePermissions, err := permissionClient.GetFilePermissions(ctx,
+			&ppb.GetFilePermissionsRequest{FileID: permission.GetFileID()})
 		if err != nil {
 			return fmt.Errorf("failed creating permission: %v", err)
 		}
@@ -586,18 +594,25 @@ func CreatePermission(ctx context.Context,
 		// then we can't create another owner permission to the permission.FileID.
 		for _, userPermission := range filePermissions.GetPermissions() {
 			if userPermission.GetRole() == ppb.Role_OWNER {
-				return fmt.Errorf("failed creating permission: there's already an owner for file %s", permission.GetFileID())
+				return fmt.Errorf("failed creating permission: there's already an owner for file %s",
+					permission.GetFileID())
 			}
 		}
 	} else {
 		// Check if userID has ppb.Role_OWNER permission to permission.FileID.
-		isPermitted, err := CheckUserFilePermission(ctx, fileClient, permissionClient, userID, permission.GetFileID(), ppb.Role_OWNER)
+		isPermitted, err := CheckUserFilePermission(ctx,
+			fileClient,
+			permissionClient,
+			userID,
+			permission.GetFileID(),
+			ppb.Role_OWNER)
 		if err != nil {
 			return fmt.Errorf("failed creating permission: %v", err)
 		}
 
 		if !isPermitted {
-			return fmt.Errorf("failed creating permission: %s is not the owner of %s", userID, permission.GetFileID())
+			return fmt.Errorf("failed creating permission: %s is not the owner of %s",
+				userID, permission.GetFileID())
 		}
 
 		if permission.GetRole() == ppb.Role_NONE && permission.GetUserID() == userID {
@@ -630,7 +645,12 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		return false
 	}
 
-	isPermitted, err := CheckUserFilePermission(c.Request.Context(), r.fileClient, r.permissionClient, reqUser.ID, fileID, role)
+	isPermitted, err := CheckUserFilePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		fileID,
+		role)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))

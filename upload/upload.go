@@ -105,7 +105,10 @@ type resumableFileUploadProgress struct {
 // NewRouter creates a new Router, and initializes clients of Upload Service
 // and File Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
-func NewRouter(uploadConn *grpc.ClientConn, fileConn *grpc.ClientConn, permissionConn *grpc.ClientConn, logger *logrus.Logger) *Router {
+func NewRouter(uploadConn *grpc.ClientConn,
+	fileConn *grpc.ClientConn,
+	permissionConn *grpc.ClientConn,
+	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -230,7 +233,11 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		newPermission,
 	)
 	if err != nil {
-		_, deleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, createFolderResp.GetId())
+		_, deleteErr := file.DeleteFile(c.Request.Context(),
+			r.logger,
+			r.fileClient,
+			r.uploadClient,
+			createFolderResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
 			err = fmt.Errorf("%v: %v", err, deleteErr)
@@ -333,7 +340,11 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		newPermission,
 	)
 	if err != nil {
-		_, deleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, createFileResp.GetId())
+		_, deleteErr := file.DeleteFile(c.Request.Context(),
+			r.logger,
+			r.fileClient,
+			r.uploadClient,
+			createFileResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
 			err = fmt.Errorf("%v: %v", err, deleteErr)
@@ -459,7 +470,11 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		newPermission,
 	)
 	if err != nil {
-		_, deleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, createFileResp.GetId())
+		_, deleteErr := file.DeleteFile(c.Request.Context(),
+			r.logger,
+			r.fileClient,
+			r.uploadClient,
+			createFileResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
 			err = fmt.Errorf("%v: %v", err, deleteErr)
@@ -812,7 +827,8 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 	return nil
 }
 
-// isUploadPermitted checks if userID has permission to upload a file to fileID, requires ppb.Role_OWNER permission.
+// isUploadPermitted checks if userID has permission to upload a file to fileID,
+// requires ppb.Role_OWNER permission.
 func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
 	return file.CheckUserFilePermission(ctx, r.fileClient, r.permissionClient, userID, fileID, ppb.Role_OWNER)
 }

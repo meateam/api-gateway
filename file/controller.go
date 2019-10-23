@@ -12,8 +12,12 @@ import (
 )
 
 // DeleteFile deletes fileID from file service and upload service, returns a slice of IDs of the files
-// that were deleted if there were any files that are decendants of fileID and any error if occured.
-func DeleteFile(ctx context.Context, logger *logrus.Logger, fileClient fpb.FileServiceClient, uploadClient upb.UploadClient, fileID string) ([]string, error) {
+// that were deleted if there were any files that are descendants of fileID and any error if occured.
+func DeleteFile(ctx context.Context,
+	logger *logrus.Logger,
+	fileClient fpb.FileServiceClient,
+	uploadClient upb.UploadClient,
+	fileID string) ([]string, error) {
 	// IMPORTANT TODO: need to check permissions per file that descends from fileID.
 	deleteFileRequest := &fpb.DeleteFileRequest{
 		Id: fileID,

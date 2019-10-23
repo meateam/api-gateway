@@ -219,7 +219,11 @@ func (r *Router) IsPermitted(c *gin.Context, fileID string, userID string, role 
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.
-func IsPermitted(ctx context.Context, permissionClient ppb.PermissionClient, fileID string, userID string, role ppb.Role) (*ppb.IsPermittedResponse, error) {
+func IsPermitted(ctx context.Context,
+	permissionClient ppb.PermissionClient,
+	fileID string,
+	userID string,
+	role ppb.Role) (*ppb.IsPermittedResponse, error) {
 	isPermittedRequest := &ppb.IsPermittedRequest{
 		FileID: fileID,
 		UserID: userID,
@@ -234,7 +238,9 @@ func IsPermitted(ctx context.Context, permissionClient ppb.PermissionClient, fil
 }
 
 // CreatePermission creates permission in the permission-service.
-func CreatePermission(ctx context.Context, permissionClient ppb.PermissionClient, permission Permission) (*ppb.PermissionObject, error) {
+func CreatePermission(ctx context.Context,
+	permissionClient ppb.PermissionClient,
+	permission Permission) (*ppb.PermissionObject, error) {
 	permissionRequest := &ppb.CreatePermissionRequest{
 		FileID: permission.FileID,
 		UserID: permission.UserID,
