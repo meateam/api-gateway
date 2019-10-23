@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"net/http"
 	"regexp"
 	"strings"
@@ -102,10 +103,10 @@ func (r *Router) GetUserByMail(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// ExtractRequestUser gets a gin.Context and extracts the user's details from c.
-func ExtractRequestUser(c *gin.Context) *User {
-	contextUser, exists := c.Get(ContextUserKey)
-	if !exists {
+// ExtractRequestUser gets a context.Context and extracts the user's details from c.
+func ExtractRequestUser(ctx context.Context) *User {
+	contextUser := ctx.Value(ContextUserKey)
+	if contextUser == nil {
 		return nil
 	}
 

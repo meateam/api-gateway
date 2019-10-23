@@ -15,6 +15,7 @@ const (
 	configDownloadService   = "download_service"
 	configFileService       = "file_service"
 	configUserService       = "user_service"
+	configPermissionService = "permission_service"
 	configSecret            = "secret"
 	configAuthURL           = "auth_url"
 	configExternalApmURL    = "external_apm_url"
@@ -33,6 +34,7 @@ func init() {
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
+	viper.SetDefault(configPermissionService, "permission-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")

@@ -6,12 +6,36 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      GW_AUTH_URL: 'http://localhost:8084/auth/login'
       GW_PORT: 8080
-      GW_UPLOAD_SERVICE: upload-service:8081
+      GW_UPLOAD_SERVICE: 'upload-service:8080'
+      GW_DOWNLOAD_SERVICE: 'download-service:8080'
+      GW_FILE_SERVICE: 'file-service:8080'
+      GW_PERMISSION_SERVICE: 'permission-service:8080'
+      GW_EXTERNAL_APM_URL: http://localhost:8200
+      GW_ALLOW_ORIGINS: http://localhost*
+      GW_SUPPORT_LINK: "https://open.rocket.chat"
+      GW_CHROME_DOWNLOAD_URL: "https://google.com/chrome/"
+      ELASTICSEARCH_URL: http://localhost:9200
+      LOG_INDEX: kdrive
+      LOG_LEVEL: info
+      ELASTIC_APM_SERVER_URL: http://localhost:8200
+      ELASTIC_APM_SERVICE_NAME: api-gateway
+      ELASTIC_APM_SERVICE_VERSION: 0.1
+      ELASTIC_APM_ENVIRONMENT: development
+      ELASTIC_APM_ACTIVE: 'true'
+      ELASTIC_APM_IGNORE_URLS: /api/healthcheck
+      ELASTIC_APM_CAPTURE_BODY: 'off'
+      ELASTIC_APM_METRICS_INTERVAL: 10s
+      GW_SECRET: pandora@drive
     ports:
-      - 8080:8080
-    depends_on: 
+      - '8080:8080'
+    depends_on:
       - upload-service
+      - download-service
+      - file-service
+      - authentication-service
+      - permission-service
   minio:
     image: minio/minio
     volumes:
@@ -23,14 +47,132 @@ services:
       MINIO_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
     command: server /data
   upload-service:
-    image: upload-service:latest
+    image: 'upload-service:latest'
     environment:
       S3_ACCESS_KEY: F6WUUG27HBUFSIXVZL59
       S3_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
-      S3_ENDPOINT: http://minio:9000
-      TCP_PORT: 8081
-    ports:
-      - 8081:8081
+      S3_ENDPOINT: 'http://minio:9000'
+      TCP_PORT: 8080
+      HOST_NAME: upload-service
+      ELASTICSEARCH_URL: http://localhost:9200
+      LOG_INDEX: kdrive
+      LOG_LEVEL: debug
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVICE_NAME: 'upload-service'
+      ELASTIC_APM_SERVICE_VERSION: '0.1'
+      ELASTIC_APM_ENVIRONMENT: 'development'
+      ELASTIC_APM_ACTIVE: 'true'
+      ELASTIC_APM_CAPTURE_BODY: 'off'
+      ELASTIC_APM_METRICS_INTERVAL: '10s'
     depends_on:
       - minio
- 
+    ports:
+      - '8081:8080'
+  download-service:
+    image: 'download-service:latest'
+    environment:
+      S3_ACCESS_KEY: F6WUUG27HBUFSIXVZL59
+      S3_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
+      S3_ENDPOINT: 'http://minio:9000'
+      TCP_PORT: 8080
+      HOST_NAME: download-service
+      ELASTICSEARCH_URL: http://localhost:9200
+      LOG_INDEX: kdrive
+      LOG_LEVEL: debug
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVICE_NAME: 'download-service'
+      ELASTIC_APM_SERVICE_VERSION: '0.1'
+      ELASTIC_APM_ENVIRONMENT: 'development'
+      ELASTIC_APM_ACTIVE: 'true'
+      ELASTIC_APM_CAPTURE_BODY: 'off'
+      ELASTIC_APM_METRICS_INTERVAL: '10s'
+    ports:
+      - '8082:8080'
+    depends_on:
+      - minio
+  file-service:
+    image: file-service
+    environment:
+      MONGO_HOST: mongodb://mongo:27017/devDB
+    ports:
+      - '8083:8080'
+    depends_on:
+      - mongo
+  mongo:
+    image: 'mongo:latest'
+    ports:
+      - '27017:27017'
+    volumes:
+      - './data/db:/data/db'
+  authentication-service:
+    image: authentication-service:latest
+    ports:
+      - '8084:8080'
+    environment:
+      SAML_ENTRY_POINT: 'http://localhost:8085/simplesaml/saml2/idp/SSOService.php'
+      SAML_ISSUER: 'http://localhost:8084/auth/metadata.xml'
+      SAML_CALLBACK_URL: 'http://localhost:8084/auth/metadata.xml/callback'
+      USERS_RPC_ENDPOINT: 'user-service:8080'
+      SECRET_KEY: pandora@drive
+      CLIENT_ENDPOINT: 'http://localhost:8080/api/config'
+      STRATEGY: 'saml'
+    depends_on:
+      - saml-idp
+      - user-service
+  user-service:
+    image: bluehub.azurecr.io/meateam/user-service:ec68a07
+    ports:
+      - '8086:8080'
+    environment:
+      KARTOFFEL_URL: http://localhost:8080
+      RPC_PORT: 8080
+  permission-service:
+    image: permission-service:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8080
+      HOST_NAME: permission-service
+      MONGO_HOST: mongodb://mongo:27017/permission
+      ELASTICSEARCH_URL: http://localhost:9200
+      LOG_INDEX: kdrive
+      LOG_LEVEL: debug
+      HEALTH_CHECK_INTERVAL: 5
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVICE_NAME: 'permission-service'
+      ELASTIC_APM_SERVICE_VERSION: '0.1'
+      ELASTIC_APM_ENVIRONMENT: 'development'
+      ELASTIC_APM_ACTIVE: 'true'
+      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_METRICS_INTERVAL: '10s'
+      ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
+    ports:
+      - 8087:8080
+    depends_on:
+      - mongo
+  # For Shraga
+  testsamlidp_idp:
+    image: kristophjunge/test-saml-idp
+    environment:
+      SIMPLESAMLPHP_SP_ENTITY_ID: http://localhost:3000/metadata.xml
+      SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: http://localhost:3000/auth/saml
+      SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: http://localhost/simplesaml/module.php/saml/sp/saml2-logout.php/test-sp
+      SAML_ISSUER: http://localhost:3000/metadata.xml
+      SAML_CALLBACK_URL: http://localhost:3000/auth/saml/callback
+      SIMPLESAMLPHP_ADMIN_PASSWORD: test
+      SIMPLESAMLPHP_SECRET_SALT: salt
+    ports:
+    - "8087:8080"
+    - "8443:8443"
+  shraga-proxy:
+    image: shragauser/shraga-proxy
+    environment:
+      SAML_ENTRY_POINT: 'http://localhost:8087/simplesaml/saml2/idp/SSOService.php'
+      MONGODB_URL: mongodb://mongo-shraga:27017
+      MONGODB_NAME: shraga-proxy
+      SESSION_SECRET: Secret
+    ports:
+     - 3000:3000
+    depends_on: 
+     - mongo
