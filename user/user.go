@@ -56,7 +56,7 @@ func NewRouter(
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/users/:id", r.GetUserByID)
-	// rg.GET("/users/:mail", r.GetUserByMail)
+	rg.GET("/users", r.SearchByName)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -81,19 +81,19 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// GetUserByMail is the request handler for GET /users/:id
-func (r *Router) GetUserByMail(c *gin.Context) {
-	userMail := c.Param("mail")
-	if userMail == "" {
-		c.String(http.StatusBadRequest, "mail is required")
+// SearchByName is the request handler for GET /users
+func (r *Router) SearchByName(c *gin.Context) {
+	partialName := c.Query("partial")
+	if partialName == "" {
+		c.String(http.StatusBadRequest, "partial name required")
 		return
 	}
 
-	GetUserByMailRequest := &uspb.GetByMailRequest{
-		Mail: userMail,
+	FindUserByNameRequest := &uspb.FindUserByNameRequest{
+		Name: partialName,
 	}
 
-	user, err := r.userClient.GetUserByMail(c.Request.Context(), GetUserByMailRequest)
+	user, err := r.userClient.FindUserByName(c.Request.Context(), FindUserByNameRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
