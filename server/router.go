@@ -130,7 +130,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	pr.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, userConn, permissionConn}
+	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn}
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.

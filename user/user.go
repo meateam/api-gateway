@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -18,6 +19,12 @@ import (
 const (
 	// ContextUserKey is the context key used to get and set the user's data in the context.
 	ContextUserKey = "User"
+
+	// ParamUserID is the name of the user id param in URL.
+	ParamUserID = "id"
+
+	// ParamPartialName is the name of the partial user name param in URL.
+	ParamPartialName = "partial"
 )
 
 //Router is a structure that handles users requests.
@@ -55,13 +62,18 @@ func NewRouter(
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.GET("/users/:id", r.GetUserByID)
+	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
 }
 
 // GetUserByID is the request handler for GET /users/:id
 func (r *Router) GetUserByID(c *gin.Context) {
-	userID := c.Param("id")
+	reqUser := ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	userID := c.Param(ParamUserID)
 	if userID == "" {
 		c.String(http.StatusBadRequest, "id is required")
 		return
@@ -76,6 +88,7 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
 	}
 
 	c.JSON(http.StatusOK, user)
@@ -83,21 +96,22 @@ func (r *Router) GetUserByID(c *gin.Context) {
 
 // SearchByName is the request handler for GET /users
 func (r *Router) SearchByName(c *gin.Context) {
-	partialName := c.Query("partial")
+	partialName := c.Query(ParamPartialName)
 	if partialName == "" {
 		c.String(http.StatusBadRequest, "partial name required")
 		return
 	}
 
-	FindUserByNameRequest := &uspb.FindUserByNameRequest{
+	findUserByNameRequest := &uspb.FindUserByNameRequest{
 		Name: partialName,
 	}
 
-	user, err := r.userClient.FindUserByName(c.Request.Context(), FindUserByNameRequest)
+	user, err := r.userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
 	}
 
 	c.JSON(http.StatusOK, user)
