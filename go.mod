@@ -12,6 +12,7 @@ require (
 	github.com/meateam/file-service/proto v0.0.0-20190829065145-d4d5344e0b43
 	github.com/meateam/permission-service v0.0.0-20190926090704-42ed412bc991
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
+	github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.4.0

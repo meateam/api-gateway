@@ -14,6 +14,7 @@ import (
 	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
+	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -81,6 +82,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
 	}
 
+	userConn, err := initServiceConn(viper.GetString(configUserService))
+	if err != nil {
+		logger.Fatalf("couldn't setup user service connection: %v", err)
+	}
+
 	uploadConn, err := initServiceConn(viper.GetString(configUploadService))
 	if err != nil {
 		logger.Fatalf("couldn't setup upload service connection: %v", err)
@@ -99,6 +105,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, logger)
+	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, logger)
@@ -110,6 +117,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
 
+	// Initiate client connection to user service.
+	usr.Setup(authRequiredRoutesGroup)
+
 	// Initiate client connection to quota service.
 	qr.Setup(authRequiredRoutesGroup)
 
@@ -120,7 +130,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	pr.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn}
+	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn}
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.
