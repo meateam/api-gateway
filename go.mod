@@ -10,7 +10,7 @@ require (
 	github.com/meateam/download-service v0.0.0-20190707094647-f4db0fc5fdaa
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
 	github.com/meateam/file-service/proto v0.0.0-20190829065145-d4d5344e0b43
-	github.com/meateam/permission-service v0.0.0-20190926090704-42ed412bc991
+	github.com/meateam/permission-service v0.0.0-20191029101002-980dd2c31d08
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
 	github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83
 	github.com/satori/go.uuid v1.2.0
