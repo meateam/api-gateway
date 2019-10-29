@@ -185,7 +185,8 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	}
 
 	if userID == reqUser.ID {
-		permission, err := r.permissionClient.GetPermission(c.Request.Context(), &ppb.GetPermissionRequest{FileID: fileID, UserID: reqUser.ID})
+		permission, err := r.permissionClient.GetPermission(c.Request.Context(),
+			&ppb.GetPermissionRequest{FileID: fileID, UserID: reqUser.ID})
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))

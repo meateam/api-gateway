@@ -272,7 +272,8 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 
 	files := make([]*getFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
-		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
+		file, err := r.fileClient.GetFileByID(c.Request.Context(),
+			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
