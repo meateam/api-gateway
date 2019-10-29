@@ -119,6 +119,14 @@ services:
     depends_on:
       - saml-idp
       - user-service
+  saml-idp:
+    image: bluehub.azurecr.io/meateam/test-saml-idp:latest
+    ports:
+      - '8085:8080'
+    environment:
+      SIMPLESAMLPHP_SP_ENTITY_ID: 'http://localhost:8084/auth/metadata.xml'
+      SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: 'http://localhost:8084/auth/metadata.xml/callback'
+      SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: 'http://localhost:8084/auth/logout'
   user-service:
     image: bluehub.azurecr.io/meateam/user-service:ec68a07
     ports:
@@ -128,9 +136,6 @@ services:
       RPC_PORT: 8080
   permission-service:
     image: permission-service:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
     environment:
       PORT: 8080
       HOST_NAME: permission-service
@@ -151,20 +156,6 @@ services:
       - 8087:8080
     depends_on:
       - mongo
-  # For Shraga
-  testsamlidp_idp:
-    image: kristophjunge/test-saml-idp
-    environment:
-      SIMPLESAMLPHP_SP_ENTITY_ID: http://localhost:3000/metadata.xml
-      SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: http://localhost:3000/auth/saml
-      SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: http://localhost/simplesaml/module.php/saml/sp/saml2-logout.php/test-sp
-      SAML_ISSUER: http://localhost:3000/metadata.xml
-      SAML_CALLBACK_URL: http://localhost:3000/auth/saml/callback
-      SIMPLESAMLPHP_ADMIN_PASSWORD: test
-      SIMPLESAMLPHP_SECRET_SALT: salt
-    ports:
-    - "8088:8080"
-    - "8443:8443"
   shraga-proxy:
     image: shragauser/shraga-proxy
     environment:

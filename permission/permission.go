@@ -24,6 +24,10 @@ const (
 
 	// QueryDeleteUserPermission is the id of the user to delete its permission to a file.
 	QueryDeleteUserPermission = "userId"
+
+	// DeleteFilePermissionRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the DeleteFilePermission action.
+	DeleteFilePermissionRole = ppb.Role_OWNER
 )
 
 type createPermissionRequest struct {
@@ -67,7 +71,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.GetFilePermissions)
 	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.CreateFilePermission)
-	rg.DELETE(fmt.Sprintf("/files/:%s/permissions/:%s", ParamFileID, ParamPermissionID), r.DeleteFilePermission)
+	rg.DELETE(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.DeleteFilePermission)
 }
 
 // GetFilePermissions is a route function for retrieving permissions of a file
@@ -94,6 +98,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
 		return
 	}
 
@@ -162,8 +167,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 // File id and permission id are extracted from url params
 func (r *Router) DeleteFilePermission(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
-	permissionID := c.Param(ParamPermissionID)
-	if fileID == "" || permissionID == "" {
+	if fileID == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -174,21 +178,34 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		return
 	}
 
-	deleteUserPermission := reqUser.ID
-	requiredRole := ppb.Role_OWNER
 	userID, exists := c.GetQuery(QueryDeleteUserPermission)
-	if exists {
-		deleteUserPermission = userID
-	}
-
-	if reqUser.ID == deleteUserPermission {
-		// Should be lowest permission that can be given to a user.
-		requiredRole = ppb.Role_READ
-	}
-	if permitted := r.IsPermitted(c, fileID, deleteUserPermission, requiredRole); !permitted {
+	if !exists {
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: deleteUserPermission}
+
+	if userID == reqUser.ID {
+		permission, err := r.permissionClient.GetPermission(c.Request.Context(),
+			&ppb.GetPermissionRequest{FileID: fileID, UserID: reqUser.ID})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+
+		if permission.GetRole() == ppb.Role_OWNER {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+	}
+
+	if userID != reqUser.ID && !r.IsPermitted(c, fileID, reqUser.ID, DeleteFilePermissionRole) {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}
 	permission, err := r.permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))

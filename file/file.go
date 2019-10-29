@@ -85,7 +85,7 @@ type getFileByIDResponse struct {
 	ID          string `json:"id,omitempty"`
 	Name        string `json:"name,omitempty"`
 	Type        string `json:"type,omitempty"`
-	Size        int64  `json:"size,omitempty"`
+	Size        int64  `json:"size"`
 	Description string `json:"description,omitempty"`
 	OwnerID     string `json:"ownerId,omitempty"`
 	Parent      string `json:"parent,omitempty"`
@@ -174,13 +174,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	responseFile, err := createGetFileResponse(file)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
-		return
-	}
-
-	c.JSON(http.StatusOK, responseFile)
+	c.JSON(http.StatusOK, createGetFileResponse(file))
 }
 
 // Extracts parameters from request query to a map, non-existing parameter has a value of ""
@@ -214,8 +208,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	_, exists := c.GetQuery(QueryShareFiles)
-	if exists {
+	if _, exists := c.GetQuery(QueryShareFiles); exists {
 		r.GetSharedFiles(c)
 		return
 	}
@@ -251,13 +244,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	files := filesResp.GetFiles()
 	responseFiles := make([]*getFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		responseFile, err := createGetFileResponse(file)
-		if err != nil {
-			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
-			return
-		}
-
-		responseFiles = append(responseFiles, responseFile)
+		responseFiles = append(responseFiles, createGetFileResponse(file))
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
@@ -283,7 +270,21 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, permissions.GetPermissions())
+	files := make([]*getFileByIDResponse, 0, len(permissions.GetPermissions()))
+	for _, permission := range permissions.GetPermissions() {
+		file, err := r.fileClient.GetFileByID(c.Request.Context(),
+			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+
+		files = append(files, createGetFileResponse(file))
+	}
+
+	c.JSON(http.StatusOK, files)
 }
 
 // DeleteFileByID is the request handler for DELETE /files/:id request.
@@ -299,6 +300,15 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	}
 	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, fileID)
 	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	if _, err = r.permissionClient.DeleteFilePermissions(
+		c.Request.Context(),
+		&ppb.DeleteFilePermissionsRequest{FileID: fileID}); err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -662,7 +672,11 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 }
 
 // createGetFileResponse Creates a file grpc response to http response struct
-func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
+func createGetFileResponse(file *fpb.File) *getFileByIDResponse {
+	if file == nil {
+		return nil
+	}
+
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &getFileByIDResponse{
 		ID:          file.GetId(),
@@ -682,5 +696,5 @@ func createGetFileResponse(file *fpb.File) (*getFileByIDResponse, error) {
 		responseFile.Parent = fileParentObject.GetId()
 	}
 
-	return responseFile, nil
+	return responseFile
 }
