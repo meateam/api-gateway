@@ -230,9 +230,23 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
 	}
 
+	fileOwner := reqUser.ID
+	if filesParent != "" {
+		parent, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: filesParent})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+
+		fileOwner = parent.GetOwnerID()
+	}
+
+	// Use the id of the owner of parent to get the folder's files.
 	filesResp, err := r.fileClient.GetFilesByFolder(
 		c.Request.Context(),
-		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: filesParent, QueryFile: &fileFilter},
+		&fpb.GetFilesByFolderRequest{OwnerID: fileOwner, FolderID: filesParent, QueryFile: &fileFilter},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -666,6 +680,10 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return false
+	}
+
+	if !isPermitted {
+		c.AbortWithStatus(http.StatusUnauthorized)
 	}
 
 	return isPermitted
