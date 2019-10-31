@@ -7,11 +7,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
+	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -24,6 +27,14 @@ const (
 
 	// QueryDeleteUserPermission is the id of the user to delete its permission to a file.
 	QueryDeleteUserPermission = "userId"
+
+	// GetFilePermissionsRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the GetFilePermissions action.
+	GetFilePermissionsRole = ppb.Role_READ
+
+	// CreateFilePermissionRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the CreateFilePermission action.
+	CreateFilePermissionRole = ppb.Role_OWNER
 
 	// DeleteFilePermissionRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the DeleteFilePermission action.
@@ -45,6 +56,7 @@ type Permission struct {
 // Router is a structure that handles permission requests.
 type Router struct {
 	permissionClient ppb.PermissionClient
+	fileClient       fpb.FileServiceClient
 	logger           *logrus.Logger
 }
 
@@ -53,6 +65,7 @@ type Router struct {
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
 	permissionConn *grpc.ClientConn,
+	fileConn *grpc.ClientConn,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -63,6 +76,7 @@ func NewRouter(
 	r := &Router{logger: logger}
 
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.fileClient = fpb.NewFileServiceClient(fileConn)
 
 	return r
 }
@@ -89,12 +103,11 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	if permitted := r.IsPermitted(c, fileID, reqUser.ID, ppb.Role_READ); !permitted {
+	if !r.HandleUserFilePermission(c, fileID, GetFilePermissionsRole) {
 		return
 	}
 
-	permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: fileID}
-	permissionsResponse, err := r.permissionClient.GetFilePermissions(c.Request.Context(), permissionsRequest)
+	permissions, err := GetFilePermissions(c.Request.Context(), fileID, r.permissionClient, r.fileClient)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -102,7 +115,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, permissionsResponse.Permissions)
+	c.JSON(http.StatusOK, permissions)
 }
 
 // CreateFilePermission creates a permission for a given file
@@ -143,7 +156,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	if permitted := r.IsPermitted(c, fileID, reqUser.ID, ppb.Role_OWNER); !permitted {
+	if !r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole) {
 		return
 	}
 
@@ -200,8 +213,7 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		}
 	}
 
-	if userID != reqUser.ID && !r.IsPermitted(c, fileID, reqUser.ID, DeleteFilePermissionRole) {
-		c.AbortWithStatus(http.StatusUnauthorized)
+	if userID != reqUser.ID && !r.HandleUserFilePermission(c, fileID, DeleteFilePermissionRole) {
 		return
 	}
 
@@ -217,22 +229,34 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	c.JSON(http.StatusOK, permission)
 }
 
-// IsPermitted checks if the requesting user has a given role for the given file
+// HandleUserFilePermission checks if the requesting user has a given role for the given file
 // File id is extracted from url params
-func (r *Router) IsPermitted(c *gin.Context, fileID string, userID string, role ppb.Role) bool {
-	isPermittedResponse, err := IsPermitted(c.Request.Context(), r.permissionClient, fileID, userID, role)
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+
+		return false
+	}
+
+	isPermittedResponse, err := file.CheckUserFilePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		fileID,
+		role)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
 		return false
 	}
 
-	if !isPermittedResponse.Permitted {
+	if !isPermittedResponse {
 		c.AbortWithStatus(http.StatusUnauthorized)
-		return false
 	}
 
-	return isPermittedResponse.GetPermitted()
+	return isPermittedResponse
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.
@@ -269,4 +293,42 @@ func CreatePermission(ctx context.Context,
 	}
 
 	return createdPermission, nil
+}
+
+// GetFilePermissions returns all derived user permissions of a file.
+func GetFilePermissions(ctx context.Context,
+	fileID string,
+	permissionClient ppb.PermissionClient,
+	fileClient fpb.FileServiceClient) ([]*ppb.GetFilePermissionsResponse_UserRole, error) {
+	permissionsMap := make(map[string]*ppb.GetFilePermissionsResponse_UserRole, 1)
+	permissions := make([]*ppb.GetFilePermissionsResponse_UserRole, 0, 1)
+	currentFileID := fileID
+
+	for {
+		permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: currentFileID}
+		permissionsResponse, err := permissionClient.GetFilePermissions(ctx, permissionsRequest)
+		if err != nil && status.Code(err) != codes.Unimplemented {
+			return nil, err
+		}
+
+		currentFile, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: currentFileID})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, permission := range permissionsResponse.GetPermissions() {
+			if _, ok := permissionsMap[permission.GetUserID()]; !ok {
+				permissionsMap[permission.GetUserID()] = permission
+				permissions = append(permissions, permission)
+			}
+		}
+
+		if currentFile.GetParent() == "" {
+			break
+		}
+
+		currentFileID = currentFile.GetParent()
+	}
+
+	return permissions, nil
 }

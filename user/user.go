@@ -136,7 +136,7 @@ func ExtractRequestUser(ctx context.Context) *User {
 	return &reqUser
 }
 
-// NormalizeCephBucketName gets a bucket name and normalizes it
+// normalizeCephBucketName gets a bucket name and normalizes it
 // according to ceph s3's constraints.
 func normalizeCephBucketName(bucketName string) string {
 	lowerCaseBucketName := strings.ToLower(bucketName)

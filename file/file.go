@@ -320,13 +320,15 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	if _, err = r.permissionClient.DeleteFilePermissions(
-		c.Request.Context(),
-		&ppb.DeleteFilePermissionsRequest{FileID: fileID}); err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	for _, id := range ids {
+		if _, err = r.permissionClient.DeleteFilePermissions(
+			c.Request.Context(),
+			&ppb.DeleteFilePermissionsRequest{FileID: id}); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-		return
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, ids)
