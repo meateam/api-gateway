@@ -108,7 +108,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
-	pr := permission.NewRouter(permissionConn, fileConn, logger)
+	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
 
 	// Authentication middleware on routes group.
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))

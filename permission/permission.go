@@ -12,6 +12,7 @@ import (
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
+	upb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -57,6 +58,7 @@ type Permission struct {
 type Router struct {
 	permissionClient ppb.PermissionClient
 	fileClient       fpb.FileServiceClient
+	userClient       upb.UsersClient
 	logger           *logrus.Logger
 }
 
@@ -66,6 +68,7 @@ type Router struct {
 func NewRouter(
 	permissionConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
+	userConnection *grpc.ClientConn,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -77,7 +80,7 @@ func NewRouter(
 
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
-
+	r.userClient = upb.NewUsersClient(userConnection)
 	return r
 }
 
@@ -148,6 +151,19 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	default:
 		break
+	}
+
+	userExists, err := r.userClient.GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
 	fileID := c.Param(ParamFileID)
