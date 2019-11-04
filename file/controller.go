@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/meateam/api-gateway/internal/util"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	fpb "github.com/meateam/file-service/proto/file"
 	upb "github.com/meateam/upload-service/proto"
+	pool "github.com/processout/grpc-go-pool"
 	"github.com/sirupsen/logrus"
 )
 
@@ -15,15 +17,29 @@ import (
 // that were deleted if there were any files that are descendants of fileID and any error if occurred.
 func DeleteFile(ctx context.Context,
 	logger *logrus.Logger,
-	fileClient fpb.FileServiceClient,
-	uploadClient upb.UploadClient,
+	fileConnPool *pool.Pool,
+	uploadConnPool *pool.Pool,
 	fileID string) ([]string, error) {
 	// IMPORTANT TODO: need to check permissions per file that descends from fileID.
 	deleteFileRequest := &fpb.DeleteFileRequest{
 		Id: fileID,
 	}
+
+	fileClient, fileClientConn, err := util.GetFileClient(ctx, fileConnPool)
+	if err != nil {
+		return nil, err
+	}
+
+	uploadClient, uploadClientConn, err := util.GetUploadClient(ctx, uploadConnPool)
+	if err != nil {
+		return nil, err
+	}
+
 	deleteFileResponse, err := fileClient.DeleteFile(ctx, deleteFileRequest)
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		return nil, err
 	}
 
@@ -45,9 +61,13 @@ func DeleteFile(ctx context.Context,
 			}
 
 			deleteObjectResponse, err := uploadClient.DeleteObjects(ctx, DeleteObjectRequest)
-			if err != nil || len(deleteObjectResponse.GetFailed()) > 0 {
+			if err != nil {
+				uploadClientConn.Unhealthy()
+				uploadClientConn.Close()
+
 				loggermiddleware.LogError(logger, err)
 			}
+
 			if len(deleteObjectResponse.GetFailed()) > 0 {
 				loggermiddleware.LogError(
 					logger,

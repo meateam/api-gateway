@@ -14,14 +14,15 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
+	"github.com/meateam/api-gateway/internal/util"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	pool "github.com/processout/grpc-go-pool"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
@@ -80,11 +81,11 @@ const (
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	uploadClient     upb.UploadClient
-	fileClient       fpb.FileServiceClient
-	permissionClient ppb.PermissionClient
-	logger           *logrus.Logger
-	mu               sync.Mutex
+	fileConnPool       *pool.Pool
+	uploadConnPool     *pool.Pool
+	permissionConnPool *pool.Pool
+	logger             *logrus.Logger
+	mu                 sync.Mutex
 }
 
 // uploadInitBody is a structure of the json body of upload init request.
@@ -105,10 +106,12 @@ type resumableFileUploadProgress struct {
 // NewRouter creates a new Router, and initializes clients of Upload Service
 // and File Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
-func NewRouter(uploadConn *grpc.ClientConn,
-	fileConn *grpc.ClientConn,
-	permissionConn *grpc.ClientConn,
-	logger *logrus.Logger) *Router {
+func NewRouter(
+	uploadConnPool *pool.Pool,
+	fileConnPool *pool.Pool,
+	permissionConnPool *pool.Pool,
+	logger *logrus.Logger,
+) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -116,9 +119,9 @@ func NewRouter(uploadConn *grpc.ClientConn,
 
 	r := &Router{logger: logger}
 
-	r.uploadClient = upb.NewUploadClient(uploadConn)
-	r.fileClient = fpb.NewFileServiceClient(fileConn)
-	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.uploadConnPool = uploadConnPool
+	r.fileConnPool = fileConnPool
+	r.permissionConnPool = permissionConnPool
 
 	return r
 }
@@ -205,7 +208,8 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		return
 	}
 
-	createFolderResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
+	fileClient, fileClientConn := r.GetFileClient(c)
+	createFolderResp, err := fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     "",
 		Bucket:  reqUser.Bucket,
 		OwnerID: reqUser.ID,
@@ -216,6 +220,9 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	})
 
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
@@ -227,16 +234,16 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		Role:   ppb.Role_OWNER,
 	}
 	err = file.CreatePermission(c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileConnPool,
+		r.permissionConnPool,
 		reqUser.ID,
 		newPermission,
 	)
 	if err != nil {
 		_, deleteErr := file.DeleteFile(c.Request.Context(),
 			r.logger,
-			r.fileClient,
-			r.uploadClient,
+			r.fileConnPool,
+			r.uploadConnPool,
 			createFolderResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
@@ -276,8 +283,12 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		return
 	}
 
-	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	fileClient, fileClientConn := r.GetFileClient(c)
+	upload, err := fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -290,8 +301,12 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		Bucket:   upload.GetBucket(),
 	}
 
-	resp, err := r.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
+	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	resp, err := uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
+		uploadClientConn.Unhealthy()
+		uploadClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -304,15 +319,19 @@ func (r *Router) UploadComplete(c *gin.Context) {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
+
+	_, err = fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
 
-	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
+	createFileResp, err := fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     upload.GetKey(),
 		Bucket:  upload.GetBucket(),
 		OwnerID: reqUser.ID,
@@ -322,6 +341,9 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		Parent:  parent,
 	})
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -334,16 +356,16 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		Role:   ppb.Role_OWNER,
 	}
 	err = file.CreatePermission(c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileConnPool,
+		r.permissionConnPool,
 		reqUser.ID,
 		newPermission,
 	)
 	if err != nil {
 		_, deleteErr := file.DeleteFile(c.Request.Context(),
 			r.logger,
-			r.fileClient,
-			r.uploadClient,
+			r.fileConnPool,
+			r.uploadConnPool,
 			createFileResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
@@ -427,8 +449,12 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		return
 	}
 
-	keyResp, err := r.fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
+	fileClient, fileClientConn := r.GetFileClient(c)
+	keyResp, err := fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -441,7 +467,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		fileFullName = filename
 	}
 
-	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
+	createFileResp, err := fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     key,
 		Bucket:  reqUser.Bucket,
 		OwnerID: reqUser.ID,
@@ -452,6 +478,9 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	})
 
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -464,16 +493,16 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		Role:   ppb.Role_OWNER,
 	}
 	err = file.CreatePermission(c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileConnPool,
+		r.permissionConnPool,
 		reqUser.ID,
 		newPermission,
 	)
 	if err != nil {
 		_, deleteErr := file.DeleteFile(c.Request.Context(),
 			r.logger,
-			r.fileClient,
-			r.uploadClient,
+			r.fileConnPool,
+			r.uploadConnPool,
 			createFileResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
@@ -496,17 +525,25 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		ureq.ContentType = contentType
 	}
 
-	_, err = r.uploadClient.UploadMedia(c.Request.Context(), ureq)
+	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	_, err = uploadClient.UploadMedia(c.Request.Context(), ureq)
 	if err != nil {
-		_, fileDeleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, reqUser.ID)
+		uploadClientConn.Unhealthy()
+		uploadClientConn.Close()
+
+		_, fileDeleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileConnPool, r.uploadConnPool, reqUser.ID)
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if fileDeleteErr != nil {
 			err = fmt.Errorf("%v: %v", err, fileDeleteErr)
 		}
 
+		permissionClient, permissionClientConn := r.GetPermissionClient(c)
 		deleteRequest := &ppb.DeletePermissionRequest{FileID: createFileResp.GetId(), UserID: reqUser.ID}
-		_, permissionDeleteErr := r.permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
+		_, permissionDeleteErr := permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
 		if permissionDeleteErr != nil {
+			permissionClientConn.Unhealthy()
+			permissionClientConn.Close()
+
 			err = fmt.Errorf("%v: %v", err, permissionDeleteErr)
 		}
 
@@ -548,7 +585,8 @@ func (r *Router) UploadInit(c *gin.Context) {
 		fileSize = 0
 	}
 
-	createUploadResponse, err := r.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
+	fileClient, fileClientConn := r.GetFileClient(c)
+	createUploadResponse, err := fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  reqUser.Bucket,
 		Name:    reqBody.Title,
 		OwnerID: reqUser.ID,
@@ -557,6 +595,9 @@ func (r *Router) UploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -573,21 +614,28 @@ func (r *Router) UploadInit(c *gin.Context) {
 		uploadInitReq.ContentType = DefaultContentLength
 	}
 
-	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
+	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	resp, err := uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
+		uploadClientConn.Unhealthy()
+		uploadClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
 
-	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
+	_, err = fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
 		Key:      createUploadResponse.GetKey(),
 		Bucket:   reqUser.Bucket,
 		UploadID: resp.GetUploadId(),
 	})
 
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -619,8 +667,12 @@ func (r *Router) UploadPart(c *gin.Context) {
 		return
 	}
 
-	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	fileClient, fileClientConn := r.GetFileClient(c)
+	upload, err := fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -649,8 +701,12 @@ func (r *Router) UploadPart(c *gin.Context) {
 	span, spanCtx := loggermiddleware.StartSpan(c.Request.Context(), "/upload.Upload/UploadPart")
 	defer span.End()
 
-	stream, err := r.uploadClient.UploadPart(spanCtx)
+	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	stream, err := uploadClient.UploadPart(spanCtx)
 	if err != nil {
+		uploadClientConn.Unhealthy()
+		uploadClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -742,7 +798,7 @@ func (r *Router) HandleUpload(
 		// Otherwise continue uploading the remaining parts.
 		select {
 		case err := <-errc:
-			loggermiddleware.LogError(r.logger, r.AbortUpload(ctx, progress.upload))
+			loggermiddleware.LogError(r.logger, r.AbortUpload(c.Copy(), progress.upload))
 
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -763,7 +819,7 @@ func (r *Router) HandleUpload(
 		bytesRead, err := io.ReadFull(progress.file, buf)
 		if err != nil {
 			if err == io.ErrUnexpectedEOF {
-				loggermiddleware.LogError(r.logger, r.AbortUpload(ctx, progress.upload))
+				loggermiddleware.LogError(r.logger, r.AbortUpload(c.Copy(), progress.upload))
 				c.Abort()
 
 				break
@@ -805,14 +861,18 @@ func (r *Router) HandleUpload(
 }
 
 // AbortUpload aborts upload in upload service and file service, returns non-nil error if any occurred.
-func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDResponse) error {
+func (r *Router) AbortUpload(c *gin.Context, upload *fpb.GetUploadByIDResponse) error {
 	abortUploadRequest := &upb.UploadAbortRequest{
 		UploadId: upload.GetUploadID(),
 		Key:      upload.GetKey(),
 		Bucket:   upload.GetBucket(),
 	}
 
-	if _, err := r.uploadClient.UploadAbort(ctx, abortUploadRequest); err != nil {
+	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	if _, err := uploadClient.UploadAbort(c.Request.Context(), abortUploadRequest); err != nil {
+		uploadClientConn.Unhealthy()
+		uploadClientConn.Close()
+
 		return err
 	}
 
@@ -820,7 +880,11 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 		UploadID: upload.GetUploadID(),
 	}
 
-	if _, err := r.fileClient.DeleteUploadByID(ctx, deleteUploadRequest); err != nil {
+	fileClient, fileClientConn := r.GetFileClient(c)
+	if _, err := fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest); err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		return err
 	}
 
@@ -830,7 +894,7 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 // isUploadPermitted checks if userID has permission to upload a file to fileID,
 // requires ppb.Role_OWNER permission.
 func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
-	return file.CheckUserFilePermission(ctx, r.fileClient, r.permissionClient, userID, fileID, ppb.Role_OWNER)
+	return file.CheckUserFilePermission(ctx, r.fileConnPool, r.permissionConnPool, userID, fileID, ppb.Role_OWNER)
 }
 
 // calculateBufSize gets a file size and calculates the size of the buffer to read the file
@@ -846,4 +910,40 @@ func (r *Router) calculateBufSize(fileSize int64) int64 {
 	}
 
 	return bufSize
+}
+
+// GetFileClient returns a file service client and its connection from the pool and handles errors.
+func (r *Router) GetFileClient(c *gin.Context) (fpb.FileServiceClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetFileClient(c.Request.Context(), r.fileConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
+}
+
+// GetUploadClient returns a upload service client and its connection from the pool and handles errors.
+func (r *Router) GetUploadClient(c *gin.Context) (upb.UploadClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetUploadClient(c.Request.Context(), r.uploadConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
+}
+
+// GetPermissionClient returns a permission service client and its connection from the pool and handles errors.
+func (r *Router) GetPermissionClient(c *gin.Context) (ppb.PermissionClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetPermissionClient(c.Request.Context(), r.fileConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
 }

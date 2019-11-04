@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,7 @@ import (
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/meateam/api-gateway/user"
+	pool "github.com/processout/grpc-go-pool"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -29,7 +31,7 @@ const (
 )
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
-func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
+func NewRouter(logger *logrus.Logger) (*gin.Engine, []*pool.Pool) {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -76,39 +78,39 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		)
 	})
 
-	// Initiate services gRPC connections.
-	fileConn, err := initServiceConn(viper.GetString(configFileService))
+	// Initiate services gRPC connections pool.
+	fileConnPool, err := initServiceConnPool(viper.GetString(configFileService))
 	if err != nil {
-		logger.Fatalf("couldn't setup file service connection: %v", err)
+		logger.Fatalf("failed to create file service gRPC connection pool: %v", err)
 	}
 
-	userConn, err := initServiceConn(viper.GetString(configUserService))
+	userConnPool, err := initServiceConnPool(viper.GetString(configUserService))
 	if err != nil {
-		logger.Fatalf("couldn't setup user service connection: %v", err)
+		logger.Fatalf("failed to create user service gRPC connection pool: %v", err)
 	}
 
-	uploadConn, err := initServiceConn(viper.GetString(configUploadService))
+	uploadConnPool, err := initServiceConnPool(viper.GetString(configUploadService))
 	if err != nil {
-		logger.Fatalf("couldn't setup upload service connection: %v", err)
+		logger.Fatalf("failed to create upload service gRPC connection pool: %v", err)
 	}
 
-	downloadConn, err := initServiceConn(viper.GetString(configDownloadService))
+	downloadConnPool, err := initServiceConnPool(viper.GetString(configDownloadService))
 	if err != nil {
-		logger.Fatalf("couldn't setup download service connection: %v", err)
+		logger.Fatalf("failed to create download service gRPC connection pool: %v", err)
 	}
 
-	permissionConn, err := initServiceConn(viper.GetString(configPermissionService))
+	permissionConnPool, err := initServiceConnPool(viper.GetString(configPermissionService))
 	if err != nil {
-		logger.Fatalf("couldn't setup permission service connection: %v", err)
+		logger.Fatalf("failed to create permission service gRPC connection pool: %v", err)
 	}
 
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, logger)
-	usr := user.NewRouter(userConn, logger)
+	fr := file.NewRouter(fileConnPool, downloadConnPool, uploadConnPool, permissionConnPool, logger)
+	ur := upload.NewRouter(uploadConnPool, fileConnPool, permissionConnPool, logger)
+	usr := user.NewRouter(userConnPool, logger)
 	ar := auth.NewRouter(logger)
-	qr := quota.NewRouter(fileConn, logger)
-	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
+	qr := quota.NewRouter(fileConnPool, logger)
+	pr := permission.NewRouter(permissionConnPool, fileConnPool, userConnPool, logger)
 
 	// Authentication middleware on routes group.
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
@@ -130,7 +132,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	pr.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn}
+	return r, []*pool.Pool{fileConnPool, uploadConnPool, downloadConnPool, permissionConnPool, userConnPool}
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.
@@ -154,17 +156,33 @@ func corsRouterConfig() cors.Config {
 	return corsConfig
 }
 
-// initServiceConn creates a gRPC connection to url, returns the created connection
+// initServiceConnPool creates a gRPC connection to url, returns the created connection
 // and nil err on success. Returns non-nil error if any error occurred while
 // creating the connection.
-func initServiceConn(url string) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(url,
-		grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor()),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)),
-		grpc.WithInsecure())
-	if err != nil {
-		return nil, err
+func initServiceConnPool(url string) (*pool.Pool, error) {
+	var factory pool.Factory
+	factory = func() (*grpc.ClientConn, error) {
+		conn, err := grpc.Dial(url,
+			grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor()),
+			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)),
+			grpc.WithInsecure())
+		if err != nil {
+			logger.Fatalf("couldn't setup %s connection: %v", url, err)
+			return nil, err
+		}
+		return conn, err
 	}
 
-	return conn, nil
+	servicePool, err := pool.New(
+		factory,
+		10,             /* initial connections */
+		50,             /* maximum connections */
+		10*time.Second, /* idle timeout        */
+		time.Minute,    /* maxLifeDuration     */
+	)
+	if err != nil {
+		logger.Fatalf("failed to create gRPC connection pool: %v", err)
+		return nil, err
+	}
+	return servicePool, nil
 }

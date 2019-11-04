@@ -13,6 +13,7 @@ require (
 	github.com/meateam/permission-service v0.0.0-20191029101002-980dd2c31d08
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
 	github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83
+	github.com/processout/grpc-go-pool v1.2.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.4.0
@@ -20,6 +21,9 @@ require (
 	go.elastic.co/apm/module/apmgin v1.5.0
 	go.elastic.co/apm/module/apmgrpc v1.5.0
 	go.elastic.co/apm/module/apmhttp v1.5.0
+	golang.org/x/net v0.0.0-20191101175033-0deb6923b6d9 // indirect
+	golang.org/x/sys v0.0.0-20191104094858-e8c54fb511f6 // indirect
+	google.golang.org/genproto v0.0.0-20191028173616-919d9bdd9fe6 // indirect
 	google.golang.org/grpc v1.24.0
 )
 

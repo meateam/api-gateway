@@ -9,14 +9,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/internal/util"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	pool "github.com/processout/grpc-go-pool"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -73,11 +74,11 @@ const (
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	downloadClient   dpb.DownloadClient
-	fileClient       fpb.FileServiceClient
-	uploadClient     upb.UploadClient
-	permissionClient ppb.PermissionClient
-	logger           *logrus.Logger
+	downloadConnPool   *pool.Pool
+	fileConnPool       *pool.Pool
+	uploadConnPool     *pool.Pool
+	permissionConnPool *pool.Pool
+	logger             *logrus.Logger
 }
 
 // getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
@@ -114,10 +115,10 @@ type updateFilesRequest struct {
 // and Download Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	fileConn *grpc.ClientConn,
-	downloadConn *grpc.ClientConn,
-	uploadConn *grpc.ClientConn,
-	permissionConn *grpc.ClientConn,
+	fileConnPool *pool.Pool,
+	downloadConnPool *pool.Pool,
+	uploadConnPool *pool.Pool,
+	permissionConnPool *pool.Pool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -127,10 +128,10 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.fileClient = fpb.NewFileServiceClient(fileConn)
-	r.downloadClient = dpb.NewDownloadClient(downloadConn)
-	r.uploadClient = upb.NewUploadClient(uploadConn)
-	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.fileConnPool = fileConnPool
+	r.downloadConnPool = downloadConnPool
+	r.uploadConnPool = uploadConnPool
+	r.permissionConnPool = permissionConnPool
 
 	return r
 }
@@ -166,8 +167,12 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		Id: fileID,
 	}
 
-	file, err := r.fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
+	fileClient, fileClientConn := r.GetFileClient(c)
+	file, err := fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -230,10 +235,14 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
 	}
 
+	fileClient, fileClientConn := r.GetFileClient(c)
 	fileOwner := reqUser.ID
 	if filesParent != "" {
-		parent, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: filesParent})
+		parent, err := fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: filesParent})
 		if err != nil {
+			fileClientConn.Unhealthy()
+			fileClientConn.Close()
+
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -244,7 +253,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	// Use the id of the owner of parent to get the folder's files.
-	filesResp, err := r.fileClient.GetFilesByFolder(
+	filesResp, err := fileClient.GetFilesByFolder(
 		c.Request.Context(),
 		&fpb.GetFilesByFolderRequest{OwnerID: fileOwner, FolderID: filesParent, QueryFile: &fileFilter},
 	)
@@ -272,23 +281,32 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 		return
 	}
 
-	permissions, err := r.permissionClient.GetUserPermissions(
+	permissionClient, permissionClientConn := r.GetPermissionClient(c)
+	permissions, err := permissionClient.GetUserPermissions(
 		c.Request.Context(),
 		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID, IsOwner: false},
 	)
 
 	if err != nil {
+		permissionClientConn.Unhealthy()
+		permissionClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
 	}
 
+	fileClient, fileClientConn := r.GetFileClient(c)
+
 	files := make([]*getFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
-		file, err := r.fileClient.GetFileByID(c.Request.Context(),
+		file, err := fileClient.GetFileByID(c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
+			fileClientConn.Unhealthy()
+			fileClientConn.Close()
+
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -312,7 +330,8 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	if !r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole) {
 		return
 	}
-	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, fileID)
+
+	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileConnPool, r.uploadConnPool, fileID)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -320,10 +339,15 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
+	permissionClient, permissionClientConn := r.GetPermissionClient(c)
+
 	for _, id := range ids {
-		if _, err = r.permissionClient.DeleteFilePermissions(
+		if _, err = permissionClient.DeleteFilePermissions(
 			c.Request.Context(),
 			&ppb.DeleteFilePermissionsRequest{FileID: id}); err != nil {
+			permissionClientConn.Unhealthy()
+			permissionClientConn.Close()
+
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -347,9 +371,14 @@ func (r *Router) Download(c *gin.Context) {
 		return
 	}
 
+	fileClient, fileClientConn := r.GetFileClient(c)
+
 	// Get the file meta from the file service
-	fileMeta, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	fileMeta, err := fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -368,8 +397,11 @@ func (r *Router) Download(c *gin.Context) {
 	span, spanCtx := loggermiddleware.StartSpan(c.Request.Context(), "/download.Download/Download")
 	defer span.End()
 
-	stream, err := r.downloadClient.Download(spanCtx, downloadRequest)
+	downloadClient, downloadClientConn := r.GetDownloadClient(c)
+
+	stream, err := downloadClient.Download(spanCtx, downloadRequest)
 	if err != nil {
+		downloadClientConn.Unhealthy()
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -447,11 +479,10 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 	}
 
 	allowedIds := make([]string, 0, len(body.IDList))
-
 	for _, id := range body.IDList {
 		isUserAllowed, err := CheckUserFilePermission(c.Request.Context(),
-			r.fileClient,
-			r.permissionClient,
+			r.fileConnPool,
+			r.permissionConnPool,
 			reqUser.ID,
 			id,
 			UpdateFilesRole)
@@ -496,7 +527,8 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 		updatedData.Description = pf.Description
 	}
 
-	updateFilesResponse, err := r.fileClient.UpdateFiles(
+	fileClient, fileClientConn := r.GetFileClient(c)
+	updateFilesResponse, err := fileClient.UpdateFiles(
 		c.Request.Context(),
 		&fpb.UpdateFilesRequest{
 			IdList:      ids,
@@ -504,6 +536,9 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 		},
 	)
 	if err != nil {
+		fileClientConn.Unhealthy()
+		fileClientConn.Close()
+
 		return err
 	}
 
@@ -551,8 +586,8 @@ func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 // The function returns true if the user is permitted to the file and nil error,
 // otherwise false and non-nil err if any encountered.
 func CheckUserFilePermission(ctx context.Context,
-	fileClient fpb.FileServiceClient,
-	permissionClient ppb.PermissionClient,
+	fileConnPool *pool.Pool,
+	permissionConnPool *pool.Pool,
 	userID string,
 	fileID string,
 	role ppb.Role) (bool, error) {
@@ -564,6 +599,16 @@ func CheckUserFilePermission(ctx context.Context,
 	// and it's impossible to create a permission for root (aka sharing a user's whole drive).
 	if fileID == "" {
 		return true, nil
+	}
+
+	permissionClient, permissionClientConn, err := util.GetPermissionClient(ctx, permissionConnPool)
+	if err != nil {
+		return false, err
+	}
+
+	fileClient, fileClientConn, err := util.GetFileClient(ctx, fileConnPool)
+	if err != nil {
+		return false, err
 	}
 
 	// Go up the hirarchy searching for a permission for userID to fileID with role.
@@ -579,12 +624,18 @@ func CheckUserFilePermission(ctx context.Context,
 
 		file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: currentFile})
 		if err != nil {
+			fileClientConn.Unhealthy()
+			fileClientConn.Close()
+
 			return false, err
 		}
 
 		isPermitted, err := permissionClient.IsPermitted(ctx,
 			&ppb.IsPermittedRequest{FileID: currentFile, UserID: userID, Role: role})
 		if err != nil && status.Code(err) != codes.Unimplemented {
+			permissionClientConn.Unhealthy()
+			permissionClientConn.Close()
+
 			return false, err
 		}
 
@@ -603,16 +654,25 @@ func CheckUserFilePermission(ctx context.Context,
 // CreatePermission creates permission in permission service only if userID has
 // ppb.Role_OWNER permission to permission.FileID.
 func CreatePermission(ctx context.Context,
-	fileClient fpb.FileServiceClient,
-	permissionClient ppb.PermissionClient,
+	fileConnPool *pool.Pool,
+	permissionConnPool *pool.Pool,
 	userID string,
 	permission ppb.PermissionObject) error {
+	permissionClient, permissionClientConn, err := util.GetPermissionClient(ctx, permissionConnPool)
+	if err != nil {
+		return err
+	}
+
 	// If the permission we want to create is ppb.Role_OWNER then check that there's
 	// no other user that has owner permission to permission.FileID.
 	if permission.GetRole() == ppb.Role_OWNER {
+
 		filePermissions, err := permissionClient.GetFilePermissions(ctx,
 			&ppb.GetFilePermissionsRequest{FileID: permission.GetFileID()})
 		if err != nil {
+			permissionClientConn.Unhealthy()
+			permissionClientConn.Close()
+
 			return fmt.Errorf("failed creating permission: %v", err)
 		}
 
@@ -627,8 +687,8 @@ func CreatePermission(ctx context.Context,
 	} else {
 		// Check if userID has ppb.Role_OWNER permission to permission.FileID.
 		isPermitted, err := CheckUserFilePermission(ctx,
-			fileClient,
-			permissionClient,
+			fileConnPool,
+			permissionConnPool,
 			userID,
 			permission.GetFileID(),
 			ppb.Role_OWNER)
@@ -651,8 +711,11 @@ func CreatePermission(ctx context.Context,
 		UserID: permission.GetUserID(),
 		Role:   permission.GetRole(),
 	}
-	_, err := permissionClient.CreatePermission(ctx, &createPermissionRequest)
+	_, err = permissionClient.CreatePermission(ctx, &createPermissionRequest)
 	if err != nil {
+		permissionClientConn.Unhealthy()
+		permissionClientConn.Close()
+
 		return fmt.Errorf("failed creating permission: %v", err)
 	}
 
@@ -672,8 +735,8 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 	}
 
 	isPermitted, err := CheckUserFilePermission(c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileConnPool,
+		r.permissionConnPool,
 		reqUser.ID,
 		fileID,
 		role)
@@ -689,6 +752,54 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 	}
 
 	return isPermitted
+}
+
+// GetFileClient returns a file service client and its connection from the pool and handles errors.
+func (r *Router) GetFileClient(c *gin.Context) (fpb.FileServiceClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetFileClient(c.Request.Context(), r.fileConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
+}
+
+// GetUploadClient returns a upload service client and its connection from the pool and handles errors.
+func (r *Router) GetUploadClient(c *gin.Context) (upb.UploadClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetUploadClient(c.Request.Context(), r.uploadConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
+}
+
+// GetDownloadClient returns a download service client and its connection from the pool and handles errors.
+func (r *Router) GetDownloadClient(c *gin.Context) (dpb.DownloadClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetDownloadClient(c.Request.Context(), r.fileConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
+}
+
+// GetPermissionClient returns a permission service client and its connection from the pool and handles errors.
+func (r *Router) GetPermissionClient(c *gin.Context) (ppb.PermissionClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetPermissionClient(c.Request.Context(), r.fileConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
 }
 
 // createGetFileResponse Creates a file grpc response to http response struct

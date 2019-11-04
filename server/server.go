@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	ilogger "github.com/meateam/elasticsearch-logger"
+	pool "github.com/processout/grpc-go-pool"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -46,13 +46,13 @@ func init() {
 
 // Server is a structure that holds the http server of the api-gateway.
 type Server struct {
-	server *http.Server
-	conns  []*grpc.ClientConn
+	server    *http.Server
+	connPools []*pool.Pool
 }
 
 // NewServer creates a Server of the api-gateway.
 func NewServer() *Server {
-	router, conns := NewRouter(logger)
+	router, connPools := NewRouter(logger)
 
 	s := &http.Server{
 		Addr:           ":" + viper.GetString(configPort),
@@ -60,7 +60,7 @@ func NewServer() *Server {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	return &Server{server: s, conns: conns}
+	return &Server{server: s, connPools: connPools}
 }
 
 // Listen listens on configPort. Listen returns when listener is closed.
@@ -68,7 +68,7 @@ func NewServer() *Server {
 // error then it will be logged as fatal.
 func (s *Server) Listen() {
 	defer func() {
-		for _, v := range s.conns {
+		for _, v := range s.connPools {
 			v.Close()
 		}
 	}()
