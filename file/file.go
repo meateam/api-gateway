@@ -15,7 +15,6 @@ import (
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
-	upb "github.com/meateam/upload-service/proto"
 	pool "github.com/processout/grpc-go-pool"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -168,6 +167,10 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
+
 	file, err := fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
 	if err != nil {
 		fileClientConn.Unhealthy()
@@ -236,6 +239,10 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
+
 	fileOwner := reqUser.ID
 	if filesParent != "" {
 		parent, err := fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: filesParent})
@@ -298,6 +305,9 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
 
 	files := make([]*getFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
@@ -372,6 +382,9 @@ func (r *Router) Download(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
 
 	// Get the file meta from the file service
 	fileMeta, err := fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
@@ -398,6 +411,9 @@ func (r *Router) Download(c *gin.Context) {
 	defer span.End()
 
 	downloadClient, downloadClientConn := r.GetDownloadClient(c)
+	if downloadClient == nil || downloadClientConn == nil {
+		return
+	}
 
 	stream, err := downloadClient.Download(spanCtx, downloadRequest)
 	if err != nil {
@@ -528,6 +544,10 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return fmt.Errorf("error getting file client")
+	}
+
 	updateFilesResponse, err := fileClient.UpdateFiles(
 		c.Request.Context(),
 		&fpb.UpdateFilesRequest{
@@ -757,18 +777,6 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 // GetFileClient returns a file service client and its connection from the pool and handles errors.
 func (r *Router) GetFileClient(c *gin.Context) (fpb.FileServiceClient, *pool.ClientConn) {
 	client, clientConn, err := util.GetFileClient(c.Request.Context(), r.fileConnPool)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
-
-		return nil, nil
-	}
-
-	return client, clientConn
-}
-
-// GetUploadClient returns a upload service client and its connection from the pool and handles errors.
-func (r *Router) GetUploadClient(c *gin.Context) (upb.UploadClient, *pool.ClientConn) {
-	client, clientConn, err := util.GetUploadClient(c.Request.Context(), r.uploadConnPool)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
 

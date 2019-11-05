@@ -209,6 +209,10 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
+
 	createFolderResp, err := fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     "",
 		Bucket:  reqUser.Bucket,
@@ -284,6 +288,10 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
+
 	upload, err := fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		fileClientConn.Unhealthy()
@@ -302,6 +310,10 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	}
 
 	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	if uploadClient == nil || uploadClientConn == nil {
+		return
+	}
+
 	resp, err := uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
 		uploadClientConn.Unhealthy()
@@ -450,6 +462,10 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
+
 	keyResp, err := fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
 	if err != nil {
 		fileClientConn.Unhealthy()
@@ -526,6 +542,10 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	}
 
 	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	if uploadClient == nil || uploadClientConn == nil {
+		return
+	}
+
 	_, err = uploadClient.UploadMedia(c.Request.Context(), ureq)
 	if err != nil {
 		uploadClientConn.Unhealthy()
@@ -538,6 +558,10 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		}
 
 		permissionClient, permissionClientConn := r.GetPermissionClient(c)
+		if permissionClient == nil || permissionClientConn == nil {
+			return
+		}
+
 		deleteRequest := &ppb.DeletePermissionRequest{FileID: createFileResp.GetId(), UserID: reqUser.ID}
 		_, permissionDeleteErr := permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
 		if permissionDeleteErr != nil {
@@ -586,6 +610,10 @@ func (r *Router) UploadInit(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
+
 	createUploadResponse, err := fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  reqUser.Bucket,
 		Name:    reqBody.Title,
@@ -615,6 +643,10 @@ func (r *Router) UploadInit(c *gin.Context) {
 	}
 
 	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	if uploadClient == nil || uploadClientConn == nil {
+		return
+	}
+
 	resp, err := uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
 		uploadClientConn.Unhealthy()
@@ -668,6 +700,10 @@ func (r *Router) UploadPart(c *gin.Context) {
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return
+	}
+
 	upload, err := fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		fileClientConn.Unhealthy()
@@ -702,6 +738,10 @@ func (r *Router) UploadPart(c *gin.Context) {
 	defer span.End()
 
 	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	if uploadClient == nil || uploadClientConn == nil {
+		return
+	}
+
 	stream, err := uploadClient.UploadPart(spanCtx)
 	if err != nil {
 		uploadClientConn.Unhealthy()
@@ -869,6 +909,10 @@ func (r *Router) AbortUpload(c *gin.Context, upload *fpb.GetUploadByIDResponse) 
 	}
 
 	uploadClient, uploadClientConn := r.GetUploadClient(c)
+	if uploadClient == nil || uploadClientConn == nil {
+		return fmt.Errorf("error getting uploadClient")
+	}
+
 	if _, err := uploadClient.UploadAbort(c.Request.Context(), abortUploadRequest); err != nil {
 		uploadClientConn.Unhealthy()
 		uploadClientConn.Close()
@@ -881,6 +925,10 @@ func (r *Router) AbortUpload(c *gin.Context, upload *fpb.GetUploadByIDResponse) 
 	}
 
 	fileClient, fileClientConn := r.GetFileClient(c)
+	if fileClient == nil || fileClientConn == nil {
+		return fmt.Errorf("error getting fileClient")
+	}
+
 	if _, err := fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest); err != nil {
 		fileClientConn.Unhealthy()
 		fileClientConn.Close()
