@@ -445,6 +445,7 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 
 // UploadFile uploads file from fileReader of type contentType with name filename to
 // upload service and creates it in file service.
+//nolint:gocyclo
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	reqUser := user.ExtractRequestUser(c)
 	parent := c.Query(ParentQueryKey)
@@ -528,7 +529,6 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
-
 	}
 
 	ureq := &upb.UploadMediaRequest{
@@ -551,7 +551,13 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		uploadClientConn.Unhealthy()
 		uploadClientConn.Close()
 
-		_, fileDeleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileConnPool, r.uploadConnPool, reqUser.ID)
+		_, fileDeleteErr := file.DeleteFile(
+			c.Request.Context(),
+			r.logger,
+			r.fileConnPool,
+			r.uploadConnPool,
+			reqUser.ID,
+		)
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if fileDeleteErr != nil {
 			err = fmt.Errorf("%v: %v", err, fileDeleteErr)

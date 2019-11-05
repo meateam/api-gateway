@@ -160,8 +160,7 @@ func corsRouterConfig() cors.Config {
 // and nil err on success. Returns non-nil error if any error occurred while
 // creating the connection.
 func initServiceConnPool(url string) (*pool.Pool, error) {
-	var factory pool.Factory
-	factory = func() (*grpc.ClientConn, error) {
+	var factory pool.Factory = func() (*grpc.ClientConn, error) {
 		conn, err := grpc.Dial(url,
 			grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor()),
 			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)),

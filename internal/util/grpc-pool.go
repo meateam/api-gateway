@@ -5,6 +5,7 @@ import (
 
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
+	qpb "github.com/meateam/file-service/proto/quota"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	uspb "github.com/meateam/user-service/proto"
@@ -64,4 +65,15 @@ func GetUserClient(ctx context.Context, p *pool.Pool) (uspb.UsersClient, *pool.C
 	}
 
 	return uspb.NewUsersClient(clientConn.ClientConn), clientConn, nil
+}
+
+// GetQuotaClient creates a quota service grpc client, it returns a quota service client
+// and the connection used to create it, or an error if occurred.
+func GetQuotaClient(ctx context.Context, p *pool.Pool) (qpb.QuotaServiceClient, *pool.ClientConn, error) {
+	clientConn, err := p.Get(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return qpb.NewQuotaServiceClient(clientConn.ClientConn), clientConn, nil
 }

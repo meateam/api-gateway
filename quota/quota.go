@@ -5,25 +5,26 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/internal/util"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	qpb "github.com/meateam/file-service/proto/quota"
+	pool "github.com/processout/grpc-go-pool"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
 // Router is a structure that handles quota related requests.
 type Router struct {
-	quotaClient qpb.QuotaServiceClient
-	logger      *logrus.Logger
+	quotaConnPool *pool.Pool
+	logger        *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service
 // with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	quotaConn *grpc.ClientConn,
+	quotaConnPool *pool.Pool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -33,7 +34,7 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.quotaClient = qpb.NewQuotaServiceClient(quotaConn)
+	r.quotaConnPool = quotaConnPool
 
 	return r
 }
@@ -81,11 +82,18 @@ func (r *Router) handleGetQuota(c *gin.Context, requesterID string, ownerID stri
 		return
 	}
 
-	quota, err := r.quotaClient.GetOwnerQuota(
+	quotaClient, quotaClientconn := r.GetQuotaClient(c)
+	if quotaClient == nil || quotaClientconn == nil {
+		return
+	}
+	quota, err := quotaClient.GetOwnerQuota(
 		c.Request.Context(),
 		&qpb.GetOwnerQuotaRequest{OwnerID: ownerID},
 	)
 	if err != nil {
+		quotaClientconn.Unhealthy()
+		quotaClientconn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
@@ -96,13 +104,33 @@ func (r *Router) handleGetQuota(c *gin.Context, requesterID string, ownerID stri
 
 // IsAllowedToGetQuota is used to check if the user is allowed to get another user's quota
 func (r *Router) isAllowedToGetQuota(c *gin.Context, reqUserID string, ownerID string) bool {
-	res, err := r.quotaClient.IsAllowedToGetQuota(
+	quotaClient, quotaClientconn := r.GetQuotaClient(c)
+	if quotaClient == nil || quotaClientconn == nil {
+		return false
+	}
+
+	res, err := quotaClient.IsAllowedToGetQuota(
 		c.Request.Context(),
 		&qpb.IsAllowedToGetQuotaRequest{RequestingUser: reqUserID, OwnerID: ownerID},
 	)
 	if err != nil {
+		quotaClientconn.Unhealthy()
+		quotaClientconn.Close()
+
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 		return false
 	}
 	return res.GetAllowed()
+}
+
+// GetQuotaClient returns a quota service client and its connection from the pool and handles errors.
+func (r *Router) GetQuotaClient(c *gin.Context) (qpb.QuotaServiceClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetQuotaClient(c.Request.Context(), r.quotaConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
 }

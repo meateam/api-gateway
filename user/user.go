@@ -91,6 +91,9 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	user, err := userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
 
 	if err != nil {
+		userClientconn.Unhealthy()
+		userClientconn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
@@ -118,6 +121,9 @@ func (r *Router) SearchByName(c *gin.Context) {
 	user, err := userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
 
 	if err != nil {
+		userClientconn.Unhealthy()
+		userClientconn.Close()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
@@ -155,7 +161,7 @@ func normalizeCephBucketName(bucketName string) string {
 	return reg.ReplaceAllString(lowerCaseBucketName, "-")
 }
 
-// GetUserClient returns a download service client and its connection from the pool and handles errors.
+// GetUserClient returns a user service client and its connection from the pool and handles errors.
 func (r *Router) GetUserClient(c *gin.Context) (uspb.UsersClient, *pool.ClientConn) {
 	client, clientConn, err := util.GetUserClient(c.Request.Context(), r.userConnPool)
 	if err != nil {
