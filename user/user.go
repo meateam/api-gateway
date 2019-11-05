@@ -9,10 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/internal/util"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	uspb "github.com/meateam/user-service/proto"
+	pool "github.com/processout/grpc-go-pool"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
@@ -29,8 +30,8 @@ const (
 
 //Router is a structure that handles users requests.
 type Router struct {
-	userClient uspb.UsersClient
-	logger     *logrus.Logger
+	userConnPool *pool.Pool
+	logger       *logrus.Logger
 }
 
 // User is a structure of an authenticated user.
@@ -45,7 +46,7 @@ type User struct {
 //  with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	userConn *grpc.ClientConn,
+	userConnPool *pool.Pool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -55,7 +56,7 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.userClient = uspb.NewUsersClient(userConn)
+	r.userConnPool = userConnPool
 
 	return r
 }
@@ -83,7 +84,11 @@ func (r *Router) GetUserByID(c *gin.Context) {
 		Id: userID,
 	}
 
-	user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+	userClient, userClientconn := r.GetUserClient(c)
+	if userClient == nil || userClientconn == nil {
+		return
+	}
+	user, err := userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -106,7 +111,11 @@ func (r *Router) SearchByName(c *gin.Context) {
 		Name: partialName,
 	}
 
-	user, err := r.userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
+	userClient, userClientconn := r.GetUserClient(c)
+	if userClient == nil || userClientconn == nil {
+		return
+	}
+	user, err := userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -144,4 +153,16 @@ func normalizeCephBucketName(bucketName string) string {
 	// Make a Regex for catching only letters and numbers.
 	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
 	return reg.ReplaceAllString(lowerCaseBucketName, "-")
+}
+
+// GetUserClient returns a download service client and its connection from the pool and handles errors.
+func (r *Router) GetUserClient(c *gin.Context) (uspb.UsersClient, *pool.ClientConn) {
+	client, clientConn, err := util.GetUserClient(c.Request.Context(), r.userConnPool)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
+
+		return nil, nil
+	}
+
+	return client, clientConn
 }

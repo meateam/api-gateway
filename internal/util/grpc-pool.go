@@ -7,6 +7,7 @@ import (
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	uspb "github.com/meateam/user-service/proto"
 	pool "github.com/processout/grpc-go-pool"
 )
 
@@ -52,4 +53,15 @@ func GetPermissionClient(ctx context.Context, p *pool.Pool) (ppb.PermissionClien
 	}
 
 	return ppb.NewPermissionClient(clientConn.ClientConn), clientConn, nil
+}
+
+// GetUserClient creates a user service grpc client, it returns a user service client
+// and the connection used to create it, or an error if occurred.
+func GetUserClient(ctx context.Context, p *pool.Pool) (uspb.UsersClient, *pool.ClientConn, error) {
+	clientConn, err := p.Get(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return uspb.NewUsersClient(clientConn.ClientConn), clientConn, nil
 }
