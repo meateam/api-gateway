@@ -159,11 +159,11 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 	if userClient == nil || userClientConn == nil {
 		return
 	}
-	userExists, err := userClient.GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
+	defer userClientConn.Close()
 
+	userExists, err := userClient.GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
 	if err != nil {
 		userClientConn.Unhealthy()
-		userClientConn.Close()
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -226,13 +226,13 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	if permissionClient == nil || permissionClientConn == nil {
 		return
 	}
+	defer permissionClientConn.Close()
 
 	if userID == reqUser.ID {
 		permission, err := permissionClient.GetPermission(c.Request.Context(),
 			&ppb.GetPermissionRequest{FileID: fileID, UserID: reqUser.ID})
 		if err != nil {
 			permissionClientConn.Unhealthy()
-			permissionClientConn.Close()
 
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -253,6 +253,8 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}
 	permission, err := permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
 	if err != nil {
+		permissionClientConn.Unhealthy()
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
@@ -302,6 +304,7 @@ func IsPermitted(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	defer permissionClientConn.Close()
 
 	isPermittedRequest := &ppb.IsPermittedRequest{
 		FileID: fileID,
@@ -311,7 +314,6 @@ func IsPermitted(ctx context.Context,
 	isPermittedResponse, err := permissionClient.IsPermitted(ctx, isPermittedRequest)
 	if err != nil {
 		permissionClientConn.Unhealthy()
-		permissionClientConn.Close()
 
 		return nil, err
 	}
@@ -327,6 +329,7 @@ func CreatePermission(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	defer permissionClientConn.Close()
 
 	permissionRequest := &ppb.CreatePermissionRequest{
 		FileID: permission.FileID,
@@ -337,7 +340,6 @@ func CreatePermission(ctx context.Context,
 	createdPermission, err := permissionClient.CreatePermission(ctx, permissionRequest)
 	if err != nil {
 		permissionClientConn.Unhealthy()
-		permissionClientConn.Close()
 
 		return nil, err
 	}
@@ -358,18 +360,19 @@ func GetFilePermissions(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	defer permissionClientConn.Close()
 
 	fileClient, fileClientConn, err := util.GetFileClient(ctx, fileConnPool)
 	if err != nil {
 		return nil, err
 	}
+	defer fileClientConn.Close()
 
 	for {
 		permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: currentFileID}
 		permissionsResponse, err := permissionClient.GetFilePermissions(ctx, permissionsRequest)
 		if err != nil && status.Code(err) != codes.Unimplemented {
 			permissionClientConn.Unhealthy()
-			permissionClientConn.Close()
 
 			return nil, err
 		}
@@ -377,7 +380,6 @@ func GetFilePermissions(ctx context.Context,
 		currentFile, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: currentFileID})
 		if err != nil {
 			fileClientConn.Unhealthy()
-			fileClientConn.Close()
 
 			return nil, err
 		}
@@ -401,7 +403,7 @@ func GetFilePermissions(ctx context.Context,
 
 // GetPermissionClient returns a permission service client and its connection from the pool and handles errors.
 func (r *Router) GetPermissionClient(c *gin.Context) (ppb.PermissionClient, *pool.ClientConn) {
-	client, clientConn, err := util.GetPermissionClient(c.Request.Context(), r.fileConnPool)
+	client, clientConn, err := util.GetPermissionClient(c.Request.Context(), r.permissionConnPool)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusServiceUnavailable, err))
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -172,12 +173,13 @@ func initServiceConnPool(url string) (*pool.Pool, error) {
 		return conn, err
 	}
 
+	gomaxprocs := runtime.GOMAXPROCS(-1)
 	servicePool, err := pool.New(
 		factory,
-		10,             /* initial connections */
-		50,             /* maximum connections */
-		10*time.Second, /* idle timeout        */
-		time.Minute,    /* maxLifeDuration     */
+		5*gomaxprocs,  /* initial connections */
+		10*gomaxprocs, /* maximum connections */
+		2*time.Second, /* idle timeout        */
+		time.Minute,
 	)
 	if err != nil {
 		logger.Fatalf("failed to create gRPC connection pool: %v", err)

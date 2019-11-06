@@ -86,13 +86,14 @@ func (r *Router) handleGetQuota(c *gin.Context, requesterID string, ownerID stri
 	if quotaClient == nil || quotaClientconn == nil {
 		return
 	}
+	defer quotaClientconn.Close()
+
 	quota, err := quotaClient.GetOwnerQuota(
 		c.Request.Context(),
 		&qpb.GetOwnerQuotaRequest{OwnerID: ownerID},
 	)
 	if err != nil {
 		quotaClientconn.Unhealthy()
-		quotaClientconn.Close()
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -108,6 +109,7 @@ func (r *Router) isAllowedToGetQuota(c *gin.Context, reqUserID string, ownerID s
 	if quotaClient == nil || quotaClientconn == nil {
 		return false
 	}
+	defer quotaClientconn.Close()
 
 	res, err := quotaClient.IsAllowedToGetQuota(
 		c.Request.Context(),
@@ -115,7 +117,6 @@ func (r *Router) isAllowedToGetQuota(c *gin.Context, reqUserID string, ownerID s
 	)
 	if err != nil {
 		quotaClientconn.Unhealthy()
-		quotaClientconn.Close()
 
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 		return false

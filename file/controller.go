@@ -29,16 +29,17 @@ func DeleteFile(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	defer fileClientConn.Close()
 
 	uploadClient, uploadClientConn, err := util.GetUploadClient(ctx, uploadConnPool)
 	if err != nil {
 		return nil, err
 	}
+	defer uploadClientConn.Close()
 
 	deleteFileResponse, err := fileClient.DeleteFile(ctx, deleteFileRequest)
 	if err != nil {
 		fileClientConn.Unhealthy()
-		fileClientConn.Close()
 
 		return nil, err
 	}
@@ -63,7 +64,6 @@ func DeleteFile(ctx context.Context,
 			deleteObjectResponse, err := uploadClient.DeleteObjects(ctx, DeleteObjectRequest)
 			if err != nil {
 				uploadClientConn.Unhealthy()
-				uploadClientConn.Close()
 
 				loggermiddleware.LogError(logger, err)
 			}

@@ -137,9 +137,10 @@ services:
   permission-service:
     image: bluehub.azurecr.io/meateam/permission-service:develop
     environment:
-      PORT: 8080
+      PS_PORT: 8080
+      PS_MONGO_HOST: mongodb://mongo:27017/permission
+      PS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
       HOST_NAME: permission-service
-      MONGO_HOST: mongodb://mongo:27017/permission
       ELASTICSEARCH_URL: http://localhost:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: debug
@@ -151,7 +152,6 @@ services:
       ELASTIC_APM_ACTIVE: 'true'
       ELASTIC_APM_CAPTURE_BODY: 'all'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
-      ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     ports:
       - 8087:8080
     depends_on:

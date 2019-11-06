@@ -88,11 +88,11 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	if userClient == nil || userClientconn == nil {
 		return
 	}
-	user, err := userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+	defer userClientconn.Close()
 
+	user, err := userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
 	if err != nil {
 		userClientconn.Unhealthy()
-		userClientconn.Close()
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -118,11 +118,11 @@ func (r *Router) SearchByName(c *gin.Context) {
 	if userClient == nil || userClientconn == nil {
 		return
 	}
-	user, err := userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
+	defer userClientconn.Close()
 
+	user, err := userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
 	if err != nil {
 		userClientconn.Unhealthy()
-		userClientconn.Close()
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))

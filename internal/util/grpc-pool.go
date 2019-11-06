@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"time"
 
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -15,7 +16,9 @@ import (
 // GetDownloadClient creates a download service grpc client, it returns a download service client
 // and the connection used to create it, or an error if occurred.
 func GetDownloadClient(ctx context.Context, p *pool.Pool) (dpb.DownloadClient, *pool.ClientConn, error) {
-	clientConn, err := p.Get(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	clientConn, err := p.Get(timeoutCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -26,7 +29,9 @@ func GetDownloadClient(ctx context.Context, p *pool.Pool) (dpb.DownloadClient, *
 // GetUploadClient creates a upload service grpc client, it returns a upload service client
 // and the connection used to create it, or an error if occurred.
 func GetUploadClient(ctx context.Context, p *pool.Pool) (upb.UploadClient, *pool.ClientConn, error) {
-	clientConn, err := p.Get(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	clientConn, err := p.Get(timeoutCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -37,7 +42,9 @@ func GetUploadClient(ctx context.Context, p *pool.Pool) (upb.UploadClient, *pool
 // GetFileClient creates a file service grpc client, it returns a file service client
 // and the connection used to create it, or an error if occurred.
 func GetFileClient(ctx context.Context, p *pool.Pool) (fpb.FileServiceClient, *pool.ClientConn, error) {
-	clientConn, err := p.Get(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	clientConn, err := p.Get(timeoutCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -48,7 +55,9 @@ func GetFileClient(ctx context.Context, p *pool.Pool) (fpb.FileServiceClient, *p
 // GetPermissionClient creates a permission service grpc client, it returns a permission service client
 // and the connection used to create it, or an error if occurred.
 func GetPermissionClient(ctx context.Context, p *pool.Pool) (ppb.PermissionClient, *pool.ClientConn, error) {
-	clientConn, err := p.Get(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	clientConn, err := p.Get(timeoutCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -59,7 +68,9 @@ func GetPermissionClient(ctx context.Context, p *pool.Pool) (ppb.PermissionClien
 // GetUserClient creates a user service grpc client, it returns a user service client
 // and the connection used to create it, or an error if occurred.
 func GetUserClient(ctx context.Context, p *pool.Pool) (uspb.UsersClient, *pool.ClientConn, error) {
-	clientConn, err := p.Get(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	clientConn, err := p.Get(timeoutCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -70,7 +81,9 @@ func GetUserClient(ctx context.Context, p *pool.Pool) (uspb.UsersClient, *pool.C
 // GetQuotaClient creates a quota service grpc client, it returns a quota service client
 // and the connection used to create it, or an error if occurred.
 func GetQuotaClient(ctx context.Context, p *pool.Pool) (qpb.QuotaServiceClient, *pool.ClientConn, error) {
-	clientConn, err := p.Get(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	clientConn, err := p.Get(timeoutCtx)
 	if err != nil {
 		return nil, nil, err
 	}
