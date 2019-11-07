@@ -742,7 +742,7 @@ func (r *Router) HandleUpload(
 		// Otherwise continue uploading the remaining parts.
 		select {
 		case err := <-errc:
-			loggermiddleware.LogError(r.logger, r.AbortUpload(ctx, progress.upload))
+			loggermiddleware.LogError(r.logger, r.AbortUpload(context.Background(), progress.upload))
 
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -763,7 +763,7 @@ func (r *Router) HandleUpload(
 		bytesRead, err := io.ReadFull(progress.file, buf)
 		if err != nil {
 			if err == io.ErrUnexpectedEOF {
-				loggermiddleware.LogError(r.logger, r.AbortUpload(ctx, progress.upload))
+				loggermiddleware.LogError(r.logger, r.AbortUpload(context.Background(), progress.upload))
 				c.Abort()
 
 				break
