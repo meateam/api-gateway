@@ -290,7 +290,10 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 
 	permissionClient, permissionClientConn := r.GetPermissionClient(c)
 	if permissionClient == nil || permissionClientConn == nil {
-		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("error getting permission client"))
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("error getting permission client")),
+		)
 		return
 	}
 	defer permissionClientConn.Close()
@@ -356,7 +359,10 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	permissionClient, permissionClientConn := r.GetPermissionClient(c)
 	if permissionClient == nil || permissionClientConn == nil {
-		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("error getting permission client"))
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("error getting permission client")),
+		)
 		return
 	}
 	defer permissionClientConn.Close()
