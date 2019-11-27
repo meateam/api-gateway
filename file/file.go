@@ -46,6 +46,10 @@ const (
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
+	// QueryFileDownloadNoContentDisposition is the querystring key for
+	// removing the content-disposition header from a file download.
+	QueryFileDownloadNoContentDisposition = "preview"
+
 	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the GetFileByID action.
 	GetFileByIDRole = ppb.Role_READ
@@ -377,7 +381,11 @@ func (r *Router) Download(c *gin.Context) {
 	}
 
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.Header("Content-Disposition", "attachment; filename="+filename)
+	preview, ok := c.GetQuery(QueryFileDownloadNoContentDisposition)
+	if !ok || preview == "false" {
+		c.Header("Content-Disposition", "attachment; filename="+filename)
+	}
+
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
 
