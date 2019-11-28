@@ -15,6 +15,7 @@ import (
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	uspb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -79,6 +80,7 @@ const (
 type Router struct {
 	downloadClient   dpb.DownloadClient
 	fileClient       fpb.FileServiceClient
+	userClient       uspb.UsersClient
 	uploadClient     upb.UploadClient
 	permissionClient ppb.PermissionClient
 	logger           *logrus.Logger
@@ -86,15 +88,16 @@ type Router struct {
 
 // getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
 type getFileByIDResponse struct {
-	ID          string `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Type        string `json:"type,omitempty"`
-	Size        int64  `json:"size"`
-	Description string `json:"description,omitempty"`
-	OwnerID     string `json:"ownerId,omitempty"`
-	Parent      string `json:"parent,omitempty"`
-	CreatedAt   int64  `json:"createdAt,omitempty"`
-	UpdatedAt   int64  `json:"updatedAt,omitempty"`
+	ID          string     `json:"id,omitempty"`
+	Name        string     `json:"name,omitempty"`
+	Type        string     `json:"type,omitempty"`
+	Size        int64      `json:"size"`
+	Description string     `json:"description,omitempty"`
+	OwnerID     string     `json:"ownerId,omitempty"`
+	Parent      string     `json:"parent,omitempty"`
+	CreatedAt   int64      `json:"createdAt,omitempty"`
+	UpdatedAt   int64      `json:"updatedAt,omitempty"`
+	Owner       *uspb.User `json:"owner,omitempty"`
 }
 
 type partialFile struct {
@@ -119,6 +122,7 @@ type updateFilesRequest struct {
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
 	fileConn *grpc.ClientConn,
+	userConn *grpc.ClientConn,
 	downloadConn *grpc.ClientConn,
 	uploadConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
@@ -132,6 +136,7 @@ func NewRouter(
 	r := &Router{logger: logger}
 
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
+	r.userClient = uspb.NewUsersClient(userConn)
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
@@ -178,7 +183,18 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, createGetFileResponse(file))
+	getUserByIDRequest := &uspb.GetByIDRequest{
+		Id: file.GetOwnerID(),
+	}
+
+	user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+	if err != nil {
+		// TODO: log error
+	}
+
+	populatedFile := createGetFileResponse(file, user.User)
+
+	c.JSON(http.StatusOK, populatedFile)
 }
 
 // Extracts parameters from request query to a map, non-existing parameter has a value of ""
@@ -262,7 +278,18 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	files := filesResp.GetFiles()
 	responseFiles := make([]*getFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		responseFiles = append(responseFiles, createGetFileResponse(file))
+		getUserByIDRequest := &uspb.GetByIDRequest{
+			Id: file.GetOwnerID(),
+		}
+
+		user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+		if err != nil {
+			// TODO: log error
+		}
+
+		populatedFile := createGetFileResponse(file, user.User)
+
+		responseFiles = append(responseFiles, populatedFile)
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
@@ -298,8 +325,18 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 
 			return
 		}
+		getUserByIDRequest := &uspb.GetByIDRequest{
+			Id: file.GetOwnerID(),
+		}
 
-		files = append(files, createGetFileResponse(file))
+		user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+		if err != nil {
+			// TODO: log error
+		}
+
+		populatedFile := createGetFileResponse(file, user.User)
+
+		files = append(files, populatedFile)
 	}
 
 	c.JSON(http.StatusOK, files)
@@ -700,7 +737,7 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 }
 
 // createGetFileResponse Creates a file grpc response to http response struct
-func createGetFileResponse(file *fpb.File) *getFileByIDResponse {
+func createGetFileResponse(file *fpb.File, user *uspb.User) *getFileByIDResponse {
 	if file == nil {
 		return nil
 	}
@@ -717,6 +754,17 @@ func createGetFileResponse(file *fpb.File) *getFileByIDResponse {
 		CreatedAt:   file.GetCreatedAt(),
 		UpdatedAt:   file.GetUpdatedAt(),
 	}
+
+	owner := &uspb.User{
+		Id:            user.GetId(),
+		FirstName:     user.GetFirstName(),
+		LastName:      user.GetLastName(),
+		Hierarchy:     user.GetHierarchy(),
+		Mail:          user.GetMail(),
+		FullName:      user.GetFullName(),
+		HierarchyFlat: user.GetHierarchyFlat(),
+	}
+	responseFile.Owner = owner
 
 	// If file contains parent object instead of its id.
 	fileParentObject := file.GetParentObject()
