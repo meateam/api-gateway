@@ -189,7 +189,8 @@ func (r *Router) GetFileByID(c *gin.Context) {
 
 	user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
 	if err != nil {
-		// TODO: log error
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 	}
 
 	populatedFile := createGetFileResponse(file, user.User)
@@ -284,7 +285,8 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 
 		user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
 		if err != nil {
-			// TODO: log error
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		}
 
 		populatedFile := createGetFileResponse(file, user.User)
@@ -331,10 +333,12 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 
 		user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
 		if err != nil {
-			// TODO: log error
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		}
 
 		populatedFile := createGetFileResponse(file, user.User)
+		fmt.Println(populatedFile)
 
 		files = append(files, populatedFile)
 	}

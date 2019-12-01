@@ -103,7 +103,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	}
 
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, logger)
+	fr := file.NewRouter(fileConn, userConn, downloadConn, uploadConn, permissionConn, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
