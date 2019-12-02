@@ -102,9 +102,14 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup permission service connection: %v", err)
 	}
 
+	searchConn, err := initServiceConn(viper.GetString(configSearchService))
+	if err != nil {
+		logger.Fatalf("couldn't setup search service connection: %v", err)
+	}
+
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
@@ -130,7 +135,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	pr.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn}
+	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn}
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.

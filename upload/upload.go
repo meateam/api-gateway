@@ -18,6 +18,7 @@ import (
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
+	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
@@ -83,6 +84,7 @@ type Router struct {
 	uploadClient     upb.UploadClient
 	fileClient       fpb.FileServiceClient
 	permissionClient ppb.PermissionClient
+	searchClient     spb.SearchClient
 	logger           *logrus.Logger
 	mu               sync.Mutex
 }
@@ -108,6 +110,7 @@ type resumableFileUploadProgress struct {
 func NewRouter(uploadConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
+	searchConn *grpc.ClientConn,
 	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
@@ -119,6 +122,7 @@ func NewRouter(uploadConn *grpc.ClientConn,
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.searchClient = spb.NewSearchClient(searchConn)
 
 	return r
 }
@@ -237,6 +241,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 			r.logger,
 			r.fileClient,
 			r.uploadClient,
+			r.searchClient,
 			createFolderResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
@@ -344,6 +349,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 			r.logger,
 			r.fileClient,
 			r.uploadClient,
+			r.searchClient,
 			createFileResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
@@ -474,6 +480,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 			r.logger,
 			r.fileClient,
 			r.uploadClient,
+			r.searchClient,
 			createFileResp.GetId())
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if deleteErr != nil {
@@ -498,7 +505,14 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	_, err = r.uploadClient.UploadMedia(c.Request.Context(), ureq)
 	if err != nil {
-		_, fileDeleteErr := file.DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, reqUser.ID)
+		_, fileDeleteErr := file.DeleteFile(
+			c.Request.Context(),
+			r.logger,
+			r.fileClient,
+			r.uploadClient,
+			r.searchClient,
+			reqUser.ID,
+		)
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		if fileDeleteErr != nil {
 			err = fmt.Errorf("%v: %v", err, fileDeleteErr)

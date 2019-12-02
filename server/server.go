@@ -16,6 +16,7 @@ const (
 	configFileService       = "file_service"
 	configUserService       = "user_service"
 	configPermissionService = "permission_service"
+	configSearchService     = "search_service"
 	configSecret            = "secret"
 	configAuthURL           = "auth_url"
 	configExternalApmURL    = "external_apm_url"
