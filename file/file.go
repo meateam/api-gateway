@@ -93,7 +93,6 @@ type getFileByIDResponse struct {
 	Type        string     `json:"type,omitempty"`
 	Size        int64      `json:"size"`
 	Description string     `json:"description,omitempty"`
-	OwnerID     string     `json:"ownerId,omitempty"`
 	Parent      string     `json:"parent,omitempty"`
 	CreatedAt   int64      `json:"createdAt,omitempty"`
 	UpdatedAt   int64      `json:"updatedAt,omitempty"`
@@ -753,7 +752,6 @@ func createGetFileResponse(file *fpb.File, user *uspb.User) *getFileByIDResponse
 		Type:        file.GetType(),
 		Size:        file.GetSize(),
 		Description: file.GetDescription(),
-		OwnerID:     file.GetOwnerID(),
 		Parent:      file.GetParent(),
 		CreatedAt:   file.GetCreatedAt(),
 		UpdatedAt:   file.GetUpdatedAt(),
