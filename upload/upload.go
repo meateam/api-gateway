@@ -79,6 +79,26 @@ const (
 	UploadTypeQueryKey = "uploadType"
 )
 
+func marshalSearchPB(f *fpb.File, file *spb.File) error {
+	if file == nil {
+		return fmt.Errorf("file is nil")
+	}
+
+	file.Id = f.Id
+	file.Name = f.Name
+	file.Type = f.Type
+	file.Size = f.Size
+	file.Description = f.Description
+	file.OwnerID = f.OwnerID
+	file.CreatedAt = f.CreatedAt
+	file.UpdatedAt = f.UpdatedAt
+	if f.GetParent() != "" {
+		file.FileOrId = &spb.File_Parent{Parent: f.GetParent()}
+	}
+
+	return nil
+}
+
 // Router is a structure that handles upload requests.
 type Router struct {
 	uploadClient     upb.UploadClient
@@ -225,6 +245,12 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		return
 	}
 
+	searchFile := &spb.File{}
+	marshalSearchPB(createFolderResp, searchFile)
+	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.logger.Error(err)
+	}
+
 	newPermission := ppb.PermissionObject{
 		FileID: createFolderResp.GetId(),
 		UserID: reqUser.ID,
@@ -331,6 +357,12 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
+	}
+
+	searchFile := &spb.File{}
+	marshalSearchPB(createFileResp, searchFile)
+	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.logger.Error(err)
 	}
 
 	newPermission := ppb.PermissionObject{
@@ -462,6 +494,12 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
+	}
+
+	searchFile := &spb.File{}
+	marshalSearchPB(createFileResp, searchFile)
+	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.logger.Error(err)
 	}
 
 	newPermission := ppb.PermissionObject{
