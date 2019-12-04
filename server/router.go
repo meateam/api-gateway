@@ -12,6 +12,7 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/quota"
+	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/meateam/api-gateway/user"
@@ -114,6 +115,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
+	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	// Authentication middleware on routes group.
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
@@ -133,6 +135,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Initiate client connection to permission service.
 	pr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to search service.
+	sr.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
 	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn}
