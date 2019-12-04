@@ -14,6 +14,7 @@ import (
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
+	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -81,6 +82,7 @@ type Router struct {
 	fileClient       fpb.FileServiceClient
 	uploadClient     upb.UploadClient
 	permissionClient ppb.PermissionClient
+	searchClient     spb.SearchClient
 	logger           *logrus.Logger
 }
 
@@ -122,6 +124,7 @@ func NewRouter(
 	downloadConn *grpc.ClientConn,
 	uploadConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
+	searchConn *grpc.ClientConn,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -135,6 +138,7 @@ func NewRouter(
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.searchClient = spb.NewSearchClient(searchConn)
 
 	return r
 }
@@ -316,7 +320,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	if !r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole) {
 		return
 	}
-	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, fileID)
+	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, r.searchClient, fileID)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -482,14 +486,20 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 
 func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) error {
 	var parent *fpb.File_Parent
-
+	var sParent *spb.File_Parent
 	if pf.Parent != nil {
 		if *pf.Parent == "" {
 			parent = &fpb.File_Parent{
 				Parent: "null",
 			}
+			sParent = &spb.File_Parent{
+				Parent: "null",
+			}
 		} else {
 			parent = &fpb.File_Parent{
+				Parent: *pf.Parent,
+			}
+			sParent = &spb.File_Parent{
 				Parent: *pf.Parent,
 			}
 		}
@@ -498,10 +508,16 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 	updatedData := &fpb.File{
 		FileOrId: parent,
 	}
+	sUpdatedData := &spb.File{
+		FileOrId: sParent,
+	}
 
 	if len(ids) == 1 {
 		updatedData.Name = pf.Name
+		sUpdatedData.Name = pf.Name
+
 		updatedData.Description = pf.Description
+		sUpdatedData.Description = pf.Description
 	}
 
 	updateFilesResponse, err := r.fileClient.UpdateFiles(
@@ -513,6 +529,13 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 	)
 	if err != nil {
 		return err
+	}
+
+	for _, id := range ids {
+		sUpdatedData.Id = id
+		if _, err := r.searchClient.Update(c.Request.Context(), sUpdatedData); err != nil {
+			r.logger.Errorf("failed to update file %s in searchService", id)
+		}
 	}
 
 	c.JSON(http.StatusOK, updateFilesResponse.GetUpdated())

@@ -12,6 +12,7 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/quota"
+	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/meateam/api-gateway/user"
@@ -102,13 +103,19 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup permission service connection: %v", err)
 	}
 
+	searchConn, err := initServiceConn(viper.GetString(configSearchService))
+	if err != nil {
+		logger.Fatalf("couldn't setup search service connection: %v", err)
+	}
+
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
+	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	// Authentication middleware on routes group.
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
@@ -129,8 +136,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate client connection to permission service.
 	pr.Setup(authRequiredRoutesGroup)
 
+	// Initiate client connection to search service.
+	sr.Setup(authRequiredRoutesGroup)
+
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn}
+	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn}
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.
