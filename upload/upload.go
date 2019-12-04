@@ -876,6 +876,4 @@ func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
 	}
 
 	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-	return
 }
