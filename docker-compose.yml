@@ -167,3 +167,45 @@ services:
      - 3000:3000
     depends_on: 
      - mongo
+
+  search-service:
+      image: search-service:latest
+      build:
+        context: .
+        dockerfile: Dockerfile
+      environment:
+        SS_PORT: 8080
+        SS_HOST_NAME: search-service
+        SS_ELASTICSEARCH_URL: http://elasticsearch:9200
+        LOG_INDEX: kdrive
+        LOG_LEVEL: debug
+        SS_HEALTH_CHECK_INTERVAL: 5
+        ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+        ELASTIC_APM_SERVICE_NAME: 'search-service'
+        ELASTIC_APM_SERVICE_VERSION: '0.1'
+        ELASTIC_APM_ENVIRONMENT: 'development'
+        ELASTIC_APM_ACTIVE: 'true'
+        ELASTIC_APM_CAPTURE_BODY: 'all'
+        ELASTIC_APM_METRICS_INTERVAL: '10s'
+        SS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
+      ports:
+        - 8080:8080
+      depends_on: 
+        - elasticsearch
+
+  elasticsearch:
+    image: sebp/elk
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 5601:5601
+      - 5044:5044
+
+volumes:
+  es:
+    driver: local

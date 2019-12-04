@@ -58,7 +58,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/search", r.Search)
 }
 
-// Upload is the request handler for /upload request.
+// Search is the request handler for /upload request.
 func (r *Router) Search(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
