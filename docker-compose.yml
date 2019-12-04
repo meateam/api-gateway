@@ -170,9 +170,6 @@ services:
 
   search-service:
       image: search-service:latest
-      build:
-        context: .
-        dockerfile: Dockerfile
       environment:
         SS_PORT: 8080
         SS_HOST_NAME: search-service
