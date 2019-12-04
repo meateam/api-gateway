@@ -248,11 +248,13 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	searchFile := &spb.File{}
 	err = marshalSearchPB(createFolderResp, searchFile)
 	if err != nil {
-		r.logger.Error(err)
-	} else {
-		if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
-			r.logger.Error(err)
-		}
+		r.deleteOnError(c, err, createFolderResp.GetId())
+		return
+	}
+
+	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.deleteOnError(c, err, createFolderResp.GetId())
+		return
 	}
 
 	newPermission := ppb.PermissionObject{
@@ -267,19 +269,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		newPermission,
 	)
 	if err != nil {
-		_, deleteErr := file.DeleteFile(c.Request.Context(),
-			r.logger,
-			r.fileClient,
-			r.uploadClient,
-			r.searchClient,
-			createFolderResp.GetId())
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if deleteErr != nil {
-			err = fmt.Errorf("%v: %v", err, deleteErr)
-		}
-
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteOnError(c, err, createFolderResp.GetId())
 		return
 	}
 
@@ -364,13 +354,15 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	}
 
 	searchFile := &spb.File{}
-	err = marshalSearchPB(createFileResp, searchFile)
-	if err != nil {
-		r.logger.Error(err)
-	} else {
-		if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
-			r.logger.Error(err)
-		}
+
+	if err := marshalSearchPB(createFileResp, searchFile); err != nil {
+		r.deleteOnError(c, err, createFileResp.GetId())
+		return
+	}
+
+	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.deleteOnError(c, err, createFileResp.GetId())
+		return
 	}
 
 	newPermission := ppb.PermissionObject{
@@ -384,22 +376,9 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		reqUser.ID,
 		newPermission,
 	)
+
 	if err != nil {
-		_, deleteErr := file.DeleteFile(c.Request.Context(),
-			r.logger,
-			r.fileClient,
-			r.uploadClient,
-			r.searchClient,
-			createFileResp.GetId())
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if deleteErr != nil {
-			err = fmt.Errorf("%v: %v", err, deleteErr)
-		}
-
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-
+		r.deleteOnError(c, err, createFileResp.GetId())
 	}
 
 	c.String(http.StatusOK, createFileResp.GetId())
@@ -482,6 +461,23 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	}
 
 	key := keyResp.GetKey()
+	ureq := &upb.UploadMediaRequest{
+		Key:    key,
+		Bucket: reqUser.Bucket,
+		File:   fileBytes,
+	}
+
+	if contentType != "" {
+		ureq.ContentType = contentType
+	}
+
+	if _, err = r.uploadClient.UploadMedia(c.Request.Context(), ureq); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
 	fileFullName := uuid.NewV4().String()
 	if filename != "" {
 		fileFullName = filename
@@ -507,11 +503,13 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	searchFile := &spb.File{}
 	err = marshalSearchPB(createFileResp, searchFile)
 	if err != nil {
-		r.logger.Error(err)
-	} else {
-		if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
-			r.logger.Error(err)
-		}
+		r.deleteOnError(c, err, createFileResp.GetId())
+		return
+	}
+
+	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.deleteOnError(c, err, createFileResp.GetId())
+		return
 	}
 
 	newPermission := ppb.PermissionObject{
@@ -519,63 +517,16 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		UserID: reqUser.ID,
 		Role:   ppb.Role_OWNER,
 	}
+
 	err = file.CreatePermission(c.Request.Context(),
 		r.fileClient,
 		r.permissionClient,
 		reqUser.ID,
 		newPermission,
 	)
+
 	if err != nil {
-		_, deleteErr := file.DeleteFile(c.Request.Context(),
-			r.logger,
-			r.fileClient,
-			r.uploadClient,
-			r.searchClient,
-			createFileResp.GetId())
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if deleteErr != nil {
-			err = fmt.Errorf("%v: %v", err, deleteErr)
-		}
-
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-
-	}
-
-	ureq := &upb.UploadMediaRequest{
-		Key:    key,
-		Bucket: reqUser.Bucket,
-		File:   fileBytes,
-	}
-
-	if contentType != "" {
-		ureq.ContentType = contentType
-	}
-
-	_, err = r.uploadClient.UploadMedia(c.Request.Context(), ureq)
-	if err != nil {
-		_, fileDeleteErr := file.DeleteFile(
-			c.Request.Context(),
-			r.logger,
-			r.fileClient,
-			r.uploadClient,
-			r.searchClient,
-			reqUser.ID,
-		)
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		if fileDeleteErr != nil {
-			err = fmt.Errorf("%v: %v", err, fileDeleteErr)
-		}
-
-		deleteRequest := &ppb.DeletePermissionRequest{FileID: createFileResp.GetId(), UserID: reqUser.ID}
-		_, permissionDeleteErr := r.permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
-		if permissionDeleteErr != nil {
-			err = fmt.Errorf("%v: %v", err, permissionDeleteErr)
-		}
-
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteOnError(c, err, createFileResp.GetId())
 		return
 	}
 
@@ -910,4 +861,21 @@ func (r *Router) calculateBufSize(fileSize int64) int64 {
 	}
 
 	return bufSize
+}
+
+func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
+	_, deleteErr := file.DeleteFile(c.Request.Context(),
+		r.logger,
+		r.fileClient,
+		r.uploadClient,
+		r.searchClient,
+		fileID)
+	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+	if deleteErr != nil {
+		err = fmt.Errorf("%v: %v", err, deleteErr)
+	}
+
+	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+	return
 }
