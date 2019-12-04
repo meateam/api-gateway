@@ -246,9 +246,13 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	}
 
 	searchFile := &spb.File{}
-	marshalSearchPB(createFolderResp, searchFile)
-	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+	err = marshalSearchPB(createFolderResp, searchFile)
+	if err != nil {
 		r.logger.Error(err)
+	} else {
+		if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+			r.logger.Error(err)
+		}
 	}
 
 	newPermission := ppb.PermissionObject{
@@ -360,9 +364,13 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	}
 
 	searchFile := &spb.File{}
-	marshalSearchPB(createFileResp, searchFile)
-	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+	err = marshalSearchPB(createFileResp, searchFile)
+	if err != nil {
 		r.logger.Error(err)
+	} else {
+		if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+			r.logger.Error(err)
+		}
 	}
 
 	newPermission := ppb.PermissionObject{
@@ -497,9 +505,13 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	}
 
 	searchFile := &spb.File{}
-	marshalSearchPB(createFileResp, searchFile)
-	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+	err = marshalSearchPB(createFileResp, searchFile)
+	if err != nil {
 		r.logger.Error(err)
+	} else {
+		if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+			r.logger.Error(err)
+		}
 	}
 
 	newPermission := ppb.PermissionObject{

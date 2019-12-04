@@ -19,7 +19,7 @@ import (
 
 const (
 	// SearchTermQueryKey is the query key for search request.
-	SearchTermQueryKey = "term"
+	SearchTermQueryKey = "q"
 )
 
 // Router is a structure that handles upload requests.
