@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -88,7 +89,7 @@ func (r *Router) Search(c *gin.Context) {
 		return
 	}
 
-	var responseFiles []*fpb.File
+	var responseFiles []*file.GetFileByIDResponse
 
 	for _, id := range searchResponse.GetIds() {
 		isPermitted, err := r.permissionClient.IsPermitted(
@@ -104,14 +105,15 @@ func (r *Router) Search(c *gin.Context) {
 		}
 
 		if isPermitted.GetPermitted() {
-			file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: id})
+			res, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: id})
 			if err != nil {
 				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 				loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 				return
 			}
-			responseFiles = append(responseFiles, file)
+
+			responseFiles = append(responseFiles, file.CreateGetFileResponse(res))
 		}
 	}
 
