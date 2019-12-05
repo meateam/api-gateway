@@ -147,6 +147,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.GetFilesByFolder)
 	rg.GET("/files/:id", r.GetFileByID)
+	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
@@ -433,6 +434,77 @@ func (r *Router) UpdateFile(c *gin.Context) {
 
 		return
 	}
+}
+
+// GetFileAncestors returns an array of the requested file ancestors.
+// The function gets an id.
+// It returns the updated file id's.
+func (r *Router) GetFileAncestors(c *gin.Context) {
+	fileID := c.Param("id")
+	if fileID == "" {
+		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+
+	if !r.HandleUserFilePermission(c, fileID, GetFileByIDRole) {
+		return
+	}
+
+	res, err := r.fileClient.GetAncestors(c.Request.Context(), &fpb.GetAncestorsRequest{Id: fileID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	ancestors := res.GetAncestors()
+
+	var firstPermittedFileIndex int
+	for firstPermittedFileIndex = 0; firstPermittedFileIndex < len(ancestors); firstPermittedFileIndex++ {
+		isPermitted, err := CheckUserFilePermission(
+			c.Request.Context(),
+			r.fileClient,
+			r.permissionClient,
+			reqUser.ID,
+			ancestors[firstPermittedFileIndex],
+			GetFileByIDRole,
+		)
+
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+		if isPermitted {
+			break
+		}
+	}
+
+	permittedAncestors := ancestors[firstPermittedFileIndex:]
+
+	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
+
+	for i := 0; i < len(permittedAncestors); i++ {
+		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permittedAncestors[i]})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+
+		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file))
+	}
+
+	c.JSON(http.StatusOK, populatedPermittedAncestors)
 }
 
 // UpdateFiles Updates many files with the same value.

@@ -92,19 +92,19 @@ func (r *Router) Search(c *gin.Context) {
 	var responseFiles []*file.GetFileByIDResponse
 
 	for _, id := range searchResponse.GetIds() {
-		isPermitted, err := r.permissionClient.IsPermitted(
+		isPermitted, err := file.CheckUserFilePermission(
 			c.Request.Context(),
-			&ppb.IsPermittedRequest{
-				FileID: id,
-				UserID: reqUser.ID,
-				Role:   ppb.Role_READ,
-			},
+			r.fileClient,
+			r.permissionClient,
+			reqUser.ID,
+			id,
+			ppb.Role_READ,
 		)
 		if err != nil && status.Code(err) != codes.Unimplemented {
 			r.logger.Errorf("failed get permission with fileId %s, error: %v", id, err)
 		}
 
-		if isPermitted.GetPermitted() {
+		if isPermitted {
 			res, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: id})
 			if err != nil {
 				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
