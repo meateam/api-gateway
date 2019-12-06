@@ -14,6 +14,7 @@ services:
       GW_PERMISSION_SERVICE: 'permission-service:8080'
       GW_USER_SERVICE: 'user-service:8080'
       GW_SEARCH_SERVICE: 'search-service:8080'
+      GW_GOTENBERG_SERVICE: 'http://gotenberg-service:8080'
       GW_ALLOW_ORIGINS: 'http://localhost*'
       GW_SUPPORT_LINK: 'https://open.rocket.chat/home'
       GW_CHROME_DOWNLOAD_URL: 'https://google.com/chrome/'
@@ -39,6 +40,7 @@ services:
       - authentication-service
       - permission-service
       - search-service
+      - gotenberg-service
   minio:
     image: minio/minio
     volumes:
@@ -218,6 +220,13 @@ services:
       - 8088:8080
     depends_on: 
       - elasticsearch
+  gotenberg-service:
+    image: thecodingmachine/gotenberg:6
+    environment:
+      DEFAULT_LISTEN_PORT: 8080
+      DISABLE_GOOGLE_CHROME: 1
+    ports:
+      - 8089:8080
   elasticsearch:
     image: sebp/elk
     ulimits:
