@@ -77,6 +77,9 @@ const (
 	// permitted to make the UpdateFiles action.
 	UpdateFilesRole = ppb.Role_OWNER
 
+	// PdfMimeType is the mime type of a .pdf file.
+	PdfMimeType = "application/pdf"
+
 	// DocMimeType is the mime type of a .doc/x file.
 	DocMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -874,11 +877,16 @@ func CreateGetFileResponse(file *fpb.File) *GetFileByIDResponse {
 // and can be converted to a PDF, then the file would be converted to a PDF and
 // the converted file will be written to the response, instead of the raw file.
 func (r *Router) HandlePreview(c *gin.Context, filename string, contentType string, stream dpb.Download_DownloadClient) error {
-	if contentType == "" {
+	// File is already a PDF, no need to convert it.
+	if contentType == PdfMimeType {
 		return HandleStream(c, stream)
 	}
 
+	// Convert the file to PDF.
 	streamReader := download.NewStreamReadCloser(stream)
+
+	// IMPORTANT: Must use a buffer that its size is at least download.PartSize, otherwise data loss
+	// would occure.
 	buf := make([]byte, download.PartSize)
 	convertRequest, err := gotenberg.NewOfficeRequestWithBuffer(filename, streamReader, buf)
 	if err != nil {
@@ -888,6 +896,8 @@ func (r *Router) HandlePreview(c *gin.Context, filename string, contentType stri
 	convertRequest.ResultFilename(filename)
 
 	defer streamReader.Close()
+
+	// Send the file for PDF conversion.
 	resp, err := r.gotenbergClient.Post(convertRequest)
 	if err != nil {
 		return err
@@ -897,6 +907,7 @@ func (r *Router) HandlePreview(c *gin.Context, filename string, contentType stri
 
 	responseContentLength := strconv.FormatInt(resp.ContentLength, 10)
 	c.Header("Content-Length", responseContentLength)
+
 	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
 		c.Status(http.StatusInternalServerError)
 		return err
