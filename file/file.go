@@ -905,8 +905,8 @@ func (r *Router) HandlePreview(c *gin.Context, filename string, contentType stri
 
 	defer resp.Body.Close()
 
-	responseContentLength := strconv.FormatInt(resp.ContentLength, 10)
-	c.Header("Content-Length", responseContentLength)
+	c.Header("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+	c.Header("Content-Type", resp.Header.Get("Content-Type"))
 
 	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
 		c.Status(http.StatusInternalServerError)
