@@ -431,17 +431,16 @@ func (r *Router) Download(c *gin.Context) {
 
 		return
 	}
-
-	c.Header("Content-Type", contentType)
-	c.Header("Content-Length", contentLength)
-
+	
 	preview, ok := c.GetQuery(QueryFileDownloadPreview)
 	if ok && preview != "false" {
-		loggermiddleware.LogError(r.logger, r.HandlePreview(c, filename, contentType, stream))
-
+		loggermiddleware.LogError(r.logger, r.HandlePreview(c, fileMeta, stream))
+		
 		return
 	}
-
+	
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Length", contentLength)
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 
@@ -876,9 +875,16 @@ func CreateGetFileResponse(file *fpb.File) *GetFileByIDResponse {
 // HandlePreview writes a PDF of the file to the response, if the file isn't a PDF already
 // and can be converted to a PDF, then the file would be converted to a PDF and
 // the converted file will be written to the response, instead of the raw file.
-func (r *Router) HandlePreview(c *gin.Context, filename string, contentType string, stream dpb.Download_DownloadClient) error {
+func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Download_DownloadClient) error {
+	filename := file.GetName()
+	contentType := file.GetType()
+	contentLength := strconv.FormatInt(file.GetSize(), 10)
+
 	// File is already a PDF, no need to convert it.
 	if contentType == PdfMimeType {
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Length", contentLength)
+		
 		return HandleStream(c, stream)
 	}
 
@@ -905,11 +911,19 @@ func (r *Router) HandlePreview(c *gin.Context, filename string, contentType stri
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("failed converting file with gotenberg with status: %v", resp.Status)
+		c.AbortWithError(resp.StatusCode, err)
+		
+		return err
+	}
+
 	c.Header("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
 	c.Header("Content-Type", resp.Header.Get("Content-Type"))
 
 	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
-		c.Status(http.StatusInternalServerError)
+		c.AbortWithError(http.StatusInternalServerError, err)
+
 		return err
 	}
 	

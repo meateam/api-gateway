@@ -225,6 +225,9 @@ services:
     environment:
       DEFAULT_LISTEN_PORT: 8080
       DISABLE_GOOGLE_CHROME: 1
+    tmpfs:
+      - /tmp
+      - /gotenberg/tmp
     ports:
       - 8089:8080
   elasticsearch:
