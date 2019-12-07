@@ -86,8 +86,8 @@ type Router struct {
 	logger           *logrus.Logger
 }
 
-// getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
-type getFileByIDResponse struct {
+// GetFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
+type GetFileByIDResponse struct {
 	ID          string `json:"id,omitempty"`
 	Name        string `json:"name,omitempty"`
 	Type        string `json:"type,omitempty"`
@@ -147,6 +147,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.GetFilesByFolder)
 	rg.GET("/files/:id", r.GetFileByID)
+	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
@@ -182,7 +183,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, createGetFileResponse(file))
+	c.JSON(http.StatusOK, CreateGetFileResponse(file))
 }
 
 // Extracts parameters from request query to a map, non-existing parameter has a value of ""
@@ -264,9 +265,9 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	files := filesResp.GetFiles()
-	responseFiles := make([]*getFileByIDResponse, 0, len(files))
+	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		responseFiles = append(responseFiles, createGetFileResponse(file))
+		responseFiles = append(responseFiles, CreateGetFileResponse(file))
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
@@ -292,7 +293,7 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 		return
 	}
 
-	files := make([]*getFileByIDResponse, 0, len(permissions.GetPermissions()))
+	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
 		file, err := r.fileClient.GetFileByID(c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
@@ -303,7 +304,7 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			return
 		}
 
-		files = append(files, createGetFileResponse(file))
+		files = append(files, CreateGetFileResponse(file))
 	}
 
 	c.JSON(http.StatusOK, files)
@@ -435,6 +436,77 @@ func (r *Router) UpdateFile(c *gin.Context) {
 	}
 }
 
+// GetFileAncestors returns an array of the requested file ancestors.
+// The function gets an id.
+// It returns the updated file id's.
+func (r *Router) GetFileAncestors(c *gin.Context) {
+	fileID := c.Param("id")
+	if fileID == "" {
+		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+
+	if !r.HandleUserFilePermission(c, fileID, GetFileByIDRole) {
+		return
+	}
+
+	res, err := r.fileClient.GetAncestors(c.Request.Context(), &fpb.GetAncestorsRequest{Id: fileID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	ancestors := res.GetAncestors()
+
+	var firstPermittedFileIndex int
+	for firstPermittedFileIndex = 0; firstPermittedFileIndex < len(ancestors); firstPermittedFileIndex++ {
+		isPermitted, err := CheckUserFilePermission(
+			c.Request.Context(),
+			r.fileClient,
+			r.permissionClient,
+			reqUser.ID,
+			ancestors[firstPermittedFileIndex],
+			GetFileByIDRole,
+		)
+
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+		if isPermitted {
+			break
+		}
+	}
+
+	permittedAncestors := ancestors[firstPermittedFileIndex:]
+
+	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
+
+	for i := 0; i < len(permittedAncestors); i++ {
+		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permittedAncestors[i]})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+
+		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file))
+	}
+
+	c.JSON(http.StatusOK, populatedPermittedAncestors)
+}
+
 // UpdateFiles Updates many files with the same value.
 // The function gets slice of ids and the partial file to update.
 // It returns the updated file id's.
@@ -538,7 +610,7 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 		}
 	}
 
-	c.JSON(http.StatusOK, updateFilesResponse.GetUpdated())
+	c.JSON(http.StatusOK, updateFilesResponse.GetFailedFiles())
 	return nil
 }
 
@@ -722,14 +794,14 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 	return isPermitted
 }
 
-// createGetFileResponse Creates a file grpc response to http response struct
-func createGetFileResponse(file *fpb.File) *getFileByIDResponse {
+// CreateGetFileResponse Creates a file grpc response to http response struct
+func CreateGetFileResponse(file *fpb.File) *GetFileByIDResponse {
 	if file == nil {
 		return nil
 	}
 
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
-	responseFile := &getFileByIDResponse{
+	responseFile := &GetFileByIDResponse{
 		ID:          file.GetId(),
 		Name:        file.GetName(),
 		Type:        file.GetType(),
