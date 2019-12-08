@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/file"
+	"github.com/meateam/gotenberg-go-client/v6"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/quota"
@@ -108,8 +109,10 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup search service connection: %v", err)
 	}
 
+	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
+
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, gotenbergClient, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)

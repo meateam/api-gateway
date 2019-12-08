@@ -17,6 +17,7 @@ const (
 	configUserService       = "user_service"
 	configPermissionService = "permission_service"
 	configSearchService     = "search_service"
+	configGotenbergService  = "gotenberg_service"
 	configSecret            = "secret"
 	configAuthURL           = "auth_url"
 	configExternalApmURL    = "external_apm_url"
@@ -37,6 +38,7 @@ func init() {
 	viper.SetDefault(configUserService, "user-service:8080")
 	viper.SetDefault(configPermissionService, "permission-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
+	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")

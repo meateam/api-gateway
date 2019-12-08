@@ -11,8 +11,10 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
+	"github.com/meateam/gotenberg-go-client/v6"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
@@ -47,9 +49,9 @@ const (
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
-	// QueryFileDownloadNoContentDisposition is the querystring key for
+	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
-	QueryFileDownloadNoContentDisposition = "preview"
+	QueryFileDownloadPreview = "preview"
 
 	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the GetFileByID action.
@@ -74,6 +76,47 @@ const (
 	// UpdateFilesRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the UpdateFiles action.
 	UpdateFilesRole = ppb.Role_OWNER
+
+	// PdfMimeType is the mime type of a .pdf file.
+	PdfMimeType = "application/pdf"
+
+	// DocMimeType is the mime type of a .doc/x file.
+	DocMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+	// XlsMimeType is the mime type of a .xls file.
+	XlsMimeType = "application/vnd.ms-excel"
+
+	// XlsxMimeType is the mime type of a .xlsx file.
+	XlsxMimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+	// PptMimeType is the mime type of a .ppt file.
+	PptMimeType = "application/vnd.ms-powerpoint"
+
+	// PptxMimeType is the mime type of a .pptx file.
+	PptxMimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+	// RtfMimeType is the mime type of a .rtf file.
+	RtfMimeType = "application/rtf"
+
+	// OdtMimeType is the mime type of a .odt file.
+	OdtMimeType = "application/vnd.oasis.opendocument.text"
+
+	// OdpMimeType is the mime type of a .odp file.
+	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
+)
+
+var (
+	// TypesConvertableToPdf is a slice of the names of the mime types that can be converted to PDF and previewed.
+	TypesConvertableToPdf = []string{
+		DocMimeType,
+		XlsMimeType,
+		XlsxMimeType,
+		PptMimeType,
+		PptxMimeType,
+		RtfMimeType,
+		OdtMimeType,
+		OdpMimeType,
+	}
 )
 
 // Router is a structure that handles upload requests.
@@ -83,6 +126,7 @@ type Router struct {
 	uploadClient     upb.UploadClient
 	permissionClient ppb.PermissionClient
 	searchClient     spb.SearchClient
+	gotenbergClient  *gotenberg.Client
 	logger           *logrus.Logger
 }
 
@@ -125,6 +169,7 @@ func NewRouter(
 	uploadConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
+	gotenbergClient *gotenberg.Client,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -139,6 +184,7 @@ func NewRouter(
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
+	r.gotenbergClient = gotenbergClient
 
 	return r
 }
@@ -164,6 +210,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	alt := c.Query("alt")
 	if alt == "media" {
 		r.Download(c)
+
 		return
 	}
 
@@ -384,15 +431,18 @@ func (r *Router) Download(c *gin.Context) {
 
 		return
 	}
-
-	c.Header("X-Content-Type-Options", "nosniff")
-	preview, ok := c.GetQuery(QueryFileDownloadNoContentDisposition)
-	if !ok || preview == "false" {
-		c.Header("Content-Disposition", "attachment; filename="+filename)
+	
+	preview, ok := c.GetQuery(QueryFileDownloadPreview)
+	if ok && preview != "false" {
+		loggermiddleware.LogError(r.logger, r.HandlePreview(c, fileMeta, stream))
+		
+		return
 	}
-
+	
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Disposition", "attachment; filename="+filename)
 
 	loggermiddleware.LogError(r.logger, HandleStream(c, stream))
 }
@@ -820,4 +870,75 @@ func CreateGetFileResponse(file *fpb.File) *GetFileByIDResponse {
 	}
 
 	return responseFile
+}
+
+// HandlePreview writes a PDF of the file to the response, if the file isn't a PDF already
+// and can be converted to a PDF, then the file would be converted to a PDF and
+// the converted file will be written to the response, instead of the raw file.
+func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Download_DownloadClient) error {
+	filename := file.GetName()
+	contentType := file.GetType()
+	contentLength := strconv.FormatInt(file.GetSize(), 10)
+
+	// File is already a PDF, no need to convert it.
+	if contentType == PdfMimeType {
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Length", contentLength)
+		
+		return HandleStream(c, stream)
+	}
+
+	// Convert the file to PDF.
+	streamReader := download.NewStreamReadCloser(stream)
+
+	// IMPORTANT: Must use a buffer that its size is at least download.PartSize, otherwise data loss
+	// would occure.
+	buf := make([]byte, download.PartSize)
+	convertRequest, err := gotenberg.NewOfficeRequestWithBuffer(filename, streamReader, buf)
+	if err != nil {
+		return err
+	}
+
+	convertRequest.ResultFilename(filename)
+
+	defer streamReader.Close()
+
+	// Send the file for PDF conversion.
+	resp, err := r.gotenbergClient.Post(convertRequest)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("failed converting file with gotenberg with status: %v", resp.Status)
+		c.AbortWithError(resp.StatusCode, err)
+		
+		return err
+	}
+
+	c.Header("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+	c.Header("Content-Type", resp.Header.Get("Content-Type"))
+
+	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+
+		return err
+	}
+	
+	c.Status(http.StatusOK)
+
+	return nil
+}
+
+// IsFileConvertableToPdf returns true if contentType can be converted to a PDF file, false otherwise.
+func IsFileConvertableToPdf(contentType string) bool {
+	for _, v := range TypesConvertableToPdf {
+		if contentType == v {
+			return true
+		}
+	}
+
+	return false
 }
