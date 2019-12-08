@@ -431,14 +431,14 @@ func (r *Router) Download(c *gin.Context) {
 
 		return
 	}
-	
+
 	preview, ok := c.GetQuery(QueryFileDownloadPreview)
 	if ok && preview != "false" {
 		loggermiddleware.LogError(r.logger, r.HandlePreview(c, fileMeta, stream))
-		
+
 		return
 	}
-	
+
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
 	c.Header("X-Content-Type-Options", "nosniff")
@@ -884,7 +884,7 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	if contentType == PdfMimeType {
 		c.Header("Content-Type", contentType)
 		c.Header("Content-Length", contentLength)
-		
+
 		return HandleStream(c, stream)
 	}
 
@@ -913,8 +913,8 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Errorf("failed converting file with gotenberg with status: %v", resp.Status)
-		c.AbortWithError(resp.StatusCode, err)
-		
+		loggermiddleware.LogError(r.logger, c.AbortWithError(resp.StatusCode, err))
+
 		return err
 	}
 
@@ -922,11 +922,11 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	c.Header("Content-Type", resp.Header.Get("Content-Type"))
 
 	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
 
 		return err
 	}
-	
+
 	c.Status(http.StatusOK)
 
 	return nil
