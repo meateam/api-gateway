@@ -140,12 +140,12 @@ github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda h1:
 github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda/go.mod h1:aLGQxX9uf7lJ2Kr1J7+qq3IeO/NP7YAXe3IzVLTAIeM=
 github.com/meateam/elogrus/v4 v4.0.2 h1:X+fpps3Ti9vIoqo/wnPcuaB+wxkZwkmTppXnnBe1Un4=
 github.com/meateam/elogrus/v4 v4.0.2/go.mod h1:O+KJPmbnEV80u+V8tCYTvcBpzp/HZa7XR4nqDtDMzYg=
-github.com/meateam/file-service/proto v0.0.0-20191205101121-21da7c50da2a h1:Dq9w+4E26F1SEaAGfXhAcEmPiYuERp6uoli2qySlzaw=
-github.com/meateam/file-service/proto v0.0.0-20191205101121-21da7c50da2a/go.mod h1:Hf7K+gmsRn0yVRU3oSGb5r3JkPXGstUnT9Gh8+0fR6U=
+github.com/meateam/file-service/proto v0.0.0-20191209093649-c287c7d2c3f3 h1:s+Fzw5wfHm5WuxxMFHMYCc5nTGcyDrK1CXA1k9yDcz8=
+github.com/meateam/file-service/proto v0.0.0-20191209093649-c287c7d2c3f3/go.mod h1:Hf7K+gmsRn0yVRU3oSGb5r3JkPXGstUnT9Gh8+0fR6U=
 github.com/meateam/gotenberg-go-client/v6 v6.0.6 h1:AjY7Ta1qYgUz0FiZ1eM/jvm7nHGhLolHmCqbZITduZ4=
 github.com/meateam/gotenberg-go-client/v6 v6.0.6/go.mod h1:6Rfyc4psQ0N2GUBOp7fUjXblxHG+U9NdicqVgXd2tTQ=
-github.com/meateam/permission-service v0.0.0-20191029101002-980dd2c31d08 h1:wgFD/vgQy95U3fIX2DixR16BjC8SQtRDGUUE9rdEVhk=
-github.com/meateam/permission-service v0.0.0-20191029101002-980dd2c31d08/go.mod h1:sOpwhHZYMTLqIcPVvypRs074zb9sOEWpLa4zh3eJEy0=
+github.com/meateam/permission-service v0.0.0-20191209091902-3ab4ab7af44e h1:s9vcqo5VDZdQU6NsmoCT7fr79e4APEdTVw6j/rD/2iI=
+github.com/meateam/permission-service v0.0.0-20191209091902-3ab4ab7af44e/go.mod h1:sOpwhHZYMTLqIcPVvypRs074zb9sOEWpLa4zh3eJEy0=
 github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0 h1:WvDXyQcJqrp+a98biD+E5nk5sFxYM+qLYLj1PxDn4jY=
 github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0/go.mod h1:Q6j5mhMv4YdGZiDWAdlG8YWWYZyIzdub39f86mBz8Lg=
 github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676 h1:iZEgLcC9WY/USnCn0jwbzW0C1U59WMZ+GlfmC4kQY/w=

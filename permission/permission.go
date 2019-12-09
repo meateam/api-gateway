@@ -35,11 +35,11 @@ const (
 
 	// CreateFilePermissionRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the CreateFilePermission action.
-	CreateFilePermissionRole = ppb.Role_OWNER
+	CreateFilePermissionRole = ppb.Role_WRITE
 
 	// DeleteFilePermissionRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the DeleteFilePermission action.
-	DeleteFilePermissionRole = ppb.Role_OWNER
+	DeleteFilePermissionRole = ppb.Role_WRITE
 )
 
 type createPermissionRequest struct {
@@ -49,9 +49,9 @@ type createPermissionRequest struct {
 
 // Permission is a struct that describes a user's permission to a file.
 type Permission struct {
-	UserID string
-	FileID string
-	Role   string
+	UserID string `json:"userID,omitempty"`
+	FileID string `json:"fileID,omitempty"`
+	Role   string `json:"role,omitempty"`
 }
 
 // Router is a structure that handles permission requests.
@@ -60,6 +60,12 @@ type Router struct {
 	fileClient       fpb.FileServiceClient
 	userClient       upb.UsersClient
 	logger           *logrus.Logger
+}
+
+// UserRole is a structure that holds the role of the permission a user has.
+type UserRole struct {
+	UserID string `json:"userID,omitempty"`
+	Role   string `json:"role,omitempty"`
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service
@@ -106,7 +112,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	if !r.HandleUserFilePermission(c, fileID, GetFilePermissionsRole) {
+	if r.HandleUserFilePermission(c, fileID, GetFilePermissionsRole) == "" {
 		return
 	}
 
@@ -142,13 +148,9 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	// Forbid creating a permission of NONE or OWNER or WRITE.
+	// Forbid creating a permission of NONE.
 	switch ppb.Role(ppb.Role_value[permission.Role]) {
 	case ppb.Role_NONE:
-	case ppb.Role_OWNER:
-	case ppb.Role_WRITE:
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
 	default:
 		break
 	}
@@ -172,7 +174,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	if !r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole) {
+	if r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole) == "" {
 		return
 	}
 
@@ -189,10 +191,14 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 
 	createdPermission.Id = ""
 
-	c.JSON(http.StatusOK, createdPermission)
+	c.JSON(http.StatusOK, Permission{
+		UserID: createdPermission.GetUserID(),
+		FileID: createdPermission.GetFileID(),
+		Role:   createdPermission.GetRole().String(),
+	})
 }
 
-// DeleteFilePermission deletes a file permission
+// DeleteFilePermission deletes a file permission,
 // File id and permission id are extracted from url params
 func (r *Router) DeleteFilePermission(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
@@ -207,29 +213,18 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		return
 	}
 
+	// Get the user id to delete its permission the file, if no param
+	// is given, default to delete the permission of the authenticated requester.
 	userID, exists := c.GetQuery(QueryDeleteUserPermission)
 	if !exists {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
+		userID = reqUser.ID
 	}
 
-	if userID == reqUser.ID {
-		permission, err := r.permissionClient.GetPermission(c.Request.Context(),
-			&ppb.GetPermissionRequest{FileID: fileID, UserID: reqUser.ID})
-		if err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-			return
-		}
-
-		if permission.GetRole() == ppb.Role_OWNER {
-			c.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
-	}
-
-	if userID != reqUser.ID && !r.HandleUserFilePermission(c, fileID, DeleteFilePermissionRole) {
+	// Check permission to delete the permission. Need to check only if the authenticated requester
+	// requested to delete another user's permission, since he can do this operation with any permission
+	// to himself.
+	if userID != reqUser.ID && r.HandleUserFilePermission(c, fileID, DeleteFilePermissionRole) == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -242,20 +237,25 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	}
 
 	permission.Id = ""
-	c.JSON(http.StatusOK, permission)
+
+	c.JSON(http.StatusOK, Permission{
+		UserID: permission.GetUserID(),
+		FileID: permission.GetFileID(),
+		Role:   permission.GetRole().String(),
+	})
 }
 
 // HandleUserFilePermission checks if the requesting user has a given role for the given file
 // File id is extracted from url params
-func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) string {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 
-		return false
+		return ""
 	}
 
-	isPermittedResponse, err := file.CheckUserFilePermission(c.Request.Context(),
+	userFilePermission, err := file.CheckUserFilePermission(c.Request.Context(),
 		r.fileClient,
 		r.permissionClient,
 		reqUser.ID,
@@ -265,14 +265,14 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-		return false
+		return ""
 	}
 
-	if !isPermittedResponse {
+	if userFilePermission == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	}
 
-	return isPermittedResponse
+	return userFilePermission
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.
@@ -315,10 +315,19 @@ func CreatePermission(ctx context.Context,
 func GetFilePermissions(ctx context.Context,
 	fileID string,
 	permissionClient ppb.PermissionClient,
-	fileClient fpb.FileServiceClient) ([]*ppb.GetFilePermissionsResponse_UserRole, error) {
-	permissionsMap := make(map[string]*ppb.GetFilePermissionsResponse_UserRole, 1)
-	permissions := make([]*ppb.GetFilePermissionsResponse_UserRole, 0, 1)
+	fileClient fpb.FileServiceClient) ([]UserRole, error) {
+	permissionsMap := make(map[string]UserRole, 1)
+	permissions := make([]UserRole, 0, 1)
 	currentFileID := fileID
+
+	fileMeta, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		return nil, err
+	}
+
+	owner := UserRole{UserID: fileMeta.GetOwnerID(), Role: file.OwnerRole}
+	permissionsMap[fileMeta.GetOwnerID()] = owner
+	permissions = append(permissions, owner)
 
 	for {
 		permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: currentFileID}
@@ -334,8 +343,9 @@ func GetFilePermissions(ctx context.Context,
 
 		for _, permission := range permissionsResponse.GetPermissions() {
 			if _, ok := permissionsMap[permission.GetUserID()]; !ok {
-				permissionsMap[permission.GetUserID()] = permission
-				permissions = append(permissions, permission)
+				userRole := UserRole{UserID: permission.GetUserID(), Role: permission.GetRole().String()}
+				permissionsMap[permission.GetUserID()] = userRole
+				permissions = append(permissions, userRole)
 			}
 		}
 

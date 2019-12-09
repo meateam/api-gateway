@@ -9,9 +9,9 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.11.1
 	github.com/meateam/download-service v0.0.0-20191004151843-b4033e9b951c
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
-	github.com/meateam/file-service/proto v0.0.0-20191205101121-21da7c50da2a
+	github.com/meateam/file-service/proto v0.0.0-20191209093649-c287c7d2c3f3
 	github.com/meateam/gotenberg-go-client/v6 v6.0.6
-	github.com/meateam/permission-service v0.0.0-20191029101002-980dd2c31d08
+	github.com/meateam/permission-service v0.0.0-20191209091902-3ab4ab7af44e
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
 	github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83
