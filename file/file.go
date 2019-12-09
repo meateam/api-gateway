@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -79,6 +80,9 @@ const (
 
 	// PdfMimeType is the mime type of a .pdf file.
 	PdfMimeType = "application/pdf"
+
+	// TextMimeType is the start of any file with a text mime type.
+	TextMimeType = "text"
 
 	// DocMimeType is the mime type of a .doc/x file.
 	DocMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -881,7 +885,7 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	contentLength := strconv.FormatInt(file.GetSize(), 10)
 
 	// File is already a PDF, no need to convert it.
-	if contentType == PdfMimeType {
+	if contentType == PdfMimeType || strings.HasPrefix(contentType, TextMimeType) {
 		c.Header("Content-Type", contentType)
 		c.Header("Content-Length", contentLength)
 

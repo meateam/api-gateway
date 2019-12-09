@@ -199,7 +199,7 @@ services:
     depends_on:
       - mongo
   search-service:
-    image: search-service:latest
+    image: bluehub.azurecr.io/meateam/search-service:develop
     environment:
       SS_PORT: 8080
       SS_HOST_NAME: search-service
@@ -219,9 +219,10 @@ services:
     ports:
       - 8088:8080
     depends_on: 
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
   gotenberg-service:
-    image: thecodingmachine/gotenberg:6
+    image: bluehub.azurecr.io/meateam/gotenberg:6
     environment:
       DEFAULT_LISTEN_PORT: 8080
       DISABLE_GOOGLE_CHROME: 1
@@ -231,18 +232,18 @@ services:
     ports:
       - 8089:8080
   elasticsearch:
-    image: sebp/elk
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - es:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-      - 5601:5601
-      - 5044:5044
-
-volumes:
-  es:
-    driver: local
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
+    environment: 
+      - discovery.type=single-node
+    container_name: elasticsearch
+    ports: ['9200:9200']
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.5.0
+    container_name: kibana
+    ports: ['5601:5601']
+    depends_on: ['elasticsearch']
