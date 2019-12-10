@@ -358,8 +358,10 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			return
 		}
 
-		shared := true
-		files = append(files, CreateGetFileResponse(file, permission.GetRole().String(), &shared))
+		if file.GetOwnerID() != reqUser.ID {
+			shared := true
+			files = append(files, CreateGetFileResponse(file, permission.GetRole().String(), &shared))
+		}
 	}
 
 	c.JSON(http.StatusOK, files)
