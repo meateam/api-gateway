@@ -220,6 +220,19 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		userID = reqUser.ID
 	}
 
+	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	if userID == file.GetOwnerID() {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
 	// Check permission to delete the permission. Need to check only if the authenticated requester
 	// requested to delete another user's permission, since he can do this operation with any permission
 	// to himself.
@@ -233,6 +246,7 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
 		return
 	}
 
@@ -319,15 +333,6 @@ func GetFilePermissions(ctx context.Context,
 	permissionsMap := make(map[string]UserRole, 1)
 	permissions := make([]UserRole, 0, 1)
 	currentFileID := fileID
-
-	fileMeta, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
-	if err != nil {
-		return nil, err
-	}
-
-	owner := UserRole{UserID: fileMeta.GetOwnerID(), Role: file.OwnerRole}
-	permissionsMap[fileMeta.GetOwnerID()] = owner
-	permissions = append(permissions, owner)
 
 	for {
 		permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: currentFileID}

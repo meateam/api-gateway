@@ -54,6 +54,9 @@ const (
 	// removing the content-disposition header from a file download.
 	QueryFileDownloadPreview = "preview"
 
+	// OwnerRole is the owner role name when referred to as a permission.
+	OwnerRole = "OWNER"
+
 	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the GetFileByID action.
 	GetFileByIDRole = ppb.Role_READ
@@ -107,9 +110,6 @@ const (
 
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
-
-	// OwnerRole is the owner role name when referred to as a permission.
-	OwnerRole = "OWNER"
 )
 
 var (
@@ -295,6 +295,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		Size:        stringToInt64(paramMap[ParamFileSize]),
 		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
 		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
+		Float:       false,
 	}
 
 	fileOwner := reqUser.ID
@@ -396,12 +397,15 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 			return
 		}
 	} else {
-		if err := r.handleUpdate(c, []string{fileID}, partialFile{Float: true}); err != nil {
+		root := ""
+		if err := r.handleUpdate(c, []string{fileID}, partialFile{Float: true, Parent: &root}); err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 			return
 		}
+
+		ids[0] = fileID
 	}
 
 	for _, id := range ids {
@@ -659,7 +663,9 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 
 	updatedData := &fpb.File{
 		FileOrId: parent,
+		Float:    pf.Float,
 	}
+
 	sUpdatedData := &spb.File{
 		FileOrId: sParent,
 	}
