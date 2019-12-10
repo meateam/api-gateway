@@ -163,13 +163,13 @@ services:
       REDIS_HOST: 'redis'
       LOG_INDEX: 'kdrive'
       SPIKE_CLIENT_ID: EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub
-      SPIKE_CLIENT_SECRET: TODO_SPIKE_SECRET
+      SPIKE_CLIENT_SECRET: u5qxEK0sy17ReZ7t8aVeN1gCcdI9hRiM78i9J_9Z6jA2YWcvbgczcchKqZ4WnXOsdT6jxmuVCLC3~RXuVcE5EsOG4JJi~B8AJQSB
       SPIKE_REQUIRED: 'true'
       SPIKE_URL: 'https://spike.westeurope.cloudapp.azure.com'
       SPIKE_AUTH_SERVER_PORT: '1337'
       SPIKE_TOKEN_URL: 'https://spike.westeurope.cloudapp.azure.com:1337/oauth2/token'
       TOKEN: >-
-        ENTER_TOKEN
+        eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJrYXJ0b2ZmZWwiLCJzdWIiOiI1ZDc2NTA2NTBmYWY2ODIwOTQ4YzMzZGQiLCJzY29wZSI6W10sImNsaWVudElkIjoiRVBCcGpDaWN6dXBDWFpnQkVxM0FSWkNpblV0NExTWHRPc1ZySTFVYiIsImlhdCI6MTU2ODIxMDM1NSwiZXhwIjoxNTY4MjEwNTM1LCJpc3MiOiJodHRwczovLzUxLjE0NC4xNzguMTIxIn0.bSALlqft4U_FiiPr8gtYxx1AOVmnwMxN9-ardt5FhaY_UhKc18PIq5dBSMCMp34sfZnwsBh7uxL3wxDjPxZzYb_RMyLc_wonUurdDjI9zBq5fkyhwdNdBxIirBooVMwjt3mqxVtvVSsWvip3Lfj0zW-qb7n_n5LDRI4YG36cfUc_FCA60keccyHGMJJ1jd8trTvx1XQT8-PTlOlIQifws42Hpc3KIAUM0a2K-VuhK8bdQgcnvkB9Ca55OstOFi27cFf1jV9VO1as5yA6WabDTxht5KxfVN-nMpHhQN0CFw-kngIX2P8F0rlmA2JwmSPVcnDF3OweMAs5CBHQzkdomA
       DEBUG_MODE: 'false'
       USR_MONGO_HOST: 'mongodb://mongo:27017/devDB'
     depends_on:
