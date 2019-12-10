@@ -112,7 +112,8 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	if r.HandleUserFilePermission(c, fileID, GetFilePermissionsRole) == "" {
+	
+	if role, _ := r.HandleUserFilePermission(c, fileID, GetFilePermissionsRole); role == "" {
 		return
 	}
 
@@ -123,6 +124,24 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 
 		return
 	}
+
+	// Get File's metadata for its owner.
+	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	filteredOwnerPermissions := make([]UserRole, 0, len(permissions))
+	for i := 0; i < len(permissions); i++ {
+		if permissions[i].UserID != file.GetOwnerID() {
+			filteredOwnerPermissions = append(filteredOwnerPermissions, permissions[i])
+		}
+	}
+
+	permissions = filteredOwnerPermissions
 
 	c.JSON(http.StatusOK, permissions)
 }
@@ -174,7 +193,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	if r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole) == "" {
+	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole); role == "" {
 		return
 	}
 
@@ -236,9 +255,11 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	// Check permission to delete the permission. Need to check only if the authenticated requester
 	// requested to delete another user's permission, since he can do this operation with any permission
 	// to himself.
-	if userID != reqUser.ID && r.HandleUserFilePermission(c, fileID, DeleteFilePermissionRole) == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+	if userID != reqUser.ID {
+		if role, _ := r.HandleUserFilePermission(c, fileID, DeleteFilePermissionRole); role == "" {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 	}
 
 	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}
@@ -261,15 +282,15 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 
 // HandleUserFilePermission checks if the requesting user has a given role for the given file
 // File id is extracted from url params
-func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) string {
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) (string, *ppb.PermissionObject) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 
-		return ""
+		return "", nil
 	}
 
-	userFilePermission, err := file.CheckUserFilePermission(c.Request.Context(),
+	userFilePermission, foundPermission, err := file.CheckUserFilePermission(c.Request.Context(),
 		r.fileClient,
 		r.permissionClient,
 		reqUser.ID,
@@ -279,14 +300,14 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-		return ""
+		return "", nil
 	}
 
 	if userFilePermission == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	}
 
-	return userFilePermission
+	return userFilePermission, foundPermission
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.

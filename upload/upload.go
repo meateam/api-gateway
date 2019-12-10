@@ -261,6 +261,22 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		return
 	}
 
+	newPermission := ppb.PermissionObject{
+		FileID: createFolderResp.GetId(),
+		UserID: reqUser.ID,
+		Role:   ppb.Role_WRITE,
+	}
+	err = file.CreatePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		newPermission,
+	)
+	if err != nil {
+		r.deleteOnError(c, err, createFolderResp.GetId())
+		return
+	}
+
 	c.String(http.StatusOK, createFolderResp.GetId())
 }
 
@@ -349,6 +365,22 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	}
 
 	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.deleteOnError(c, err, createFileResp.GetId())
+		return
+	}
+
+	newPermission := ppb.PermissionObject{
+		FileID: createFileResp.GetId(),
+		UserID: reqUser.ID,
+		Role:   ppb.Role_WRITE,
+	}
+	err = file.CreatePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		newPermission,
+	)
+	if err != nil {
 		r.deleteOnError(c, err, createFileResp.GetId())
 		return
 	}
@@ -480,6 +512,24 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	}
 
 	if _, err := r.searchClient.CreateFile(c.Request.Context(), searchFile); err != nil {
+		r.deleteOnError(c, err, createFileResp.GetId())
+		return
+	}
+
+	newPermission := ppb.PermissionObject{
+		FileID: createFileResp.GetId(),
+		UserID: reqUser.ID,
+		Role:   ppb.Role_WRITE,
+	}
+
+	err = file.CreatePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		newPermission,
+	)
+
+	if err != nil {
 		r.deleteOnError(c, err, createFileResp.GetId())
 		return
 	}
@@ -799,7 +849,7 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 // isUploadPermitted checks if userID has permission to upload a file to fileID,
 // requires ppb.Role_WRITE permission.
 func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
-	userFilePermission, err := file.CheckUserFilePermission(ctx, r.fileClient, r.permissionClient, userID, fileID, UploadRole)
+	userFilePermission, _, err := file.CheckUserFilePermission(ctx, r.fileClient, r.permissionClient, userID, fileID, UploadRole)
 	if err != nil {
 		return false, err
 	}

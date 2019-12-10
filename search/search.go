@@ -92,7 +92,7 @@ func (r *Router) Search(c *gin.Context) {
 	var responseFiles []*file.GetFileByIDResponse
 
 	for _, id := range searchResponse.GetIds() {
-		userFilePermission, err := file.CheckUserFilePermission(
+		userFilePermission, foundPermission, err := file.CheckUserFilePermission(
 			c.Request.Context(),
 			r.fileClient,
 			r.permissionClient,
@@ -113,7 +113,8 @@ func (r *Router) Search(c *gin.Context) {
 				return
 			}
 
-			responseFiles = append(responseFiles, file.CreateGetFileResponse(res, userFilePermission))
+			shared := foundPermission != nil
+			responseFiles = append(responseFiles, file.CreateGetFileResponse(res, userFilePermission, &shared))
 		}
 	}
 
