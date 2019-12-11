@@ -87,8 +87,11 @@ const (
 	// TextMimeType is the start of any file with a text mime type.
 	TextMimeType = "text"
 
-	// DocMimeType is the mime type of a .doc/x file.
-	DocMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	// DocMimeType is the mime type of a .doc file.
+	DocMimeType = "application/msword"
+
+	// DocxMimeType is the mime type of a .docx file.
+	DocxMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 	// XlsMimeType is the mime type of a .xls file.
 	XlsMimeType = "application/vnd.ms-excel"
@@ -116,6 +119,7 @@ var (
 	// TypesConvertableToPdf is a slice of the names of the mime types that can be converted to PDF and previewed.
 	TypesConvertableToPdf = []string{
 		DocMimeType,
+		DocxMimeType,
 		XlsMimeType,
 		XlsxMimeType,
 		PptMimeType,
@@ -826,7 +830,7 @@ func CheckUserFilePermission(ctx context.Context,
 			if err != nil {
 				return "", nil, err
 			}
-			
+
 			foundPermission = permission
 			foundRole = permission.GetRole().String()
 		}
