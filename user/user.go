@@ -35,10 +35,10 @@ type Router struct {
 
 // User is a structure of an authenticated user.
 type User struct {
-	ID        string
-	FirstName string
-	LastName  string
-	Bucket    string
+	ID        string `json:"id"`
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Bucket    string `json:"bucket"`
 }
 
 // NewRouter creates a new Router, and initializes clients of User Service

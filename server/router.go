@@ -9,7 +9,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/file"
-	"github.com/meateam/gotenberg-go-client/v6"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/quota"
@@ -17,6 +16,7 @@ import (
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/gotenberg-go-client/v6"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -120,9 +120,10 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
+	metricsLogger := NewMetricsLogger()
 	// Authentication middleware on routes group.
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
-	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequiredMiddleware)
+	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequiredMiddleware, metricsLogger)
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
