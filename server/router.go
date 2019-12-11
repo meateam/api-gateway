@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	healtcheckRouter  = "/api/healtcheck"
+	healthcheckRoute  = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
 )
 
@@ -43,7 +43,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Setup logging, metrics, cors middlewares.
 	r.Use(
 		// Ignore logging healthcheck routes.
-		gin.LoggerWithWriter(gin.DefaultWriter, healtcheckRouter),
+		gin.LoggerWithWriter(gin.DefaultWriter, healthcheckRoute),
 		gin.Recovery(),
 		apmgin.Middleware(r),
 		cors.New(corsRouterConfig()),
@@ -51,7 +51,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		loggermiddleware.SetLogger(
 			&loggermiddleware.Config{
 				Logger:             logger,
-				SkipPath:           []string{healtcheckRouter},
+				SkipPath:           []string{healthcheckRoute},
 				SkipBodyPathRegexp: regexp.MustCompile(uploadRouteRegexp),
 			},
 		),
