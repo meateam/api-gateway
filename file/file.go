@@ -287,8 +287,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	filesParent := c.Query(ParamFileParent)
-	userFilePermission, _ := r.HandleUserFilePermission(c, filesParent, GetFilesByFolderRole)
-	if userFilePermission == "" {
+	if userFilePermission, _ := r.HandleUserFilePermission(c, filesParent, GetFilesByFolderRole); userFilePermission == "" {
 		return
 	}
 
@@ -325,7 +324,22 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	files := filesResp.GetFiles()
 	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, nil))
+		userFilePermission, _, err := CheckUserFilePermission(c.Request.Context(),
+			r.fileClient,
+			r.permissionClient,
+			reqUser.ID,
+			file.GetId(),
+			GetFilesByFolderRole)
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+
+		if userFilePermission != "" {
+			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, nil))
+		}
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
