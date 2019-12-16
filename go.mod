@@ -1,24 +1,29 @@
 module github.com/meateam/api-gateway
 
-go 1.12
+go 1.13
 
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v0.0.0-20190424000812-bd1331c62cae
 	github.com/gin-gonic/gin v1.4.0
-	github.com/grpc-ecosystem/grpc-gateway v1.8.6
-	github.com/meateam/download-service v0.0.0-20190707094647-f4db0fc5fdaa
-	github.com/meateam/elasticsearch-logger v1.1.2
-	github.com/meateam/file-service/proto v0.0.0-20190829065145-d4d5344e0b43
+	github.com/grpc-ecosystem/grpc-gateway v1.11.1
+	github.com/meateam/download-service v0.0.0-20191004151843-b4033e9b951c
+	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
+	github.com/meateam/file-service/proto v0.0.0-20191205101121-21da7c50da2a
+	github.com/meateam/gotenberg-go-client/v6 v6.0.6
+	github.com/meateam/permission-service v0.0.0-20191029101002-980dd2c31d08
+	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
+	github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83
+	github.com/olivere/elastic/v7 v7.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
-	github.com/spf13/viper v1.3.2
-	go.elastic.co/apm v1.3.0
-	go.elastic.co/apm/module/apmgin v1.3.0
-	go.elastic.co/apm/module/apmgrpc v1.3.0
-	go.elastic.co/apm/module/apmhttp v1.3.0
-	google.golang.org/grpc v1.23.0
+	github.com/spf13/viper v1.6.0
+	go.elastic.co/apm v1.6.0
+	go.elastic.co/apm/module/apmgin v1.5.0
+	go.elastic.co/apm/module/apmgrpc v1.6.0
+	go.elastic.co/apm/module/apmhttp v1.6.0
+	google.golang.org/grpc v1.25.1
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger
