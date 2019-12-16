@@ -9,7 +9,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/file"
-	"github.com/meateam/gotenberg-go-client/v6"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/quota"
@@ -17,6 +16,7 @@ import (
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
 	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/gotenberg-go-client/v6"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	healtcheckRouter  = "/api/healtcheck"
+	healthcheckRouter = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
 )
 
@@ -43,7 +43,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Setup logging, metrics, cors middlewares.
 	r.Use(
 		// Ignore logging healthcheck routes.
-		gin.LoggerWithWriter(gin.DefaultWriter, healtcheckRouter),
+		gin.LoggerWithWriter(gin.DefaultWriter, healthcheckRouter),
 		gin.Recovery(),
 		apmgin.Middleware(r),
 		cors.New(corsRouterConfig()),
@@ -51,7 +51,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		loggermiddleware.SetLogger(
 			&loggermiddleware.Config{
 				Logger:             logger,
-				SkipPath:           []string{healtcheckRouter},
+				SkipPath:           []string{healthcheckRouter},
 				SkipBodyPathRegexp: regexp.MustCompile(uploadRouteRegexp),
 			},
 		),

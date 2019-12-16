@@ -69,7 +69,7 @@ services:
       ELASTIC_APM_ACTIVE: 'true'
       ELASTIC_APM_CAPTURE_BODY: 'all'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
-      ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
+      US_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     depends_on:
       - minio
     ports:
@@ -92,7 +92,7 @@ services:
       ELASTIC_APM_ACTIVE: 'true'
       ELASTIC_APM_CAPTURE_BODY: 'all'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
-      ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
+      DS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     ports:
       - '8082:8080'
     depends_on:
