@@ -543,7 +543,10 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
 
 	for i := 0; i < len(permittedAncestors); i++ {
-		file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permittedAncestors[i]})
+		file, err := r.fileClient.GetFileByID(
+			c.Request.Context(),
+			&fpb.GetByFileByIDRequest{Id: permittedAncestors[i]},
+		)
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
