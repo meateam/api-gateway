@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	healthcheckRouter = "/api/healthcheck"
+	healthcheckRoute  = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
 )
 
@@ -43,7 +43,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Setup logging, metrics, cors middlewares.
 	r.Use(
 		// Ignore logging healthcheck routes.
-		gin.LoggerWithWriter(gin.DefaultWriter, healthcheckRouter),
+		gin.LoggerWithWriter(gin.DefaultWriter, healthcheckRoute),
 		gin.Recovery(),
 		apmgin.Middleware(r),
 		cors.New(corsRouterConfig()),
@@ -51,7 +51,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		loggermiddleware.SetLogger(
 			&loggermiddleware.Config{
 				Logger:             logger,
-				SkipPath:           []string{healthcheckRouter},
+				SkipPath:           []string{healthcheckRoute},
 				SkipBodyPathRegexp: regexp.MustCompile(uploadRouteRegexp),
 			},
 		),
@@ -120,9 +120,16 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
-	// Authentication middleware on routes group.
+	middlewares := make([]gin.HandlerFunc, 0, 2)
+
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
-	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequiredMiddleware)
+	middlewares = append(middlewares, authRequiredMiddleware)
+
+	if metricsLogger := NewMetricsLogger(); metricsLogger != nil {
+		middlewares = append(middlewares, metricsLogger)
+	}
+	// Authentication middleware on routes group.
+	authRequiredRoutesGroup := apiRoutesGroup.Group("/", middlewares...)
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)

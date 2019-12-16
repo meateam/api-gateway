@@ -9,21 +9,27 @@ import (
 )
 
 const (
-	envPrefix               = "GW"
-	configPort              = "port"
-	configUploadService     = "upload_service"
-	configDownloadService   = "download_service"
-	configFileService       = "file_service"
-	configUserService       = "user_service"
-	configPermissionService = "permission_service"
-	configSearchService     = "search_service"
-	configGotenbergService  = "gotenberg_service"
-	configSecret            = "secret"
-	configAuthURL           = "auth_url"
-	configExternalApmURL    = "external_apm_url"
-	configAllowOrigins      = "allow_origins"
-	configSupportLink       = "support_link"
-	configDownloadChromeURL = "chrome_download_url"
+	envPrefix                   = "GW"
+	configPort                  = "port"
+	configUploadService         = "upload_service"
+	configDownloadService       = "download_service"
+	configFileService           = "file_service"
+	configUserService           = "user_service"
+	configPermissionService     = "permission_service"
+	configSearchService         = "search_service"
+	configGotenbergService      = "gotenberg_service"
+	configSecret                = "secret"
+	configAuthURL               = "auth_url"
+	configExternalApmURL        = "external_apm_url"
+	configAllowOrigins          = "allow_origins"
+	configSupportLink           = "support_link"
+	configDownloadChromeURL     = "chrome_download_url"
+	configElasticsearchURL      = "elasticsearch_url"
+	configElasticsearchUser     = "elasticsearch_user"
+	configElasticsearchPassword = "elasticsearch_password"
+	configElasticsearchIndex    = "elasticsearch_index"
+	configTLSSkipVerify         = "tls_skip_verify"
+	configElasticsearchSniff    = "elasticsearch_sniff"
 )
 
 var (
@@ -44,6 +50,12 @@ func init() {
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetDefault(configAllowOrigins, "http://localhost*")
 	viper.SetDefault(configSupportLink, "https://open.rocket.chat")
+	viper.SetDefault(configElasticsearchURL, "http://localhost:9200")
+	viper.SetDefault(configElasticsearchUser, "")
+	viper.SetDefault(configElasticsearchPassword, "")
+	viper.SetDefault(configElasticsearchIndex, "metrics")
+	viper.SetDefault(configTLSSkipVerify, true)
+	viper.SetDefault(configElasticsearchSniff, false)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
