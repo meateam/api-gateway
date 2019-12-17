@@ -80,8 +80,11 @@ const (
 	// PdfMimeType is the mime type of a .pdf file.
 	PdfMimeType = "application/pdf"
 
-	// DocMimeType is the mime type of a .doc/x file.
-	DocMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	// DocMimeType is the mime type of a .doc file.
+	DocMimeType = "application/msword"
+
+ 	// DocxMimeType is the mime type of a .docx file.
+	DocxMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 	// XlsMimeType is the mime type of a .xls file.
 	XlsMimeType = "application/vnd.ms-excel"
@@ -109,6 +112,7 @@ var (
 	// TypesConvertableToPdf is a slice of the names of the mime types that can be converted to PDF and previewed.
 	TypesConvertableToPdf = []string{
 		DocMimeType,
+		DocxMimeType,
 		XlsMimeType,
 		XlsxMimeType,
 		PptMimeType,
