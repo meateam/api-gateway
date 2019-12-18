@@ -229,11 +229,13 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 	if err != nil {
 		r.logger.Errorf("failure in spike-service integration: %v", err)
 		c.AbortWithError(500, fmt.Errorf("internal error while authenticating the token"))
+		return
 	}
 
 	if !spikeResponse.Valid {
 		r.logger.Infof("invalid token used: %v. Error: %v", tokenString, err)
 		c.AbortWithError(401, fmt.Errorf("invalid token %v", err))
+		return
 	}
 
 	scopes := spikeResponse.Scopes
@@ -254,6 +256,7 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 		if err != nil {
 			r.logger.Errorf("failure in delegation-service integration: %v", err)
 			c.AbortWithError(500, fmt.Errorf("internal error while authenticating the delegator"))
+			return
 		}
 
 		delegator := delegatorObj.GetUser()
