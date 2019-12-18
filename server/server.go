@@ -12,11 +12,13 @@ const (
 	envPrefix                   = "GW"
 	configPort                  = "port"
 	configUploadService         = "upload_service"
+	configDelegationService     = "delegation_service"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
 	configUserService           = "user_service"
 	configPermissionService     = "permission_service"
 	configSearchService         = "search_service"
+	configSpikeService          = "spike_service"
 	configGotenbergService      = "gotenberg_service"
 	configSecret                = "secret"
 	configAuthURL               = "auth_url"
@@ -39,11 +41,13 @@ var (
 func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
+	viper.SetDefault(configDelegationService, "delegation-service:8080")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
 	viper.SetDefault(configPermissionService, "permission-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
+	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")

@@ -109,16 +109,27 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup search service connection: %v", err)
 	}
 
+	spikeConn, err := initServiceConn(viper.GetString(configSpikeService))
+	if err != nil {
+		logger.Fatalf("couldn't setup spike service connection: %v", err)
+	}
+
+	delegateConn, err := initServiceConn(viper.GetString(configDelegationService))
+	if err != nil {
+		logger.Fatalf("couldn't setup delegation service connection: %v", err)
+	}
+
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, gotenbergClient, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
 	usr := user.NewRouter(userConn, logger)
-	ar := auth.NewRouter(logger)
+	ar := auth.NewRouter(spikeConn, delegateConn, logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
+	// dlr := TODO
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 
