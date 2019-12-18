@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -229,7 +228,7 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 	spikeResponse, err := r.spikeClient.ValidateToken(c, validateSpikeTokenRequest)
 	if err != nil {
 		r.logger.Errorf("failure in spike-service integration: %v", err)
-		c.AbortWithError(500, errors.New("internal error while authenticating the token"))
+		c.AbortWithError(500, fmt.Errorf("internal error while authenticating the token"))
 	}
 
 	if !spikeResponse.Valid {
@@ -254,7 +253,7 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 		delegatorObj, err := r.delegateClient.GetUserByID(c, getUserByIDRequest)
 		if err != nil {
 			r.logger.Errorf("failure in delegation-service integration: %v", err)
-			c.AbortWithError(500, errors.New("internal error while authenticating the delegator"))
+			c.AbortWithError(500, fmt.Errorf("internal error while authenticating the delegator"))
 		}
 
 		delegator := delegatorObj.GetUser()
@@ -277,13 +276,14 @@ func (r *Router) ExtractTokenFromHeader(c *gin.Context) string {
 	// No authorization header sent
 	if len(authArr) == 0 {
 		// TODO: Should log here?
-		c.AbortWithError(401, errors.New("no authorization header sent"))
+		c.AbortWithError(401, fmt.Errorf("no authorization header sent"))
 		return ""
 	}
 
 	// The header value missing the correct prefix
 	if authArr[0] != AuthHeaderBearer {
-		c.AbortWithError(401, fmt.Errorf("authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
+		c.AbortWithError(401, fmt.Errorf(
+			"authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
 		return ""
 	}
 
