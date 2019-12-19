@@ -8,6 +8,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/delegation-service/proto/delegation-service"
 	spb "github.com/meateam/spike-service/proto/spike-service"
@@ -168,15 +169,15 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 
 	spikeResponse, err := r.spikeClient.ValidateToken(c, validateSpikeTokenRequest)
 	if err != nil {
-		r.logger.Errorf("failure in spike-service integration: %v", err)
-		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("internal error while authenticating the token"))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError,
+			fmt.Errorf("internal error while authenticating the token: %v", err)))
 		return
 	}
 
 	if !spikeResponse.Valid {
 		message := spikeResponse.GetMessage()
-		r.logger.Infof("invalid token used: %s. Error: %s", tokenString, message)
-		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("invalid token %s", message))
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("invalid token %s", message)))
 
 		return
 	}
@@ -198,14 +199,14 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 		delegatorObj, err := r.delegateClient.GetUserByID(c, getUserByIDRequest)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
-				r.logger.Errorf("Delegator: %v is not found", delegatorID)
-				c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Delegator: %v is not found", delegatorID))
-				return
-			} else {
-				r.logger.Errorf("failure in delegation-service integration: %v", err)
-				c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("internal error while authenticating the delegator"))
+				loggermiddleware.LogError(r.logger,
+					c.AbortWithError(http.StatusUnauthorized,
+						fmt.Errorf("Delegator: %v is not found", delegatorID)))
 				return
 			}
+			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError,
+				fmt.Errorf("internal error while authenticating the delegator: %v", err)))
+			return
 		}
 
 		delegator := delegatorObj.GetUser()
@@ -239,7 +240,7 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 		// The header value missing the correct prefix
 		if authArr[0] != AuthHeaderBearer {
 			r.redirectToAuthService(c, authURL,
-				fmt.Sprintf("authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
+				fmt.Sprintf("authorization header is not legal. Value should start with 'Bearer': %v", authArr[0]))
 			return nil
 		}
 
@@ -293,20 +294,22 @@ func (r *Router) ExtractTokenFromHeader(c *gin.Context) string {
 
 	// No authorization header sent
 	if len(authArr) == 0 {
-		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no authorization header sent"))
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no authorization header sent")))
 		return ""
 	}
 
 	// The header value missing the correct prefix
 	if authArr[0] != AuthHeaderBearer {
-		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
-			"authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
+			"authorization header is not legal. value should start with 'Bearer': %v", authArr[0])))
 		return ""
 	}
 
 	// The value of the header doesn't contain the token
 	if len(authArr) < 2 {
-		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no token sent in header %v", authArr))
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no token sent in header %v", authArr)))
 		return ""
 	}
 
