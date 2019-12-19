@@ -129,7 +129,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
-	// dlr := TODO
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 

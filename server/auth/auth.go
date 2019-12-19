@@ -169,20 +169,22 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 	spikeResponse, err := r.spikeClient.ValidateToken(c, validateSpikeTokenRequest)
 	if err != nil {
 		r.logger.Errorf("failure in spike-service integration: %v", err)
-		c.AbortWithError(500, fmt.Errorf("internal error while authenticating the token"))
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("internal error while authenticating the token"))
 		return
 	}
 
 	if !spikeResponse.Valid {
-		r.logger.Infof("invalid token used: %s. Error: %s", tokenString, spikeResponse.Message)
-		c.AbortWithError(401, fmt.Errorf("invalid token %s", spikeResponse.Message))
+		message := spikeResponse.GetMessage()
+		r.logger.Infof("invalid token used: %s. Error: %s", tokenString, message)
+		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("invalid token %s", message))
+
 		return
 	}
 
-	scopes := spikeResponse.Scopes
+	scopes := spikeResponse.GetScopes()
 
 	// store scopes in context
-	c.Set("scopes", scopes)
+	c.Set(user.ScopesKey, scopes)
 
 	// Find if the action is made on behalf of a user
 	// Note: Later the scope should include the delegator
@@ -197,10 +199,11 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
 				r.logger.Errorf("Delegator: %v is not found", delegatorID)
-				c.AbortWithError(401, fmt.Errorf("Delegator: %v is not found", delegatorID))
+				c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Delegator: %v is not found", delegatorID))
+				return
 			} else {
 				r.logger.Errorf("failure in delegation-service integration: %v", err)
-				c.AbortWithError(500, fmt.Errorf("internal error while authenticating the delegator"))
+				c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("internal error while authenticating the delegator"))
 				return
 			}
 		}
@@ -290,21 +293,20 @@ func (r *Router) ExtractTokenFromHeader(c *gin.Context) string {
 
 	// No authorization header sent
 	if len(authArr) == 0 {
-		// TODO: Should log here?
-		c.AbortWithError(401, fmt.Errorf("no authorization header sent"))
+		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no authorization header sent"))
 		return ""
 	}
 
 	// The header value missing the correct prefix
 	if authArr[0] != AuthHeaderBearer {
-		c.AbortWithError(401, fmt.Errorf(
+		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
 			"authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
 		return ""
 	}
 
 	// The value of the header doesn't contain the token
 	if len(authArr) < 2 {
-		c.AbortWithError(401, fmt.Errorf("no token sent in header %v", authArr))
+		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no token sent in header %v", authArr))
 		return ""
 	}
 
