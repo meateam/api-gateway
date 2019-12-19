@@ -112,7 +112,6 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	
 	if role, _ := r.HandleUserFilePermission(c, fileID, GetFilePermissionsRole); role == "" {
 		return
 	}
@@ -282,7 +281,10 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 
 // HandleUserFilePermission checks if the requesting user has a given role for the given file
 // File id is extracted from url params
-func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) (string, *ppb.PermissionObject) {
+func (r *Router) HandleUserFilePermission(
+	c *gin.Context,
+	fileID string,
+	role ppb.Role) (string, *ppb.PermissionObject) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)

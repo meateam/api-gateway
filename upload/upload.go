@@ -849,7 +849,13 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 // isUploadPermitted checks if userID has permission to upload a file to fileID,
 // requires ppb.Role_WRITE permission.
 func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
-	userFilePermission, _, err := file.CheckUserFilePermission(ctx, r.fileClient, r.permissionClient, userID, fileID, UploadRole)
+	userFilePermission, _, err := file.CheckUserFilePermission(
+		ctx,
+		r.fileClient,
+		r.permissionClient,
+		userID,
+		fileID,
+		UploadRole)
 	if err != nil {
 		return false, err
 	}
@@ -873,12 +879,20 @@ func (r *Router) calculateBufSize(fileSize int64) int64 {
 }
 
 func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
 	_, deleteErr := file.DeleteFile(c.Request.Context(),
 		r.logger,
 		r.fileClient,
 		r.uploadClient,
 		r.searchClient,
-		fileID)
+		r.permissionClient,
+		fileID,
+		reqUser.ID)
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 	if deleteErr != nil {
 		err = fmt.Errorf("%v: %v", err, deleteErr)
