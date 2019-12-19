@@ -14,6 +14,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.elastic.co/apm"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -70,10 +72,8 @@ func NewRouter(
 	return r
 }
 
-// Middleware validates the jwt token in c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
-// If the token is not valid or expired, it will redirect the client to authURL.
-// If the token is valid, it will set the user's data into the gin context
-// at user.ContextUserKey.
+// Middleware check that the client has valid authentication to use the route
+// This function also set variables like user and service to the context.
 func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
@@ -81,64 +81,140 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 
 		if isService == "True" {
 			r.ServiceMiddleware(c)
-			c.Next()
-			return
+
+		} else {
+			r.UserMiddleware(c, secret, authURL)
 		}
-
-		token := r.ExtractToken(secret, authURL, c)
-		// Check if the extraction was successful
-		if token == nil {
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-
-		if !ok || !token.Valid {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token: %v", token))
-			return
-		}
-
-		// Check type assertion
-		id, idOk := claims["id"].(string)
-		firstName, firstNameOk := claims[FirstNameClaim].(string)
-		lastName, lastNameOk := claims[LastNameClaim].(string)
-
-		// If any of the claims are invalid then redirect to authentication
-		if !idOk || !firstNameOk || !lastNameOk {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
-			return
-		}
-
-		// The current transaction of the apm, adding the user id to the context.
-		currentTarnasction := apm.TransactionFromContext(c.Request.Context())
-		currentTarnasction.Context.SetUserID(id)
-		currentTarnasction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
-
-		// Check type assertion.
-		// For some reason can't convert directly to int64
-		exp, ok := claims["exp"].(float64)
-		if !ok {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token exp: %v", claims["exp"]))
-			return
-		}
-
-		expTime := time.Unix(int64(exp), 0)
-		timeUntilExp := time.Until(expTime)
-
-		// Verify again that the token is not expired
-		if timeUntilExp <= 0 {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("user %s token expired at %s", expTime, id))
-			return
-		}
-
-		c.Set(user.ContextUserKey, user.User{
-			ID:        id,
-			FirstName: firstName,
-			LastName:  lastName,
-		})
-
 		c.Next()
 	}
+}
+
+// UserMiddleware is a middleware for users use throw the UI.
+// It validates the jwt token in c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
+// If the token is not valid or expired, it will redirect the client to authURL.
+// If the token is valid, it will set the user's data into the gin context
+// at user.ContextUserKey.
+func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
+	token := r.ExtractToken(secret, authURL, c)
+	// Check if the extraction was successful
+	if token == nil {
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+
+	if !ok || !token.Valid {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token: %v", token))
+		return
+	}
+
+	// Check type assertion
+	id, idOk := claims["id"].(string)
+	firstName, firstNameOk := claims[FirstNameClaim].(string)
+	lastName, lastNameOk := claims[LastNameClaim].(string)
+
+	// If any of the claims are invalid then redirect to authentication
+	if !idOk || !firstNameOk || !lastNameOk {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
+		return
+	}
+
+	// The current transaction of the apm, adding the user id to the context.
+	currentTarnasction := apm.TransactionFromContext(c.Request.Context())
+	currentTarnasction.Context.SetUserID(id)
+	currentTarnasction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
+
+	// Check type assertion.
+	// For some reason can't convert directly to int64
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token exp: %v", claims["exp"]))
+		return
+	}
+
+	expTime := time.Unix(int64(exp), 0)
+	timeUntilExp := time.Until(expTime)
+
+	// Verify again that the token is not expired
+	if timeUntilExp <= 0 {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("user %s token expired at %s", expTime, id))
+		return
+	}
+
+	c.Set(user.ContextUserKey, user.User{
+		ID:        id,
+		FirstName: firstName,
+		LastName:  lastName,
+	})
+
+	c.Next()
+}
+
+// ServiceMiddleware is a middleware for services use.
+// First it extract the token from the Auth header and validate it with spike service
+// Then it add the scopes to the context, and then checks if there is a delegator
+// It check another header for that, and if its true it validate the delegator in the
+// delegation service, and then adds it as delegator to the context.
+func (r *Router) ServiceMiddleware(c *gin.Context) {
+
+	tokenString := r.ExtractTokenFromHeader(c)
+	if tokenString == "" {
+		return
+	}
+
+	validateSpikeTokenRequest := &spb.ValidateTokenResquest{
+		Token: tokenString,
+	}
+
+	spikeResponse, err := r.spikeClient.ValidateToken(c, validateSpikeTokenRequest)
+	if err != nil {
+		r.logger.Errorf("failure in spike-service integration: %v", err)
+		c.AbortWithError(500, fmt.Errorf("internal error while authenticating the token"))
+		return
+	}
+
+	if !spikeResponse.Valid {
+		r.logger.Infof("invalid token used: %s. Error: %s", tokenString, spikeResponse.Message)
+		c.AbortWithError(401, fmt.Errorf("invalid token %s", spikeResponse.Message))
+		return
+	}
+
+	scopes := spikeResponse.Scopes
+
+	// store scopes in context
+	c.Set("scopes", scopes)
+
+	// Find if the action is made on behalf of a user
+	// Note: Later the scope should include the delegator
+	delegatorID := c.GetHeader(AuthUserHeader)
+
+	// if there is a delegator, validate him, then add him to context
+	if delegatorID != "" {
+		getUserByIDRequest := &dpb.GetUserByIDRequest{
+			Id: delegatorID,
+		}
+		delegatorObj, err := r.delegateClient.GetUserByID(c, getUserByIDRequest)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				r.logger.Errorf("Delegator: %v is not found", delegatorID)
+				c.AbortWithError(401, fmt.Errorf("Delegator: %v is not found", delegatorID))
+			} else {
+				r.logger.Errorf("failure in delegation-service integration: %v", err)
+				c.AbortWithError(500, fmt.Errorf("internal error while authenticating the delegator"))
+				return
+			}
+		}
+
+		delegator := delegatorObj.GetUser()
+
+		c.Set(user.DelegatorKey, user.User{
+			ID:        delegator.Id,
+			FirstName: delegator.FirstName,
+			LastName:  delegator.LastName,
+		})
+	}
+
+	c.Next()
 }
 
 // ExtractToken extract the jwt token from c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
@@ -206,70 +282,6 @@ func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason st
 	r.logger.Info(reason)
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 	c.Abort()
-}
-
-// ServiceMiddleware is a middleware for services use.
-// First it extract the token from the Auth header and validate it with spike service
-// Then it add the scopes to the context, and then checks if there is a delegator
-// It check another header for that, and if its true it validate the delegator in the
-// delegation service, and then adds it as delegator to the context.
-func (r *Router) ServiceMiddleware(c *gin.Context) {
-
-	tokenString := r.ExtractTokenFromHeader(c)
-	if tokenString == "" {
-		return
-	}
-
-	validateSpikeTokenRequest := &spb.ValidateTokenResquest{
-		Token:    tokenString,
-		Audience: "kartoffel", // TODO: change to clientID
-	}
-
-	spikeResponse, err := r.spikeClient.ValidateToken(c, validateSpikeTokenRequest)
-	if err != nil {
-		r.logger.Errorf("failure in spike-service integration: %v", err)
-		c.AbortWithError(500, fmt.Errorf("internal error while authenticating the token"))
-		return
-	}
-
-	if !spikeResponse.Valid {
-		r.logger.Infof("invalid token used: %v. Error: %v", tokenString, err)
-		c.AbortWithError(401, fmt.Errorf("invalid token %v", err))
-		return
-	}
-
-	scopes := spikeResponse.Scopes
-
-	// store scopes in context
-	c.Set("scopes", scopes)
-
-	// Find if the action is made on behalf of a user
-	// Note: Later the scope should include the delegator
-	delegatorID := c.GetHeader(AuthUserHeader)
-
-	// if there is a delegator, validate him, then add him to context
-	if delegatorID != "" {
-		getUserByIDRequest := &dpb.GetUserByIDRequest{
-			Id: delegatorID,
-		}
-		delegatorObj, err := r.delegateClient.GetUserByID(c, getUserByIDRequest)
-		if err != nil {
-			r.logger.Errorf("failure in delegation-service integration: %v", err)
-			c.AbortWithError(500, fmt.Errorf("internal error while authenticating the delegator"))
-			return
-		}
-
-		delegator := delegatorObj.GetUser()
-
-		c.Set(user.DelegatorKey, user.User{
-			ID:        delegator.Id,
-			FirstName: delegator.FirstName,
-			LastName:  delegator.LastName,
-		})
-	}
-
-	c.Next()
-
 }
 
 // ExtractTokenFromHeader extracts the token from the request header, and aborts with error if there is one.
