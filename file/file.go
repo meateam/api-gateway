@@ -582,7 +582,8 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	for i := 0; i < len(permittedAncestors); i++ {
 		file, err := r.fileClient.GetFileByID(
 			c.Request.Context(),
-			&fpb.GetByFileByIDRequest{Id: permittedAncestors[i]})
+			&fpb.GetByFileByIDRequest{Id: permittedAncestors[i]},
+		)
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))

@@ -120,10 +120,16 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
-	metricsLogger := NewMetricsLogger()
-	// Authentication middleware on routes group.
+	middlewares := make([]gin.HandlerFunc, 0, 2)
+
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
-	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequiredMiddleware, metricsLogger)
+	middlewares = append(middlewares, authRequiredMiddleware)
+
+	if metricsLogger := NewMetricsLogger(); metricsLogger != nil {
+		middlewares = append(middlewares, metricsLogger)
+	}
+	// Authentication middleware on routes group.
+	authRequiredRoutesGroup := apiRoutesGroup.Group("/", middlewares...)
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
