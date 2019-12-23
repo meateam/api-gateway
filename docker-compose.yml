@@ -230,6 +230,32 @@ services:
       - /gotenberg/tmp
     ports:
       - 8089:8080
+  spike-service:
+    image: bluehub.azurecr.io/meateam/spike-service:develop
+    environment:
+      AUDIENCE: "kartoffel"
+      SPIKE_CLIENT_ID: "EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub"
+      SPIKE_CLIENT_SECRET: "u5qxEK0sy17ReZ7t8aVeN1gCcdI9hRiM78i9J_9Z6jA2YWcvbgczcchKqZ4WnXOsdT6jxmuVCLC3~RXuVcE5EsOG4JJi~B8AJQSB"
+      REDIS_URL: 'redis://redis:6379'
+      SPIKE_TOKEN_URL: "https://spike.westeurope.cloudapp.azure.com:1337/oauth2/token"
+      SPIKE_PUBLIC_KEY_FULL_PATH: "/usr/src/app/utils/publickey.pem"
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+    depends_on:
+      - redis
+    ports:
+      - '8090:8080'
+  delegation-service:
+    image: bluehub.azurecr.io/meateam/delegation-service:develop
+    ports:
+      - '8091:8080'
+    environment:
+      DEL_PROT: 8080
+      DEL_SPIKE_REQUIRED: 'false'
+      PHONE_BOOK_URL: 'http://kartoffel-master.eastus.cloudapp.azure.com:3000'
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '6379:6379'
   elasticsearch:
     image: sebp/elk
     ulimits:
