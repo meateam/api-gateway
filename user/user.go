@@ -20,12 +20,6 @@ const (
 	// ContextUserKey is the context key used to get and set the user's data in the context.
 	ContextUserKey = "User"
 
-	// DelegatorKey is the context key used to get and set the delegator's data in the context.
-	DelegatorKey = "Delegator"
-
-	// ScopesKey  is the context key used to get the service scopes in the context
-	ScopesKey = "scopes"
-
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
 

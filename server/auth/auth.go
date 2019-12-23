@@ -9,6 +9,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/delegation-service/proto/delegation-service"
 	spb "github.com/meateam/spike-service/proto/spike-service"
@@ -185,7 +186,7 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 	scopes := spikeResponse.GetScopes()
 
 	// store scopes in context
-	c.Set(user.ScopesKey, scopes)
+	c.Set(oauth.ScopesKey, scopes)
 
 	// Find if the action is made on behalf of a user
 	// Note: Later the scope should include the delegator
@@ -211,7 +212,7 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 
 		delegator := delegatorObj.GetUser()
 
-		c.Set(user.DelegatorKey, user.User{
+		c.Set(oauth.DelegatorKey, user.User{
 			ID:        delegator.Id,
 			FirstName: delegator.FirstName,
 			LastName:  delegator.LastName,

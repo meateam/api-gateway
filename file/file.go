@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
@@ -83,7 +84,7 @@ const (
 	// DocMimeType is the mime type of a .doc file.
 	DocMimeType = "application/msword"
 
- 	// DocxMimeType is the mime type of a .docx file.
+	// DocxMimeType is the mime type of a .docx file.
 	DocxMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 	// XlsMimeType is the mime type of a .xls file.
@@ -262,6 +263,11 @@ func stringToInt64(s string) int64 {
 
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
+	isClientAllowed := oauth.CheckScope(c, oauth.OutAdminScope)
+	if !isClientAllowed {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
