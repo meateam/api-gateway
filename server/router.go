@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/delegation"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/permission"
@@ -122,6 +123,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// Initiate routers.
+	dr := delegation.NewRouter(delegateConn, logger)
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, gotenbergClient, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
 	usr := user.NewRouter(userConn, logger)
@@ -140,6 +142,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	}
 	// Authentication middleware on routes group.
 	authRequiredRoutesGroup := apiRoutesGroup.Group("/", middlewares...)
+
+	// Initiate client connection to delegation service.
+	dr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
