@@ -12,6 +12,7 @@ import (
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/permission"
+	"github.com/meateam/api-gateway/permit"
 	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
@@ -120,6 +121,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup delegation service connection: %v", err)
 	}
 
+	permitConn, err := initServiceConn(viper.GetString(configPermitService))
+	if err != nil {
+		logger.Fatalf("couldn't setup permit service connection: %v", err)
+	}
+
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// Initiate routers.
@@ -130,6 +136,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	ar := auth.NewRouter(spikeConn, delegateConn, logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
+	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, delegateConn, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
@@ -160,6 +167,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Initiate client connection to permission service.
 	pr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to permit service.
+	ptr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to search service.
 	sr.Setup(authRequiredRoutesGroup)

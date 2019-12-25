@@ -9,6 +9,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
@@ -124,6 +125,9 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 // CreateFilePermission creates a permission for a given file
 // File id is extracted from url params, role is extracted from request body.
 func (r *Router) CreateFilePermission(c *gin.Context) {
+
+	r.checkScopes(c, oauth.OutAdminScope)
+
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -132,13 +136,17 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 
 	permission := &createPermissionRequest{}
 	if err := c.ShouldBindJSON(permission); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("request has wrong format")))
 		return
 	}
 
 	// Forbid a user to give himself any permission.
 	if permission.UserID == reqUser.ID {
-		c.AbortWithStatus(http.StatusBadRequest)
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("a user cannot give himself permissions")))
 		return
 	}
 
@@ -147,7 +155,9 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 	case ppb.Role_NONE:
 	case ppb.Role_OWNER:
 	case ppb.Role_WRITE:
-		c.AbortWithStatus(http.StatusBadRequest)
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("permission type %s is not valid! ", permission.Role)))
 		return
 	default:
 		break
@@ -162,13 +172,17 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 	}
 
 	if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
-		c.AbortWithStatus(http.StatusBadRequest)
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("user %s does not exist", permission.UserID)))
 		return
 	}
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("fileID not given %s", fileID)))
 		return
 	}
 
@@ -273,6 +287,21 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 	}
 
 	return isPermittedResponse
+}
+
+func (r *Router) checkScopes(c *gin.Context, requiredScope string) {
+	isClientAllowed := oauth.CheckScope(c, requiredScope)
+	if !isClientAllowed {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(
+				http.StatusUnauthorized,
+				fmt.Errorf("the service is not allowed to do this opperation"),
+			),
+		)
+
+		return
+	}
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.

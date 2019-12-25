@@ -15,7 +15,7 @@ const (
 
 	// OutAdminScope is the scope name required for uploading,
 	// downloading, and sharing files for an out-source user
-	OutAdminScope = "read"
+	OutAdminScope = "externalAdmin"
 
 	// updatePermitStatusScope is the scope name required for updating a permit's scope
 	updatePermitStatusScope = "status"

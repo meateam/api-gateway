@@ -15,6 +15,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
@@ -147,13 +148,26 @@ func NewRouter(uploadConn *grpc.ClientConn,
 	return r
 }
 
-// Setup sets up r and intializes its routes under rg.
+// Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.POST("/upload", r.Upload)
 }
 
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
+	isClientAllowed := oauth.CheckScope(c, oauth.OutAdminScope)
+	if !isClientAllowed {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(
+				http.StatusUnauthorized,
+				fmt.Errorf("the service is not allowed to do this opperation"),
+			),
+		)
+
+		return
+	}
+
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		loggermiddleware.LogError(

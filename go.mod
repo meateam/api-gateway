@@ -21,6 +21,7 @@ require (
 	github.com/meateam/file-service/proto v0.0.0-20191216112842-3e40c18a428f
 	github.com/meateam/gotenberg-go-client/v6 v6.0.6
 	github.com/meateam/permission-service v0.0.0-20191216125530-dd8198aebe47
+	github.com/meateam/permit-service v0.0.0-20191225050641-f416ac2936bb
 	github.com/meateam/search-service v0.0.0-20191216105153-4b8090ce4489
 	github.com/meateam/spike-service v0.0.0-20191218082801-258e86a00bce
 	github.com/meateam/upload-service v0.0.0-20191216095848-6216c791f102
@@ -40,8 +41,8 @@ require (
 	go.elastic.co/apm/module/apmgrpc v1.6.0
 	go.elastic.co/apm/module/apmhttp v1.6.0
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
-	google.golang.org/genproto v0.0.0-20191216205247-b31c10ee225f // indirect
+	golang.org/x/sys v0.0.0-20191224085550-c709ea063b76 // indirect
+	google.golang.org/genproto v0.0.0-20191223191004-3caeed10a8bf // indirect
 	google.golang.org/grpc v1.26.0
 	gopkg.in/go-playground/validator.v9 v9.30.2 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect

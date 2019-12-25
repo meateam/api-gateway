@@ -206,6 +206,9 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
+
+	r.checkScopes(c, oauth.OutAdminScope)
+
 	fileID := c.Param("id")
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
@@ -263,11 +266,8 @@ func stringToInt64(s string) int64 {
 
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
-	isClientAllowed := oauth.CheckScope(c, oauth.OutAdminScope)
-	if !isClientAllowed {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
+	r.checkScopes(c, oauth.OutAdminScope)
+
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -943,6 +943,21 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	c.Status(http.StatusOK)
 
 	return nil
+}
+
+func (r *Router) checkScopes(c *gin.Context, requiredScope string) {
+	isClientAllowed := oauth.CheckScope(c, requiredScope)
+	if !isClientAllowed {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(
+				http.StatusUnauthorized,
+				fmt.Errorf("the service is not allowed to do this opperation"),
+			),
+		)
+
+		return
+	}
 }
 
 // IsFileConvertableToPdf returns true if contentType can be converted to a PDF file, false otherwise.

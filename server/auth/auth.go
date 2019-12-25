@@ -31,7 +31,7 @@ const (
 	AuthHeaderBearer = "Bearer"
 
 	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
-	AuthUserHeader = "AuthUser"
+	AuthUserHeader = "Auth-User"
 
 	// FirstNameClaim is the claim name for the firstname of the user
 	FirstNameClaim = "firstName"
@@ -42,8 +42,11 @@ const (
 	// UserNameLabel is the label for the full user name.
 	UserNameLabel = "username"
 
-	// ServiceHostHeader is the key of the servive-host header
-	ServiceHostHeader = "ServiceHost"
+	// AuthTypeHeader is the key of the servive-host header
+	AuthTypeHeader = "Auth-Type"
+
+	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	ServiceAuthTypeValue = "Service"
 )
 
 // Router is a structure that handels the authentication middleware.
@@ -79,9 +82,9 @@ func NewRouter(
 func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		isService := c.GetHeader(ServiceHostHeader)
+		isService := c.GetHeader(AuthTypeHeader)
 
-		if isService == "True" {
+		if isService == ServiceAuthTypeValue {
 			r.ServiceMiddleware(c)
 
 		} else {
@@ -197,7 +200,7 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 		getUserByIDRequest := &dpb.GetUserByIDRequest{
 			Id: delegatorID,
 		}
-		delegatorObj, err := r.delegateClient.GetUserByID(c, getUserByIDRequest)
+		delegatorObj, err := r.delegateClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
 				loggermiddleware.LogError(r.logger,
@@ -218,6 +221,12 @@ func (r *Router) ServiceMiddleware(c *gin.Context) {
 			LastName:  delegator.LastName,
 		})
 	}
+
+	// c.Set(oauth.DelegatorKey, user.User{
+	// 	ID:        "5db03275b02d1dcfd9ccd57e",
+	// 	FirstName: "נייקי",
+	// 	LastName:  "אדידס",
+	// })
 
 	c.Next()
 }
