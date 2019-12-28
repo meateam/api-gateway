@@ -94,10 +94,10 @@ func DeleteFile(ctx context.Context,
 	}
 
 	bucketKeysMap := make(map[string][]string)
-	ids := make([]string, len(deletedFiles))
-	for i, file := range deletedFiles {
+	ids := make([]string, 0, len(deletedFiles))
+	for _, file := range deletedFiles {
 		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
-		ids[i] = file.GetId()
+		ids = append(ids, file.GetId())
 
 		if _, err := searchClient.Delete(ctx, &spb.DeleteRequest{Id: file.GetId()}); err != nil {
 			loggermiddleware.LogError(logger, err)
@@ -134,7 +134,7 @@ func DeleteFile(ctx context.Context,
 		}(bucket, keys)
 	}
 
-	if len(ids) <= 0 {
+	if len(ids) < len(deletedFiles) {
 		return nil, fmt.Errorf("failed deleting files")
 	}
 
