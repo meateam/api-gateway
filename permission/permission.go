@@ -62,12 +62,6 @@ type Router struct {
 	logger           *logrus.Logger
 }
 
-// UserRole is a structure that holds the role of the permission a user has.
-type UserRole struct {
-	UserID string `json:"userID,omitempty"`
-	Role   string `json:"role,omitempty"`
-}
-
 // NewRouter creates a new Router, and initializes clients of the quota Service
 // with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
@@ -133,7 +127,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	filteredOwnerPermissions := make([]UserRole, 0, len(permissions))
+	filteredOwnerPermissions := make([]Permission, 0, len(permissions))
 	for i := 0; i < len(permissions); i++ {
 		if permissions[i].UserID != file.GetOwnerID() {
 			filteredOwnerPermissions = append(filteredOwnerPermissions, permissions[i])
@@ -173,6 +167,29 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		break
 	}
 
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	// Forbid changing the file owner's permission.
+	if file.GetOwnerID() == permission.UserID {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole); role == "" {
+		return
+	}
+
 	userExists, err := r.userClient.GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
 
 	if err != nil {
@@ -183,16 +200,6 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 
 	if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
 		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	fileID := c.Param(ParamFileID)
-	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole); role == "" {
 		return
 	}
 
@@ -352,9 +359,9 @@ func CreatePermission(ctx context.Context,
 func GetFilePermissions(ctx context.Context,
 	fileID string,
 	permissionClient ppb.PermissionClient,
-	fileClient fpb.FileServiceClient) ([]UserRole, error) {
-	permissionsMap := make(map[string]UserRole, 1)
-	permissions := make([]UserRole, 0, 1)
+	fileClient fpb.FileServiceClient) ([]Permission, error) {
+	permissionsMap := make(map[string]Permission, 1)
+	permissions := make([]Permission, 0, 1)
 	currentFileID := fileID
 
 	for {
@@ -371,7 +378,7 @@ func GetFilePermissions(ctx context.Context,
 
 		for _, permission := range permissionsResponse.GetPermissions() {
 			if _, ok := permissionsMap[permission.GetUserID()]; !ok {
-				userRole := UserRole{UserID: permission.GetUserID(), Role: permission.GetRole().String()}
+				userRole := Permission{UserID: permission.GetUserID(), Role: permission.GetRole().String(), FileID: currentFileID}
 				permissionsMap[permission.GetUserID()] = userRole
 				permissions = append(permissions, userRole)
 			}
