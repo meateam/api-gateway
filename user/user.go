@@ -25,6 +25,12 @@ const (
 
 	// ParamPartialName is the name of the partial user name param in URL.
 	ParamPartialName = "partial"
+
+	// ExternalUserSource is the value of the source field of user that indicated that the user is external
+	ExternalUserSource = "external"
+
+	// InternalUserSource is the value of the source field of user that indicated that the user is internal
+	InternalUserSource = "internal"
 )
 
 //Router is a structure that handles users requests.
@@ -38,6 +44,7 @@ type User struct {
 	ID        string `json:"id"`
 	FirstName string `json:"firstname"`
 	LastName  string `json:"lastname"`
+	Source    string `json:"source"`
 	Bucket    string `json:"bucket"`
 }
 

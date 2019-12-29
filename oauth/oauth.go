@@ -97,43 +97,6 @@ func (m *Middleware) ScopeMiddleware(requiredScope string) gin.HandlerFunc {
 	}
 }
 
-// CheckScope check the scopes in context. If scopes are nil, the client is the drive client
-// which is fine. Else, the required scope should be included in the scopes array.
-// If the required scope exists, and a delegator exists too, the function will set the context
-// user to be the delegator.
-func CheckScope(c *gin.Context, requiredScope string) bool {
-	contextScopes := c.Value(ScopesKey)
-	if contextScopes == nil {
-		return true
-	}
-	switch scopes := contextScopes.(type) {
-	case []string:
-		for _, scope := range scopes {
-			if scope == requiredScope {
-				DelegatorToUser(c)
-				return true
-			}
-		}
-	default:
-	}
-	return false
-}
-
-// DelegatorToUser copies the delegator user to the user in context.
-// if the delegator does not exist it doest nothing.
-func DelegatorToUser(c *gin.Context) {
-	contextDelegator := c.Value(DelegatorKey)
-	if contextDelegator == nil {
-		return
-	}
-	switch delegator := contextDelegator.(type) {
-	case user.User:
-		c.Set(user.ContextUserKey, delegator)
-	default:
-		return
-	}
-}
-
 // ExtractScopes extract the token from the Auth header and validate
 // it with spike service. Then it add the scopes to the context.
 // and then checks if there is a delegator
@@ -200,6 +163,7 @@ func (m *Middleware) storeDelegator(c *gin.Context) {
 			ID:        delegator.Id,
 			FirstName: delegator.FirstName,
 			LastName:  delegator.LastName,
+			Source:    user.ExternalUserSource,
 		})
 	}
 }

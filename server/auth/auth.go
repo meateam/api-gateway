@@ -132,6 +132,7 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 		ID:        id,
 		FirstName: firstName,
 		LastName:  lastName,
+		Source:    user.InternalUserSource,
 	})
 
 	c.Next()
