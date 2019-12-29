@@ -67,7 +67,7 @@ const (
 
 	// DeleteFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the DeleteFileByID action.
-	DeleteFileByIDRole = ppb.Role_WRITE
+	DeleteFileByIDRole = ppb.Role_READ
 
 	// DownloadRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the Download action.
