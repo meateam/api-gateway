@@ -106,6 +106,7 @@ type Router struct {
 	fileClient       fpb.FileServiceClient
 	permissionClient ppb.PermissionClient
 	searchClient     spb.SearchClient
+	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
 	mu               sync.Mutex
 }
@@ -132,6 +133,7 @@ func NewRouter(uploadConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
+	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
@@ -145,29 +147,20 @@ func NewRouter(uploadConn *grpc.ClientConn,
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
 
+	r.oAuthMiddleware = oAuthMiddleware
+
 	return r
 }
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.POST("/upload", r.Upload)
+	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+
+	rg.POST("/upload", checkExternalAdminScope, r.Upload)
 }
 
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
-	isClientAllowed := oauth.CheckScope(c, oauth.OutAdminScope)
-	if !isClientAllowed {
-		loggermiddleware.LogError(
-			r.logger,
-			c.AbortWithError(
-				http.StatusUnauthorized,
-				fmt.Errorf("the service is not allowed to do this opperation"),
-			),
-		)
-
-		return
-	}
-
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		loggermiddleware.LogError(

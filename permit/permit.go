@@ -70,6 +70,7 @@ type Router struct {
 	fileClient       fpb.FileServiceClient
 	delegateClient   dpb.DelegationClient
 	permissionClient ppb.PermissionClient
+	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
 }
 
@@ -81,6 +82,7 @@ func NewRouter(
 	permissionConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
 	delegateConn *grpc.ClientConn,
+	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -94,14 +96,19 @@ func NewRouter(
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
 	r.delegateClient = dpb.NewDelegationClient(delegateConn)
+
+	r.oAuthMiddleware = oAuthMiddleware
+
 	return r
 }
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
+	checkStatusScope := r.oAuthMiddleware.ScopeMiddleware(oauth.UpdatePermitStatusScope)
+
 	rg.GET(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.GetFilePermits)
 	rg.PUT(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.CreateFilePermits)
-	rg.PATCH(fmt.Sprintf("/permits/:%s", ParamReqID), r.UpdateStatus)
+	rg.PATCH(fmt.Sprintf("/permits/:%s", ParamReqID), checkStatusScope, r.UpdateStatus)
 }
 
 // GetFilePermits is a route function for retrieving permits of a file
@@ -191,7 +198,7 @@ func (r *Router) CreateFilePermits(c *gin.Context) {
 
 // UpdateStatus updates the permits status with the given request id
 func (r *Router) UpdateStatus(c *gin.Context) {
-	r.checkScopes(c, oauth.ScopesKey)
+	// r.checkScopes(c, oauth.UpdatePermitStatusScope)
 
 	body := &updatePermitStatusRequest{}
 	if err := c.ShouldBindJSON(body); err != nil {
@@ -254,19 +261,4 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 	}
 
 	return isPermitted
-}
-
-func (r *Router) checkScopes(c *gin.Context, requiredScope string) {
-	isClientAllowed := oauth.CheckScope(c, requiredScope)
-	if !isClientAllowed {
-		loggermiddleware.LogError(
-			r.logger,
-			c.AbortWithError(
-				http.StatusUnauthorized,
-				fmt.Errorf("the service is not allowed to do this opperation"),
-			),
-		)
-
-		return
-	}
 }

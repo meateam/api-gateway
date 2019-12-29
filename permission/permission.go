@@ -60,6 +60,7 @@ type Router struct {
 	permissionClient ppb.PermissionClient
 	fileClient       fpb.FileServiceClient
 	userClient       upb.UsersClient
+	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
 }
 
@@ -70,6 +71,7 @@ func NewRouter(
 	permissionConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
 	userConnection *grpc.ClientConn,
+	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -82,13 +84,18 @@ func NewRouter(
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
 	r.userClient = upb.NewUsersClient(userConnection)
+
+	r.oAuthMiddleware = oAuthMiddleware
+
 	return r
 }
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
+	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+
 	rg.GET(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.GetFilePermissions)
-	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.CreateFilePermission)
+	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), checkExternalAdminScope, r.CreateFilePermission)
 	rg.DELETE(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.DeleteFilePermission)
 }
 
@@ -125,9 +132,6 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 // CreateFilePermission creates a permission for a given file
 // File id is extracted from url params, role is extracted from request body.
 func (r *Router) CreateFilePermission(c *gin.Context) {
-
-	r.checkScopes(c, oauth.OutAdminScope)
-
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -287,21 +291,6 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 	}
 
 	return isPermittedResponse
-}
-
-func (r *Router) checkScopes(c *gin.Context, requiredScope string) {
-	isClientAllowed := oauth.CheckScope(c, requiredScope)
-	if !isClientAllowed {
-		loggermiddleware.LogError(
-			r.logger,
-			c.AbortWithError(
-				http.StatusUnauthorized,
-				fmt.Errorf("the service is not allowed to do this opperation"),
-			),
-		)
-
-		return
-	}
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.

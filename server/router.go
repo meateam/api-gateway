@@ -11,6 +11,7 @@ import (
 	"github.com/meateam/api-gateway/delegation"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/permit"
 	"github.com/meateam/api-gateway/quota"
@@ -81,6 +82,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	})
 
 	// Initiate services gRPC connections.
+	delegateConn, err := initServiceConn(viper.GetString(configDelegationService))
+	if err != nil {
+		logger.Fatalf("couldn't setup delegation service connection: %v", err)
+	}
+
 	fileConn, err := initServiceConn(viper.GetString(configFileService))
 	if err != nil {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
@@ -106,6 +112,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup permission service connection: %v", err)
 	}
 
+	permitConn, err := initServiceConn(viper.GetString(configPermitService))
+	if err != nil {
+		logger.Fatalf("couldn't setup permit service connection: %v", err)
+	}
+
 	searchConn, err := initServiceConn(viper.GetString(configSearchService))
 	if err != nil {
 		logger.Fatalf("couldn't setup search service connection: %v", err)
@@ -116,27 +127,21 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup spike service connection: %v", err)
 	}
 
-	delegateConn, err := initServiceConn(viper.GetString(configDelegationService))
-	if err != nil {
-		logger.Fatalf("couldn't setup delegation service connection: %v", err)
-	}
-
-	permitConn, err := initServiceConn(viper.GetString(configPermitService))
-	if err != nil {
-		logger.Fatalf("couldn't setup permit service connection: %v", err)
-	}
-
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
+
+	// initiate middlewares
+	om := oauth.NewMiddleware(spikeConn, delegateConn, logger)
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, gotenbergClient, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn,
+		gotenbergClient, om, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
-	ar := auth.NewRouter(spikeConn, delegateConn, logger)
+	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
-	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
-	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, delegateConn, logger)
+	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
+	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, delegateConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)

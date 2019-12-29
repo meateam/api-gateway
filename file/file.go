@@ -132,6 +132,7 @@ type Router struct {
 	permissionClient ppb.PermissionClient
 	searchClient     spb.SearchClient
 	gotenbergClient  *gotenberg.Client
+	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
 }
 
@@ -175,6 +176,7 @@ func NewRouter(
 	permissionConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
 	gotenbergClient *gotenberg.Client,
+	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -191,13 +193,17 @@ func NewRouter(
 	r.searchClient = spb.NewSearchClient(searchConn)
 	r.gotenbergClient = gotenbergClient
 
+	r.oAuthMiddleware = oAuthMiddleware
+
 	return r
 }
 
-// Setup sets up r and intializes its routes under rg.
+// Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.GET("/files", r.GetFilesByFolder)
-	rg.GET("/files/:id", r.GetFileByID)
+	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+
+	rg.GET("/files", checkExternalAdminScope, r.GetFilesByFolder)
+	rg.GET("/files/:id", checkExternalAdminScope, r.GetFileByID)
 	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
@@ -206,9 +212,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-
-	r.checkScopes(c, oauth.OutAdminScope)
-
 	fileID := c.Param("id")
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
@@ -266,8 +269,6 @@ func stringToInt64(s string) int64 {
 
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
-	r.checkScopes(c, oauth.OutAdminScope)
-
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -943,21 +944,6 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	c.Status(http.StatusOK)
 
 	return nil
-}
-
-func (r *Router) checkScopes(c *gin.Context, requiredScope string) {
-	isClientAllowed := oauth.CheckScope(c, requiredScope)
-	if !isClientAllowed {
-		loggermiddleware.LogError(
-			r.logger,
-			c.AbortWithError(
-				http.StatusUnauthorized,
-				fmt.Errorf("the service is not allowed to do this opperation"),
-			),
-		)
-
-		return
-	}
 }
 
 // IsFileConvertableToPdf returns true if contentType can be converted to a PDF file, false otherwise.
