@@ -134,8 +134,8 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn,
-		gotenbergClient, om, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
+		searchConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)

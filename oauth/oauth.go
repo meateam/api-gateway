@@ -38,6 +38,12 @@ const (
 
 	// UpdatePermitStatusScope is the scope name required for updating a permit's scope
 	UpdatePermitStatusScope = "status"
+
+	// AuthTypeHeader is the key of the servive-host header
+	AuthTypeHeader = "Auth-Type"
+
+	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	ServiceAuthTypeValue = "Service"
 )
 
 // Middleware is a structure that handels the authentication middleware.
@@ -69,11 +75,21 @@ func NewMiddleware(
 }
 
 // ScopeMiddleware creates a middleware function that checks the scopes in context.
+// If the request is not from a service (AuthTypeHeader), Next will be immediately called.
 // If scopes are nil, the client is the drive client which is fine. Else, the required
 // scope should be included in the scopes array. If the required scope exists,and a
 // delegator exists too, the function will set the context user to be the delegator.
 func (m *Middleware) ScopeMiddleware(requiredScope string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
+		isService := c.GetHeader(AuthTypeHeader)
+
+		// If this is not a service, the user was already authenticated in Auth's UserMiddlewere
+		if isService != ServiceAuthTypeValue {
+			c.Next()
+			return
+		}
+
 		scopes := m.extractScopes(c)
 		if scopes == nil {
 			c.Next()

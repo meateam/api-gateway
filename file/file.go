@@ -17,6 +17,7 @@ import (
 	fpb "github.com/meateam/file-service/proto/file"
 	"github.com/meateam/gotenberg-go-client/v6"
 	ppb "github.com/meateam/permission-service/proto"
+	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
@@ -130,6 +131,7 @@ type Router struct {
 	fileClient       fpb.FileServiceClient
 	uploadClient     upb.UploadClient
 	permissionClient ppb.PermissionClient
+	permitClient     ptpb.PermitClient
 	searchClient     spb.SearchClient
 	gotenbergClient  *gotenberg.Client
 	oAuthMiddleware  *oauth.Middleware
@@ -174,6 +176,7 @@ func NewRouter(
 	downloadConn *grpc.ClientConn,
 	uploadConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
+	permitConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
 	gotenbergClient *gotenberg.Client,
 	oAuthMiddleware *oauth.Middleware,
@@ -190,6 +193,7 @@ func NewRouter(
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.permitClient = ptpb.NewPermitClient(permitConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
 	r.gotenbergClient = gotenbergClient
 
@@ -767,6 +771,30 @@ func CheckUserFilePermission(ctx context.Context,
 	}
 }
 
+// CheckUserFilePermit checks if userID is has a permit to fileID.
+// The function returns true if the user has a permit to the file and nil error,
+// otherwise false and non-nil err if any encountered.
+func CheckUserFilePermit(ctx context.Context,
+	permitClient ptpb.PermitClient,
+	userID string,
+	fileID string,
+	role ppb.Role) (bool, error) {
+
+	// Permits have only READ roles
+	if role != ppb.Role_READ {
+		return false, nil
+	}
+
+	hasPermitRes, err := permitClient.HasPermit(ctx, &ptpb.HasPermitRequest{FileID: fileID, UserID: userID})
+	if err != nil {
+		return false, err
+	}
+
+	hasPermit := hasPermitRes.GetHasPermit()
+
+	return hasPermit, nil
+}
+
 // CreatePermission creates permission in permission service only if userID has
 // ppb.Role_OWNER permission to permission.FileID.
 func CreatePermission(ctx context.Context,
@@ -844,6 +872,16 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		reqUser.ID,
 		fileID,
 		role)
+
+	if !isPermitted && err == nil && reqUser.Source == user.ExternalUserSource {
+		isPermitted, err = CheckUserFilePermit(c.Request.Context(),
+			r.permitClient,
+			reqUser.ID,
+			fileID,
+			role)
+
+	}
+
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
