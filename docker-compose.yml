@@ -228,7 +228,7 @@ services:
     ports:
       - 8089:8080
   spike-service:
-    image: spike-service:latest
+    image: bluehub.azurecr.io/meateam/spike-service:develop
     environment:
       AUDIENCE: "0mBMe5vYJyuFtvHpEWVDPumqaVl~xr"
       SPIKE_CLIENT_ID: "EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub"
@@ -242,7 +242,7 @@ services:
     ports:
       - '8090:8080'
   delegation-service:
-    image: delegation-service:latest
+    image: bluehub.azurecr.io/meateam/delegation-service:develop
     ports:
       - '8091:8080'
     environment:
