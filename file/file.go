@@ -337,7 +337,6 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 		}
 
 		populatedFile := createGetFileResponse(file, user.User)
-		fmt.Println(populatedFile)
 
 		files = append(files, populatedFile)
 	}
