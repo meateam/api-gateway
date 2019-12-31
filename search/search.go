@@ -113,8 +113,7 @@ func (r *Router) Search(c *gin.Context) {
 				return
 			}
 
-			shared := foundPermission != nil
-			responseFiles = append(responseFiles, file.CreateGetFileResponse(res, userFilePermission, &shared))
+			responseFiles = append(responseFiles, file.CreateGetFileResponse(res, userFilePermission, foundPermission))
 		}
 	}
 

@@ -141,19 +141,27 @@ type Router struct {
 	logger           *logrus.Logger
 }
 
+// Permission is a struct that describes a user's permission to a file.
+type Permission struct {
+	UserID string `json:"userID,omitempty"`
+	FileID string `json:"fileID,omitempty"`
+	Role   string `json:"role,omitempty"`
+}
+
 // GetFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
 type GetFileByIDResponse struct {
-	ID          string `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Type        string `json:"type,omitempty"`
-	Size        int64  `json:"size"`
-	Description string `json:"description,omitempty"`
-	OwnerID     string `json:"ownerId,omitempty"`
-	Parent      string `json:"parent,omitempty"`
-	CreatedAt   int64  `json:"createdAt,omitempty"`
-	UpdatedAt   int64  `json:"updatedAt,omitempty"`
-	Role        string `json:"role,omitempty"`
-	Shared      bool   `json:"shared"`
+	ID          string      `json:"id,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	Type        string      `json:"type,omitempty"`
+	Size        int64       `json:"size"`
+	Description string      `json:"description,omitempty"`
+	OwnerID     string      `json:"ownerId,omitempty"`
+	Parent      string      `json:"parent,omitempty"`
+	CreatedAt   int64       `json:"createdAt,omitempty"`
+	UpdatedAt   int64       `json:"updatedAt,omitempty"`
+	Role        string      `json:"role,omitempty"`
+	Shared      bool        `json:"shared"`
+	Permission  *Permission `json:"permission,omitempty"`
 }
 
 type partialFile struct {
@@ -246,8 +254,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	shared := foundPermission != nil
-	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, &shared))
+	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission))
 }
 
 // Extracts parameters from request query to a map, non-existing parameter has a value of ""
@@ -327,7 +334,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	files := filesResp.GetFiles()
 	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		userFilePermission, _, err := CheckUserFilePermission(c.Request.Context(),
+		userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
 			r.fileClient,
 			r.permissionClient,
 			reqUser.ID,
@@ -341,7 +348,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 
 		if userFilePermission != "" {
-			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, nil))
+			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission))
 		}
 	}
 
@@ -380,8 +387,8 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 		}
 
 		if file.GetOwnerID() != reqUser.ID {
-			shared := true
-			files = append(files, CreateGetFileResponse(file, permission.GetRole().String(), &shared))
+			userPermission := &ppb.PermissionObject{FileID: permission.GetFileID(), UserID: reqUser.ID, Role: permission.GetRole()}
+			files = append(files, CreateGetFileResponse(file, permission.GetRole().String(), userPermission))
 		}
 	}
 
@@ -552,9 +559,16 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 
 	ancestors := res.GetAncestors()
 
+	type permissionRole struct {
+		permission *ppb.PermissionObject
+		role       string
+	}
+
+	ancestorsPermissionsMap := make(map[string]permissionRole, len(ancestors))
+
 	var firstPermittedFileIndex int
 	for firstPermittedFileIndex = 0; firstPermittedFileIndex < len(ancestors); firstPermittedFileIndex++ {
-		userFilePermission, _, err := CheckUserFilePermission(
+		userFilePermission, foundPermission, err := CheckUserFilePermission(
 			c.Request.Context(),
 			r.fileClient,
 			r.permissionClient,
@@ -568,6 +582,11 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 			return
+		}
+
+		ancestorsPermissionsMap[ancestors[firstPermittedFileIndex]] = permissionRole{
+			permission: foundPermission,
+			role:       userFilePermission,
 		}
 
 		if userFilePermission != "" {
@@ -591,8 +610,10 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 			return
 		}
 
-		shared := false
-		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file, "", &shared))
+		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[i]]
+		populatedPermittedAncestors = append(
+			populatedPermittedAncestors,
+			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission))
 	}
 
 	c.JSON(http.StatusOK, populatedPermittedAncestors)
@@ -906,7 +927,7 @@ func (r *Router) HandleUserFilePermission(
 }
 
 // CreateGetFileResponse Creates a file grpc response to http response struct
-func CreateGetFileResponse(file *fpb.File, role string, shared *bool) *GetFileByIDResponse {
+func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.PermissionObject) *GetFileByIDResponse {
 	if file == nil {
 		return nil
 	}
@@ -923,10 +944,16 @@ func CreateGetFileResponse(file *fpb.File, role string, shared *bool) *GetFileBy
 		CreatedAt:   file.GetCreatedAt(),
 		UpdatedAt:   file.GetUpdatedAt(),
 		Role:        role,
+		Shared:      false,
 	}
 
-	if shared != nil {
-		responseFile.Shared = *shared
+	if permission != nil {
+		responseFile.Shared = true
+		responseFile.Permission = &Permission{
+			UserID: permission.GetUserID(),
+			FileID: permission.GetFileID(),
+			Role:   permission.GetRole().String(),
+		}
 	}
 
 	// If file contains parent object instead of its id.
