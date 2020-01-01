@@ -11,9 +11,12 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
+	"github.com/meateam/gotenberg-go-client/v6"
 	ppb "github.com/meateam/permission-service/proto"
+	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	uspb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
@@ -47,9 +50,9 @@ const (
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
-	// QueryFileDownloadNoContentDisposition is the querystring key for
+	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
-	QueryFileDownloadNoContentDisposition = "preview"
+	QueryFileDownloadPreview = "preview"
 
 	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the GetFileByID action.
@@ -74,6 +77,51 @@ const (
 	// UpdateFilesRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the UpdateFiles action.
 	UpdateFilesRole = ppb.Role_OWNER
+
+	// PdfMimeType is the mime type of a .pdf file.
+	PdfMimeType = "application/pdf"
+
+	// DocMimeType is the mime type of a .doc file.
+	DocMimeType = "application/msword"
+
+	// DocxMimeType is the mime type of a .docx file.
+	DocxMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+	// XlsMimeType is the mime type of a .xls file.
+	XlsMimeType = "application/vnd.ms-excel"
+
+	// XlsxMimeType is the mime type of a .xlsx file.
+	XlsxMimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+	// PptMimeType is the mime type of a .ppt file.
+	PptMimeType = "application/vnd.ms-powerpoint"
+
+	// PptxMimeType is the mime type of a .pptx file.
+	PptxMimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+	// RtfMimeType is the mime type of a .rtf file.
+	RtfMimeType = "application/rtf"
+
+	// OdtMimeType is the mime type of a .odt file.
+	OdtMimeType = "application/vnd.oasis.opendocument.text"
+
+	// OdpMimeType is the mime type of a .odp file.
+	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
+)
+
+var (
+	// TypesConvertableToPdf is a slice of the names of the mime types that can be converted to PDF and previewed.
+	TypesConvertableToPdf = []string{
+		DocMimeType,
+		DocxMimeType,
+		XlsMimeType,
+		XlsxMimeType,
+		PptMimeType,
+		PptxMimeType,
+		RtfMimeType,
+		OdtMimeType,
+		OdpMimeType,
+	}
 )
 
 // Router is a structure that handles upload requests.
@@ -83,11 +131,13 @@ type Router struct {
 	userClient       uspb.UsersClient
 	uploadClient     upb.UploadClient
 	permissionClient ppb.PermissionClient
+	searchClient     spb.SearchClient
+	gotenbergClient  *gotenberg.Client
 	logger           *logrus.Logger
 }
 
-// getFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
-type getFileByIDResponse struct {
+// GetFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
+type GetFileByIDResponse struct {
 	ID          string     `json:"id,omitempty"`
 	Name        string     `json:"name,omitempty"`
 	Type        string     `json:"type,omitempty"`
@@ -125,6 +175,8 @@ func NewRouter(
 	downloadConn *grpc.ClientConn,
 	uploadConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
+	searchConn *grpc.ClientConn,
+	gotenbergClient *gotenberg.Client,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -139,6 +191,8 @@ func NewRouter(
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.searchClient = spb.NewSearchClient(searchConn)
+	r.gotenbergClient = gotenbergClient
 
 	return r
 }
@@ -147,6 +201,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files", r.GetFilesByFolder)
 	rg.GET("/files/:id", r.GetFileByID)
+	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
@@ -163,6 +218,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	alt := c.Query("alt")
 	if alt == "media" {
 		r.Download(c)
+
 		return
 	}
 
@@ -192,7 +248,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 	}
 
-	populatedFile := createGetFileResponse(file, user.User)
+	populatedFile := CreateGetFileResponse(file, user.User)
 
 	c.JSON(http.StatusOK, populatedFile)
 }
@@ -276,7 +332,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	files := filesResp.GetFiles()
-	responseFiles := make([]*getFileByIDResponse, 0, len(files))
+	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
 		getUserByIDRequest := &uspb.GetByIDRequest{
 			Id: file.GetOwnerID(),
@@ -288,7 +344,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		}
 
-		populatedFile := createGetFileResponse(file, user.User)
+		populatedFile := CreateGetFileResponse(file, user.User)
 
 		responseFiles = append(responseFiles, populatedFile)
 	}
@@ -316,7 +372,7 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 		return
 	}
 
-	files := make([]*getFileByIDResponse, 0, len(permissions.GetPermissions()))
+	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
 		file, err := r.fileClient.GetFileByID(c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
@@ -336,7 +392,7 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		}
 
-		populatedFile := createGetFileResponse(file, user.User)
+		populatedFile := CreateGetFileResponse(file, user.User)
 
 		files = append(files, populatedFile)
 	}
@@ -355,7 +411,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	if !r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole) {
 		return
 	}
-	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, fileID)
+	ids, err := DeleteFile(c.Request.Context(), r.logger, r.fileClient, r.uploadClient, r.searchClient, fileID)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -419,14 +475,17 @@ func (r *Router) Download(c *gin.Context) {
 		return
 	}
 
-	c.Header("X-Content-Type-Options", "nosniff")
-	preview, ok := c.GetQuery(QueryFileDownloadNoContentDisposition)
-	if !ok || preview == "false" {
-		c.Header("Content-Disposition", "attachment; filename="+filename)
+	preview, ok := c.GetQuery(QueryFileDownloadPreview)
+	if ok && preview != "false" {
+		loggermiddleware.LogError(r.logger, r.HandlePreview(c, fileMeta, stream))
+
+		return
 	}
 
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Disposition", "attachment; filename="+filename)
 
 	loggermiddleware.LogError(r.logger, HandleStream(c, stream))
 }
@@ -468,6 +527,86 @@ func (r *Router) UpdateFile(c *gin.Context) {
 
 		return
 	}
+}
+
+// GetFileAncestors returns an array of the requested file ancestors.
+// The function gets an id.
+// It returns the updated file id's.
+func (r *Router) GetFileAncestors(c *gin.Context) {
+	fileID := c.Param("id")
+	if fileID == "" {
+		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+
+	if !r.HandleUserFilePermission(c, fileID, GetFileByIDRole) {
+		return
+	}
+
+	res, err := r.fileClient.GetAncestors(c.Request.Context(), &fpb.GetAncestorsRequest{Id: fileID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	ancestors := res.GetAncestors()
+
+	var firstPermittedFileIndex int
+	for firstPermittedFileIndex = 0; firstPermittedFileIndex < len(ancestors); firstPermittedFileIndex++ {
+		isPermitted, err := CheckUserFilePermission(
+			c.Request.Context(),
+			r.fileClient,
+			r.permissionClient,
+			reqUser.ID,
+			ancestors[firstPermittedFileIndex],
+			GetFileByIDRole,
+		)
+
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+		if isPermitted {
+			break
+		}
+	}
+
+	permittedAncestors := ancestors[firstPermittedFileIndex:]
+
+	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
+
+	for i := 0; i < len(permittedAncestors); i++ {
+		file, err := r.fileClient.GetFileByID(
+			c.Request.Context(),
+			&fpb.GetByFileByIDRequest{Id: permittedAncestors[i]},
+		)
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+
+		user, err := r.userClient.GetUserByID(c.Request.Context(), &uspb.GetByIDRequest{Id: file.GetOwnerID()})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		}
+
+		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file, user.User))
+	}
+
+	c.JSON(http.StatusOK, populatedPermittedAncestors)
 }
 
 // UpdateFiles Updates many files with the same value.
@@ -521,14 +660,20 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 
 func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) error {
 	var parent *fpb.File_Parent
-
+	var sParent *spb.File_Parent
 	if pf.Parent != nil {
 		if *pf.Parent == "" {
 			parent = &fpb.File_Parent{
 				Parent: "null",
 			}
+			sParent = &spb.File_Parent{
+				Parent: "null",
+			}
 		} else {
 			parent = &fpb.File_Parent{
+				Parent: *pf.Parent,
+			}
+			sParent = &spb.File_Parent{
 				Parent: *pf.Parent,
 			}
 		}
@@ -537,10 +682,16 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 	updatedData := &fpb.File{
 		FileOrId: parent,
 	}
+	sUpdatedData := &spb.File{
+		FileOrId: sParent,
+	}
 
 	if len(ids) == 1 {
 		updatedData.Name = pf.Name
+		sUpdatedData.Name = pf.Name
+
 		updatedData.Description = pf.Description
+		sUpdatedData.Description = pf.Description
 	}
 
 	updateFilesResponse, err := r.fileClient.UpdateFiles(
@@ -554,7 +705,14 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 		return err
 	}
 
-	c.JSON(http.StatusOK, updateFilesResponse.GetUpdated())
+	for _, id := range ids {
+		sUpdatedData.Id = id
+		if _, err := r.searchClient.Update(c.Request.Context(), sUpdatedData); err != nil {
+			r.logger.Errorf("failed to update file %s in searchService", id)
+		}
+	}
+
+	c.JSON(http.StatusOK, updateFilesResponse.GetFailedFiles())
 	return nil
 }
 
@@ -739,13 +897,13 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 }
 
 // createGetFileResponse Creates a file grpc response to http response struct
-func createGetFileResponse(file *fpb.File, user *uspb.User) *getFileByIDResponse {
+func CreateGetFileResponse(file *fpb.File, user *uspb.User) *GetFileByIDResponse {
 	if file == nil {
 		return nil
 	}
 
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
-	responseFile := &getFileByIDResponse{
+	responseFile := &GetFileByIDResponse{
 		ID:          file.GetId(),
 		Name:        file.GetName(),
 		Type:        file.GetType(),
@@ -774,4 +932,75 @@ func createGetFileResponse(file *fpb.File, user *uspb.User) *getFileByIDResponse
 	}
 
 	return responseFile
+}
+
+// HandlePreview writes a PDF of the file to the response, if the file isn't a PDF already
+// and can be converted to a PDF, then the file would be converted to a PDF and
+// the converted file will be written to the response, instead of the raw file.
+func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Download_DownloadClient) error {
+	filename := file.GetName()
+	contentType := file.GetType()
+	contentLength := strconv.FormatInt(file.GetSize(), 10)
+
+	// File is already a PDF, no need to convert it.
+	if contentType == PdfMimeType {
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Length", contentLength)
+
+		return HandleStream(c, stream)
+	}
+
+	// Convert the file to PDF.
+	streamReader := download.NewStreamReadCloser(stream)
+
+	// IMPORTANT: Must use a buffer that its size is at least download.PartSize, otherwise data loss
+	// would occure.
+	buf := make([]byte, download.PartSize)
+	convertRequest, err := gotenberg.NewOfficeRequestWithBuffer(filename, streamReader, buf)
+	if err != nil {
+		return err
+	}
+
+	convertRequest.ResultFilename(filename)
+
+	defer streamReader.Close()
+
+	// Send the file for PDF conversion.
+	resp, err := r.gotenbergClient.Post(convertRequest)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("failed converting file with gotenberg with status: %v", resp.Status)
+		loggermiddleware.LogError(r.logger, c.AbortWithError(resp.StatusCode, err))
+
+		return err
+	}
+
+	c.Header("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+	c.Header("Content-Type", resp.Header.Get("Content-Type"))
+
+	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
+
+		return err
+	}
+
+	c.Status(http.StatusOK)
+
+	return nil
+}
+
+// IsFileConvertableToPdf returns true if contentType can be converted to a PDF file, false otherwise.
+func IsFileConvertableToPdf(contentType string) bool {
+	for _, v := range TypesConvertableToPdf {
+		if contentType == v {
+			return true
+		}
+	}
+
+	return false
 }

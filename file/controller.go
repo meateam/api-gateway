@@ -7,6 +7,7 @@ import (
 
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	fpb "github.com/meateam/file-service/proto/file"
+	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
 )
@@ -17,6 +18,7 @@ func DeleteFile(ctx context.Context,
 	logger *logrus.Logger,
 	fileClient fpb.FileServiceClient,
 	uploadClient upb.UploadClient,
+	searchClient spb.SearchClient,
 	fileID string) ([]string, error) {
 	// IMPORTANT TODO: need to check permissions per file that descends from fileID.
 	deleteFileRequest := &fpb.DeleteFileRequest{
@@ -32,6 +34,10 @@ func DeleteFile(ctx context.Context,
 	for i, file := range deleteFileResponse.GetFiles() {
 		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
 		ids[i] = file.GetId()
+
+		if _, err := searchClient.Delete(ctx, &spb.DeleteRequest{Id: file.GetId()}); err != nil {
+			loggermiddleware.LogError(logger, err)
+		}
 	}
 
 	var wg sync.WaitGroup
