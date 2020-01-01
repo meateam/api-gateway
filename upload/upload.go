@@ -77,6 +77,10 @@ const (
 
 	// UploadTypeQueryKey the upload type query string key name.
 	UploadTypeQueryKey = "uploadType"
+
+	// UploadRole is the role that is required of the authenticated requester to have to be
+	// permitted to make an upload action.
+	UploadRole = ppb.Role_WRITE
 )
 
 func marshalSearchPB(f *fpb.File, file *spb.File) error {
@@ -260,7 +264,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	newPermission := ppb.PermissionObject{
 		FileID: createFolderResp.GetId(),
 		UserID: reqUser.ID,
-		Role:   ppb.Role_OWNER,
+		Role:   ppb.Role_WRITE,
 	}
 	err = file.CreatePermission(c.Request.Context(),
 		r.fileClient,
@@ -368,7 +372,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	newPermission := ppb.PermissionObject{
 		FileID: createFileResp.GetId(),
 		UserID: reqUser.ID,
-		Role:   ppb.Role_OWNER,
+		Role:   ppb.Role_WRITE,
 	}
 	err = file.CreatePermission(c.Request.Context(),
 		r.fileClient,
@@ -376,9 +380,9 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		reqUser.ID,
 		newPermission,
 	)
-
 	if err != nil {
 		r.deleteOnError(c, err, createFileResp.GetId())
+		return
 	}
 
 	c.String(http.StatusOK, createFileResp.GetId())
@@ -515,7 +519,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	newPermission := ppb.PermissionObject{
 		FileID: createFileResp.GetId(),
 		UserID: reqUser.ID,
-		Role:   ppb.Role_OWNER,
+		Role:   ppb.Role_WRITE,
 	}
 
 	err = file.CreatePermission(c.Request.Context(),
@@ -843,9 +847,20 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 }
 
 // isUploadPermitted checks if userID has permission to upload a file to fileID,
-// requires ppb.Role_OWNER permission.
+// requires ppb.Role_WRITE permission.
 func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
-	return file.CheckUserFilePermission(ctx, r.fileClient, r.permissionClient, userID, fileID, ppb.Role_OWNER)
+	userFilePermission, _, err := file.CheckUserFilePermission(
+		ctx,
+		r.fileClient,
+		r.permissionClient,
+		userID,
+		fileID,
+		UploadRole)
+	if err != nil {
+		return false, err
+	}
+
+	return userFilePermission != "", nil
 }
 
 // calculateBufSize gets a file size and calculates the size of the buffer to read the file
@@ -864,12 +879,20 @@ func (r *Router) calculateBufSize(fileSize int64) int64 {
 }
 
 func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
 	_, deleteErr := file.DeleteFile(c.Request.Context(),
 		r.logger,
 		r.fileClient,
 		r.uploadClient,
 		r.searchClient,
-		fileID)
+		r.permissionClient,
+		fileID,
+		reqUser.ID)
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 	if deleteErr != nil {
 		err = fmt.Errorf("%v: %v", err, deleteErr)
