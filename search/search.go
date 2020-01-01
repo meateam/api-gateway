@@ -100,7 +100,7 @@ func (r *Router) Search(c *gin.Context) {
 			id,
 			ppb.Role_READ,
 		)
-		if err != nil && status.Code(err) != codes.Unimplemented {
+		if err != nil && status.Code(err) != codes.NotFound {
 			r.logger.Errorf("failed get permission with fileId %s, error: %v", id, err)
 		}
 
@@ -113,7 +113,8 @@ func (r *Router) Search(c *gin.Context) {
 				return
 			}
 
-			responseFiles = append(responseFiles, file.CreateGetFileResponse(res, userFilePermission, foundPermission))
+			responseFiles = append(
+				responseFiles, file.CreateGetFileResponse(res, userFilePermission, foundPermission))
 		}
 	}
 

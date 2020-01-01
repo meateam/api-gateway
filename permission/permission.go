@@ -365,7 +365,7 @@ func GetFilePermissions(ctx context.Context,
 	for {
 		permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: currentFileID}
 		permissionsResponse, err := permissionClient.GetFilePermissions(ctx, permissionsRequest)
-		if err != nil && status.Code(err) != codes.Unimplemented {
+		if err != nil && status.Code(err) != codes.NotFound {
 			return nil, err
 		}
 

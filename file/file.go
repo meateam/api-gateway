@@ -821,9 +821,9 @@ func CheckUserFilePermission(ctx context.Context,
 		isPermitted, err := permissionClient.IsPermitted(ctx,
 			&ppb.IsPermittedRequest{FileID: currentFile, UserID: userID, Role: role})
 
-		// If an error occurred which is NOT grpc's Unimplemented error which
+		// If an error occurred which is NOT grpc's NotFound error which
 		// indicates that the permission doesn't not exist.
-		if err != nil && status.Code(err) != codes.Unimplemented {
+		if err != nil && status.Code(err) != codes.NotFound {
 			return "", nil, err
 		}
 
