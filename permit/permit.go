@@ -56,14 +56,6 @@ type updatePermitStatusRequest struct {
 	Status string `json:"status,omitempty"`
 }
 
-// Permit is a struct that describes a permit for a user to a file.
-type Permit struct {
-	reqID  string
-	UserID string
-	FileID string
-	Status string
-}
-
 // Router is a structure that handles permission requests.
 type Router struct {
 	permitClient     ptpb.PermitClient
@@ -198,8 +190,6 @@ func (r *Router) CreateFilePermits(c *gin.Context) {
 
 // UpdateStatus updates the permits status with the given request id
 func (r *Router) UpdateStatus(c *gin.Context) {
-	// r.checkScopes(c, oauth.UpdatePermitStatusScope)
-
 	body := &updatePermitStatusRequest{}
 	if err := c.ShouldBindJSON(body); err != nil {
 		loggermiddleware.LogError(

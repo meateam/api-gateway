@@ -53,9 +53,9 @@ type Middleware struct {
 	logger         *logrus.Logger
 }
 
-// NewMiddleware creates a new Router. If logger is non-nil then it will be
+// NewOAuthMiddleware creates a new Router. If logger is non-nil then it will be
 // set as-is, otherwise logger would default to logrus.New().
-func NewMiddleware(
+func NewOAuthMiddleware(
 	spikeConn *grpc.ClientConn,
 	delegateConn *grpc.ClientConn,
 	logger *logrus.Logger,
@@ -109,7 +109,6 @@ func (m *Middleware) ScopeMiddleware(requiredScope string) gin.HandlerFunc {
 				fmt.Errorf("the service is not allowed to do this opperation"),
 			),
 		)
-		return
 	}
 }
 

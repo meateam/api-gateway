@@ -130,7 +130,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// initiate middlewares
-	om := oauth.NewMiddleware(spikeConn, delegateConn, logger)
+	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
