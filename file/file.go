@@ -143,9 +143,10 @@ type Router struct {
 
 // Permission is a struct that describes a user's permission to a file.
 type Permission struct {
-	UserID string `json:"userID,omitempty"`
-	FileID string `json:"fileID,omitempty"`
-	Role   string `json:"role,omitempty"`
+	UserID  string `json:"userID,omitempty"`
+	FileID  string `json:"fileID,omitempty"`
+	Role    string `json:"role,omitempty"`
+	Creator string `json:"creator,omitempty"`
 }
 
 // GetFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.
@@ -388,9 +389,10 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 
 		if file.GetOwnerID() != reqUser.ID {
 			userPermission := &ppb.PermissionObject{
-				FileID: permission.GetFileID(),
-				UserID: reqUser.ID,
-				Role:   permission.GetRole(),
+				FileID:  permission.GetFileID(),
+				UserID:  reqUser.ID,
+				Role:    permission.GetRole(),
+				Creator: permission.GetCreator(),
 			}
 			files = append(
 				files,
@@ -886,9 +888,10 @@ func CreatePermission(ctx context.Context,
 	}
 
 	createPermissionRequest := ppb.CreatePermissionRequest{
-		FileID: permission.GetFileID(),
-		UserID: permission.GetUserID(),
-		Role:   permission.GetRole(),
+		FileID:  permission.GetFileID(),
+		UserID:  permission.GetUserID(),
+		Role:    permission.GetRole(),
+		Creator: permission.GetCreator(),
 	}
 	_, err = permissionClient.CreatePermission(ctx, &createPermissionRequest)
 	if err != nil {
@@ -933,7 +936,7 @@ func (r *Router) HandleUserFilePermission(
 	return userFilePermission, foundPermission
 }
 
-// CreateGetFileResponse Creates a file grpc response to http response struct
+// CreateGetFileResponse Creates a file grpc response to http response struct.
 func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.PermissionObject) *GetFileByIDResponse {
 	if file == nil {
 		return nil
@@ -957,9 +960,10 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 	if permission != nil {
 		responseFile.Shared = true
 		responseFile.Permission = &Permission{
-			UserID: permission.GetUserID(),
-			FileID: permission.GetFileID(),
-			Role:   permission.GetRole().String(),
+			UserID:  permission.GetUserID(),
+			FileID:  permission.GetFileID(),
+			Role:    permission.GetRole().String(),
+			Creator: permission.GetCreator(),
 		}
 	}
 
