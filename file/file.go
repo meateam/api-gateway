@@ -387,8 +387,15 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 		}
 
 		if file.GetOwnerID() != reqUser.ID {
-			userPermission := &ppb.PermissionObject{FileID: permission.GetFileID(), UserID: reqUser.ID, Role: permission.GetRole()}
-			files = append(files, CreateGetFileResponse(file, permission.GetRole().String(), userPermission))
+			userPermission := &ppb.PermissionObject{
+				FileID: permission.GetFileID(),
+				UserID: reqUser.ID,
+				Role:   permission.GetRole(),
+			}
+			files = append(
+				files,
+				CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
+			)
 		}
 	}
 

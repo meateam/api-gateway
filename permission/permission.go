@@ -378,7 +378,11 @@ func GetFilePermissions(ctx context.Context,
 
 		for _, permission := range permissionsResponse.GetPermissions() {
 			if _, ok := permissionsMap[permission.GetUserID()]; !ok {
-				userRole := Permission{UserID: permission.GetUserID(), Role: permission.GetRole().String(), FileID: currentFileID}
+				userRole := Permission{
+					UserID: permission.GetUserID(),
+					Role:   permission.GetRole().String(),
+					FileID: currentFileID,
+				}
 				permissionsMap[permission.GetUserID()] = userRole
 				permissions = append(permissions, userRole)
 			}
