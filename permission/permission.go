@@ -23,9 +23,6 @@ const (
 	// ParamFileID is the name of the file id param in URL.
 	ParamFileID = "id"
 
-	// ParamPermissionID is the name of the permission id param in URL.
-	ParamPermissionID = "permissionId"
-
 	// QueryDeleteUserPermission is the id of the user to delete its permission to a file.
 	QueryDeleteUserPermission = "userId"
 
@@ -49,9 +46,10 @@ type createPermissionRequest struct {
 
 // Permission is a struct that describes a user's permission to a file.
 type Permission struct {
-	UserID string `json:"userID,omitempty"`
-	FileID string `json:"fileID,omitempty"`
-	Role   string `json:"role,omitempty"`
+	UserID  string `json:"userID,omitempty"`
+	FileID  string `json:"fileID,omitempty"`
+	Role    string `json:"role,omitempty"`
+	Creator string `json:"creator,omitempty"`
 }
 
 // Router is a structure that handles permission requests.
@@ -204,9 +202,10 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 	}
 
 	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient, Permission{
-		FileID: fileID,
-		UserID: permission.UserID,
-		Role:   permission.Role,
+		FileID:  fileID,
+		UserID:  permission.UserID,
+		Role:    permission.Role,
+		Creator: reqUser.ID,
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -214,12 +213,11 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	createdPermission.Id = ""
-
 	c.JSON(http.StatusOK, Permission{
-		UserID: createdPermission.GetUserID(),
-		FileID: createdPermission.GetFileID(),
-		Role:   createdPermission.GetRole().String(),
+		UserID:  createdPermission.GetUserID(),
+		FileID:  createdPermission.GetFileID(),
+		Role:    createdPermission.GetRole().String(),
+		Creator: createdPermission.GetCreator(),
 	})
 }
 
@@ -277,12 +275,11 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		return
 	}
 
-	permission.Id = ""
-
 	c.JSON(http.StatusOK, Permission{
-		UserID: permission.GetUserID(),
-		FileID: permission.GetFileID(),
-		Role:   permission.GetRole().String(),
+		UserID:  permission.GetUserID(),
+		FileID:  permission.GetFileID(),
+		Role:    permission.GetRole().String(),
+		Creator: permission.GetCreator(),
 	})
 }
 
@@ -343,9 +340,10 @@ func CreatePermission(ctx context.Context,
 	permissionClient ppb.PermissionClient,
 	permission Permission) (*ppb.PermissionObject, error) {
 	permissionRequest := &ppb.CreatePermissionRequest{
-		FileID: permission.FileID,
-		UserID: permission.UserID,
-		Role:   ppb.Role(ppb.Role_value[permission.Role]),
+		FileID:  permission.FileID,
+		UserID:  permission.UserID,
+		Role:    ppb.Role(ppb.Role_value[permission.Role]),
+		Creator: permission.Creator,
 	}
 	createdPermission, err := permissionClient.CreatePermission(ctx, permissionRequest)
 	if err != nil {
@@ -367,7 +365,7 @@ func GetFilePermissions(ctx context.Context,
 	for {
 		permissionsRequest := &ppb.GetFilePermissionsRequest{FileID: currentFileID}
 		permissionsResponse, err := permissionClient.GetFilePermissions(ctx, permissionsRequest)
-		if err != nil && status.Code(err) != codes.Unimplemented {
+		if err != nil && status.Code(err) != codes.NotFound {
 			return nil, err
 		}
 
@@ -379,9 +377,10 @@ func GetFilePermissions(ctx context.Context,
 		for _, permission := range permissionsResponse.GetPermissions() {
 			if _, ok := permissionsMap[permission.GetUserID()]; !ok {
 				userRole := Permission{
-					UserID: permission.GetUserID(),
-					Role:   permission.GetRole().String(),
-					FileID: currentFileID,
+					UserID:  permission.GetUserID(),
+					Role:    permission.GetRole().String(),
+					FileID:  currentFileID,
+					Creator: permission.GetCreator(),
 				}
 				permissionsMap[permission.GetUserID()] = userRole
 				permissions = append(permissions, userRole)
