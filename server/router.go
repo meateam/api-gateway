@@ -109,7 +109,10 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	health := NewHealthChecker()
-	go health.Check(viper.GetInt(configHealthCheckInterval), logger, gotenbergClient, conns...)
+	healthInterval := viper.GetInt(configHealthCheckInterval)
+	healthRPCTimeout := viper.GetInt(configHealthCheckRPCTimeout)
+
+	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, conns...)
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)

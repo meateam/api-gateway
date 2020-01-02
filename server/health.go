@@ -32,15 +32,16 @@ type Health int32
 // Check checks healthiness of conns once in interval seconds.
 func (h *Health) Check(
 	interval int,
+	rpcTimeout int,
 	logger *logrus.Logger,
 	gotenberg *gotenberg.Client,
 	conns ...*grpc.ClientConn) {
-	rpcTimeout := 3 * time.Second
+	rpcTimeoutDuration := time.Duration(rpcTimeout) * time.Second
 	for {
 		flag := true
 		for _, conn := range conns {
 			func() {
-				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), rpcTimeout)
+				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), rpcTimeoutDuration)
 				defer rpcCancel()
 				resp, err := healthpb.NewHealthClient(conn).Check(
 					rpcCtx, &healthpb.HealthCheckRequest{Service: ""})
