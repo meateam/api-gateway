@@ -14,7 +14,7 @@ import (
 type body struct {
 	User   *user.User `json:"user,omitempty"`
 	Path   string     `json:"path,omitempty"`
-	Method string     `json:"method",omitempty`
+	Method string     `json:"method,omitempty"`
 }
 
 // NewMetricsLogger initializes the metrics middleware.
