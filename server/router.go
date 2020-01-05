@@ -59,11 +59,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	apiRoutesGroup := r.Group("/api")
 
-	// Health Check route.
-	apiRoutesGroup.GET("/healthcheck", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-
 	// Frontend configuration route.
 	apiRoutesGroup.GET("/config", func(c *gin.Context) {
 		c.JSON(
@@ -109,7 +104,18 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup search service connection: %v", err)
 	}
 
+	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn}
+
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
+
+	health := NewHealthChecker()
+	healthInterval := viper.GetInt(configHealthCheckInterval)
+	healthRPCTimeout := viper.GetInt(configHealthCheckRPCTimeout)
+
+	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, conns...)
+
+	// Health Check route.
+	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
 
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, gotenbergClient, logger)
@@ -150,7 +156,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	sr.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn}
+	return r, conns
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.

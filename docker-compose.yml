@@ -1,4 +1,4 @@
-version: '2'
+version: '2.1'
 services:
   api-gateway:
     image: api-gateway
@@ -52,7 +52,7 @@ services:
       MINIO_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
     command: server /data
   upload-service:
-    image: 'bluehub.azurecr.io/meateam/upload-service:1.0'
+    image: 'bluehub.azurecr.io/meateam/upload-service:develop'
     environment:
       S3_ACCESS_KEY: 'F6WUUG27HBUFSIXVZL59'
       S3_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
@@ -75,7 +75,7 @@ services:
     ports:
       - '8081:8080'
   download-service:
-    image: 'bluehub.azurecr.io/meateam/download-service:1.0'
+    image: 'bluehub.azurecr.io/meateam/download-service:develop'
     environment:
       S3_ACCESS_KEY: 'F6WUUG27HBUFSIXVZL59'
       S3_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
@@ -98,7 +98,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'bluehub.azurecr.io/meateam/file-service:1.0'
+    image: 'bluehub.azurecr.io/meateam/file-service:develop'
     environment:
       BIND_ADDRESS: '0.0.0.0:8080'
       ELASTICSEARCH_URL: 'http://localhost:9200'
@@ -128,7 +128,7 @@ services:
     depends_on:
       - minio
   authentication-service:
-    image: 'bluehub.azurecr.io/meateam/authentication-service:1.0'
+    image: 'bluehub.azurecr.io/meateam/authentication-service:develop'
     ports:
       - '8084:8080'
     environment:
@@ -151,7 +151,7 @@ services:
       SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: 'http://localhost:8084/auth/metadata.xml/callback'
       SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: 'http://localhost:8084/auth/logout'
   user-service:
-    image: 'bluehub.azurecr.io/meateam/user-service:1.0'
+    image: 'bluehub.azurecr.io/meateam/user-service:develop'
     ports:
       - '8086:8080'
     environment:
@@ -180,7 +180,7 @@ services:
     ports:
       - '6379:6379'
   permission-service:
-    image: 'bluehub.azurecr.io/meateam/permission-service:1.0'
+    image: 'bluehub.azurecr.io/meateam/permission-service:develop'
     ports:
       - '8087:8080'
     environment:
@@ -199,7 +199,7 @@ services:
     depends_on:
       - mongo
   search-service:
-    image: bluehub.azurecr.io/meateam/search-service:1.0
+    image: bluehub.azurecr.io/meateam/search-service:develop
     environment:
       SS_PORT: 8080
       SS_HOST_NAME: search-service
@@ -219,9 +219,10 @@ services:
     ports:
       - 8088:8080
     depends_on: 
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
   gotenberg-service:
-    image: thecodingmachine/gotenberg:6
+    image: bluehub.azurecr.io/meateam/gotenberg:6
     environment:
       DEFAULT_LISTEN_PORT: 8080
       DISABLE_GOOGLE_CHROME: 1
@@ -231,18 +232,18 @@ services:
     ports:
       - 8089:8080
   elasticsearch:
-    image: sebp/elk
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - es:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-      - 5601:5601
-      - 5044:5044
-
-volumes:
-  es:
-    driver: local
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
+    environment: 
+      - discovery.type=single-node
+    container_name: elasticsearch
+    ports: ['9200:9200']
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.5.0
+    container_name: kibana
+    ports: ['5601:5601']
+    depends_on: ['elasticsearch']

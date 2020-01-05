@@ -30,6 +30,8 @@ const (
 	configElasticsearchIndex    = "elasticsearch_index"
 	configTLSSkipVerify         = "tls_skip_verify"
 	configElasticsearchSniff    = "elasticsearch_sniff"
+	configHealthCheckInterval   = "health_check_interval"
+	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
 )
 
 var (
@@ -56,6 +58,8 @@ func init() {
 	viper.SetDefault(configElasticsearchIndex, "metrics")
 	viper.SetDefault(configTLSSkipVerify, true)
 	viper.SetDefault(configElasticsearchSniff, false)
+	viper.SetDefault(configHealthCheckInterval, 5)
+	viper.SetDefault(configHealthCheckRPCTimeout, 5)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
