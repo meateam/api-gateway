@@ -20,17 +20,17 @@ const (
 	// ContextUserKey is the context key used to get and set the user's data in the context.
 	ContextUserKey = "User"
 
-	// DelegatorKey is the context key used to get and set the delegator's data in the context.
-	DelegatorKey = "Delegator"
-
-	// ScopesKey  is the context key used to get the service scopes in the context
-	ScopesKey = "scopes"
-
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
 
 	// ParamPartialName is the name of the partial user name param in URL.
 	ParamPartialName = "partial"
+
+	// ExternalUserSource is the value of the source field of user that indicated that the user is external
+	ExternalUserSource = "external"
+
+	// InternalUserSource is the value of the source field of user that indicated that the user is internal
+	InternalUserSource = "internal"
 )
 
 //Router is a structure that handles users requests.
@@ -44,6 +44,7 @@ type User struct {
 	ID        string `json:"id"`
 	FirstName string `json:"firstname"`
 	LastName  string `json:"lastname"`
+	Source    string `json:"source"`
 	Bucket    string `json:"bucket"`
 }
 

@@ -8,15 +8,9 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
-	dpb "github.com/meateam/delegation-service/proto/delegation-service"
-	spb "github.com/meateam/spike-service/proto/spike-service"
 	"github.com/sirupsen/logrus"
 	"go.elastic.co/apm"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -30,7 +24,7 @@ const (
 	AuthHeaderBearer = "Bearer"
 
 	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
-	AuthUserHeader = "AuthUser"
+	AuthUserHeader = "Auth-User"
 
 	// FirstNameClaim is the claim name for the firstname of the user
 	FirstNameClaim = "firstName"
@@ -41,22 +35,21 @@ const (
 	// UserNameLabel is the label for the full user name.
 	UserNameLabel = "username"
 
-	// ServiceHostHeader is the key of the servive-host header
-	ServiceHostHeader = "ServiceHost"
+	// AuthTypeHeader is the key of the servive-host header
+	AuthTypeHeader = "Auth-Type"
+
+	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	ServiceAuthTypeValue = "Service"
 )
 
 // Router is a structure that handels the authentication middleware.
 type Router struct {
-	spikeClient    spb.SpikeClient
-	delegateClient dpb.DelegationClient
-	logger         *logrus.Logger
+	logger *logrus.Logger
 }
 
 // NewRouter creates a new Router. If logger is non-nil then it will be
 // set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	spikeConn *grpc.ClientConn,
-	delegateConn *grpc.ClientConn,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -66,10 +59,6 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.spikeClient = spb.NewSpikeClient(spikeConn)
-
-	r.delegateClient = dpb.NewDelegationClient(delegateConn)
-
 	return r
 }
 
@@ -78,12 +67,9 @@ func NewRouter(
 func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		isService := c.GetHeader(ServiceHostHeader)
+		isService := c.GetHeader(AuthTypeHeader)
 
-		if isService == "True" {
-			r.ServiceMiddleware(c)
-
-		} else {
+		if isService != ServiceAuthTypeValue {
 			r.UserMiddleware(c, secret, authURL)
 		}
 		c.Next()
@@ -146,77 +132,8 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 		ID:        id,
 		FirstName: firstName,
 		LastName:  lastName,
+		Source:    user.InternalUserSource,
 	})
-
-	c.Next()
-}
-
-// ServiceMiddleware is a middleware for services use.
-// First it extract the token from the Auth header and validate it with spike service
-// Then it add the scopes to the context, and then checks if there is a delegator
-// It check another header for that, and if its true it validate the delegator in the
-// delegation service, and then adds it as delegator to the context.
-func (r *Router) ServiceMiddleware(c *gin.Context) {
-
-	tokenString := r.ExtractTokenFromHeader(c)
-	if tokenString == "" {
-		return
-	}
-
-	validateSpikeTokenRequest := &spb.ValidateTokenResquest{
-		Token: tokenString,
-	}
-
-	spikeResponse, err := r.spikeClient.ValidateToken(c, validateSpikeTokenRequest)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError,
-			fmt.Errorf("internal error while authenticating the token: %v", err)))
-		return
-	}
-
-	if !spikeResponse.Valid {
-		message := spikeResponse.GetMessage()
-		loggermiddleware.LogError(r.logger,
-			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("invalid token %s", message)))
-
-		return
-	}
-
-	scopes := spikeResponse.GetScopes()
-
-	// store scopes in context
-	c.Set(user.ScopesKey, scopes)
-
-	// Find if the action is made on behalf of a user
-	// Note: Later the scope should include the delegator
-	delegatorID := c.GetHeader(AuthUserHeader)
-
-	// if there is a delegator, validate him, then add him to context
-	if delegatorID != "" {
-		getUserByIDRequest := &dpb.GetUserByIDRequest{
-			Id: delegatorID,
-		}
-		delegatorObj, err := r.delegateClient.GetUserByID(c, getUserByIDRequest)
-		if err != nil {
-			if status.Code(err) == codes.NotFound {
-				loggermiddleware.LogError(r.logger,
-					c.AbortWithError(http.StatusUnauthorized,
-						fmt.Errorf("Delegator: %v is not found", delegatorID)))
-				return
-			}
-			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError,
-				fmt.Errorf("internal error while authenticating the delegator: %v", err)))
-			return
-		}
-
-		delegator := delegatorObj.GetUser()
-
-		c.Set(user.DelegatorKey, user.User{
-			ID:        delegator.Id,
-			FirstName: delegator.FirstName,
-			LastName:  delegator.LastName,
-		})
-	}
 
 	c.Next()
 }
@@ -286,32 +203,4 @@ func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason st
 	r.logger.Info(reason)
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 	c.Abort()
-}
-
-// ExtractTokenFromHeader extracts the token from the request header, and aborts with error if there is one.
-func (r *Router) ExtractTokenFromHeader(c *gin.Context) string {
-	authArr := strings.Fields(c.GetHeader(AuthHeader))
-
-	// No authorization header sent
-	if len(authArr) == 0 {
-		loggermiddleware.LogError(r.logger,
-			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no authorization header sent")))
-		return ""
-	}
-
-	// The header value missing the correct prefix
-	if authArr[0] != AuthHeaderBearer {
-		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
-			"authorization header is not legal. value should start with 'Bearer': %v", authArr[0])))
-		return ""
-	}
-
-	// The value of the header doesn't contain the token
-	if len(authArr) < 2 {
-		loggermiddleware.LogError(r.logger,
-			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no token sent in header %v", authArr)))
-		return ""
-	}
-
-	return authArr[1]
 }
