@@ -12,8 +12,9 @@ import (
 )
 
 type body struct {
-	User *user.User `json:"user,omitempty"`
-	Path string     `json:"path,omitempty"`
+	User   *user.User `json:"user,omitempty"`
+	Path   string     `json:"path,omitempty"`
+	Method string     `json:"method",omitempty`
 }
 
 // NewMetricsLogger initializes the metrics middleware.
@@ -29,8 +30,9 @@ func NewMetricsLogger() gin.HandlerFunc {
 		_, _ = client.Index().
 			Index(index).
 			BodyJson(&body{
-				User: user.ExtractRequestUser(c),
-				Path: c.Request.URL.Path,
+				User:   user.ExtractRequestUser(c),
+				Path:   c.Request.URL.Path,
+				Method: c.Request.Method,
 			}).
 			Do(c.Request.Context())
 	}
