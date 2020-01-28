@@ -66,7 +66,7 @@ func NewRouter(
 	return r
 }
 
-// Setup sets up r and intializes its routes under rg.
+// Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
@@ -150,4 +150,10 @@ func normalizeCephBucketName(bucketName string) string {
 	// Make a Regex for catching only letters and numbers.
 	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
 	return reg.ReplaceAllString(lowerCaseBucketName, "-")
+}
+
+// IsExternalUser gets a userID and returns true if user is from an external source.
+// Otherwise, returns false. Currently just and all of the external users has a @ in their ID.
+func IsExternalUser(userID string) bool {
+	return strings.Contains(userID, "@")
 }
