@@ -233,7 +233,7 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		return false
 	}
 
-	isPermitted, err := file.CheckUserFilePermission(c.Request.Context(),
+	userFilePermission, _, err := file.CheckUserFilePermission(c.Request.Context(),
 		r.fileClient,
 		r.permissionClient,
 		reqUser.ID,
@@ -246,9 +246,9 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		return false
 	}
 
-	if !isPermitted {
+	if userFilePermission == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	}
 
-	return isPermitted
+	return userFilePermission != ""
 }
