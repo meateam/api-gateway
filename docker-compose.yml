@@ -15,6 +15,7 @@ services:
       GW_ALLOW_ORIGINS: 'http://localhost*'
       GW_SUPPORT_LINK: 'https://open.rocket.chat/home'
       GW_CHROME_DOWNLOAD_URL: 'https://google.com/chrome/'
+      GW_APPROVAL_URL: http://23.102.32.203/api/v1/request
       ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'info'

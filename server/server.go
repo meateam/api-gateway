@@ -33,6 +33,7 @@ const (
 	configElasticsearchIndex    = "elasticsearch_index"
 	configTLSSkipVerify         = "tls_skip_verify"
 	configElasticsearchSniff    = "elasticsearch_sniff"
+	configApprovalServiceURL    = "approval_url"
 )
 
 var (
@@ -62,6 +63,7 @@ func init() {
 	viper.SetDefault(configElasticsearchIndex, "metrics")
 	viper.SetDefault(configTLSSkipVerify, true)
 	viper.SetDefault(configElasticsearchSniff, false)
+	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

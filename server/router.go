@@ -77,6 +77,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 				"environment":        os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 				"authUrl":            viper.GetString(configAuthURL),
 				"supportLink":        viper.GetString(configSupportLink),
+				"approvalServiceUrl": viper.GetString(configApprovalServiceURL),
 			},
 		)
 	})
