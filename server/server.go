@@ -17,6 +17,7 @@ const (
 	configFileService           = "file_service"
 	configUserService           = "user_service"
 	configPermissionService     = "permission_service"
+	configPermitService         = "permit_service"
 	configSearchService         = "search_service"
 	configSpikeService          = "spike_service"
 	configGotenbergService      = "gotenberg_service"
@@ -35,6 +36,7 @@ const (
 	configHealthCheckInterval   = "health_check_interval"
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
 	configWebUI                 = "web_ui"
+	configApprovalServiceURL    = "approval_url"
 )
 
 var (
@@ -49,6 +51,7 @@ func init() {
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
 	viper.SetDefault(configPermissionService, "permission-service:8080")
+	viper.SetDefault(configPermitService, "permit-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
 	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
@@ -66,6 +69,7 @@ func init() {
 	viper.SetDefault(configHealthCheckInterval, 5)
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
 	viper.SetDefault(configWebUI, "http://localhost")
+	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

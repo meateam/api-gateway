@@ -10,12 +10,14 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	"github.com/meateam/gotenberg-go-client/v6"
 	ppb "github.com/meateam/permission-service/proto"
+	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
@@ -83,7 +85,7 @@ const (
 	// DocMimeType is the mime type of a .doc file.
 	DocMimeType = "application/msword"
 
- 	// DocxMimeType is the mime type of a .docx file.
+	// DocxMimeType is the mime type of a .docx file.
 	DocxMimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 	// XlsMimeType is the mime type of a .xls file.
@@ -129,8 +131,10 @@ type Router struct {
 	fileClient       fpb.FileServiceClient
 	uploadClient     upb.UploadClient
 	permissionClient ppb.PermissionClient
+	permitClient     ptpb.PermitClient
 	searchClient     spb.SearchClient
 	gotenbergClient  *gotenberg.Client
+	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
 }
 
@@ -172,8 +176,10 @@ func NewRouter(
 	downloadConn *grpc.ClientConn,
 	uploadConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
+	permitConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
 	gotenbergClient *gotenberg.Client,
+	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -187,16 +193,21 @@ func NewRouter(
 	r.downloadClient = dpb.NewDownloadClient(downloadConn)
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
+	r.permitClient = ptpb.NewPermitClient(permitConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
 	r.gotenbergClient = gotenbergClient
+
+	r.oAuthMiddleware = oAuthMiddleware
 
 	return r
 }
 
-// Setup sets up r and intializes its routes under rg.
+// Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.GET("/files", r.GetFilesByFolder)
-	rg.GET("/files/:id", r.GetFileByID)
+	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+
+	rg.GET("/files", checkExternalAdminScope, r.GetFilesByFolder)
+	rg.GET("/files/:id", checkExternalAdminScope, r.GetFileByID)
 	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
@@ -760,6 +771,30 @@ func CheckUserFilePermission(ctx context.Context,
 	}
 }
 
+// CheckUserFilePermit checks if userID is has a permit to fileID.
+// The function returns true if the user has a permit to the file and nil error,
+// otherwise false and non-nil err if any encountered.
+func CheckUserFilePermit(ctx context.Context,
+	permitClient ptpb.PermitClient,
+	userID string,
+	fileID string,
+	role ppb.Role) (bool, error) {
+
+	// Permits have only READ roles
+	if role != ppb.Role_READ {
+		return false, nil
+	}
+
+	hasPermitRes, err := permitClient.HasPermit(ctx, &ptpb.HasPermitRequest{FileID: fileID, UserID: userID})
+	if err != nil {
+		return false, err
+	}
+
+	hasPermit := hasPermitRes.GetHasPermit()
+
+	return hasPermit, nil
+}
+
 // CreatePermission creates permission in permission service only if userID has
 // ppb.Role_OWNER permission to permission.FileID.
 func CreatePermission(ctx context.Context,
@@ -837,6 +872,16 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 		reqUser.ID,
 		fileID,
 		role)
+
+	if !isPermitted && err == nil && reqUser.Source == user.ExternalUserSource {
+		isPermitted, err = CheckUserFilePermit(c.Request.Context(),
+			r.permitClient,
+			reqUser.ID,
+			fileID,
+			role)
+
+	}
+
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
