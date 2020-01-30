@@ -782,7 +782,7 @@ func CheckUserFilePermission(ctx context.Context,
 		return true, nil
 	}
 
-	// Go up the hirarchy searching for a permission for userID to fileID with role.
+	// Go up the hierarchy searching for a permission for userID to fileID with role.
 	// Fetch fileID's parents, each at a time, and check permission to each parent.
 	// If reached a parent that userID isn't permitted to then return with error,
 	// If reached a parent that userID is permitted to then return true with nil error.
