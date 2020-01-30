@@ -136,7 +136,8 @@ services:
       USERS_RPC_ENDPOINT: 'user-service:8080'
       SECRET_KEY: 'pandora@drive'
       CLIENT_ENDPOINT: 'http://localhost'
-      STRATEGY: 'saml'
+      SHRAGA_URL: "http://13.79.7.3"
+      STRATEGY: 'shraga'
     depends_on:
       - saml-idp
       - user-service
