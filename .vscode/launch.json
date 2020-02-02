@@ -21,6 +21,7 @@
         "GW_DELEGATION_SERVICE": ":8091",
         "GW_PERMIT_SERVICE": ":8092",
         "GW_GOTENBERG_SERVICE": "http://localhost:8089",
+        "GW_WEB_UI": "http://localhost:8080",
         "ELASTICSEARCH_URL": "http://13.69.137.179:9200",
         "LOG_INDEX": "kdrive",
         "LOG_LEVEL": "info",

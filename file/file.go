@@ -13,6 +13,7 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
+	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -21,6 +22,7 @@ import (
 	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	usrpb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -140,6 +142,8 @@ type Router struct {
 	permissionClient ppb.PermissionClient
 	permitClient     ptpb.PermitClient
 	searchClient     spb.SearchClient
+	userClient       usrpb.UsersClient
+	delegationClient dlgpb.DelegationClient
 	gotenbergClient  *gotenberg.Client
 	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
@@ -167,6 +171,7 @@ type GetFileByIDResponse struct {
 	Role        string      `json:"role,omitempty"`
 	Shared      bool        `json:"shared"`
 	Permission  *Permission `json:"permission,omitempty"`
+	IsExternal  bool        `json:"isExternal"`
 }
 
 type partialFile struct {
@@ -197,6 +202,8 @@ func NewRouter(
 	permissionConn *grpc.ClientConn,
 	permitConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
+	userConn *grpc.ClientConn,
+	delegationConn *grpc.ClientConn,
 	gotenbergClient *gotenberg.Client,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
@@ -214,6 +221,8 @@ func NewRouter(
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.permitClient = ptpb.NewPermitClient(permitConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
+	r.userClient = usrpb.NewUsersClient(userConn)
+	r.delegationClient = dlgpb.NewDelegationClient(delegationConn)
 	r.gotenbergClient = gotenbergClient
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -250,7 +259,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 
 	userFilePermission, foundPermission := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 	if userFilePermission == "" {
-		if r.HandleUserFilePermit(c, fileID, GetFileByIDRole) {
+		if !r.HandleUserFilePermit(c, fileID, GetFileByIDRole) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
@@ -308,11 +317,16 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	filesParent := c.Query(ParamFileParent)
-	if userFilePermission, _ := r.HandleUserFilePermission(
+	userFilePermission, _ := r.HandleUserFilePermission(
 		c,
 		filesParent,
-		GetFilesByFolderRole); userFilePermission == "" {
-		return
+		GetFilesByFolderRole)
+
+	if userFilePermission == "" {
+		if !r.HandleUserFilePermit(c, filesParent, GetFilesByFolderRole) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 	}
 
 	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
@@ -818,7 +832,7 @@ func CheckUserFilePermission(ctx context.Context,
 		return OwnerRole, nil, nil
 	}
 
-	// Go up the hirarchy searching for a permission for userID to fileID with role.
+	// Go up the hierarchy searching for a permission for userID to fileID with role.
 	// Fetch fileID's parents, each at a time, and check permission to each parent.
 	// If reached a parent that userID isn't permitted to then return with error,
 	// If reached a parent that userID is permitted to then return true with nil error.
@@ -974,6 +988,10 @@ func (r *Router) HandleUserFilePermission(
 	return userFilePermission, foundPermission
 }
 
+// HandleUserFilePermit gets a gin context and the id of the requested file,
+// returns true if the user is permitted to operate on the file.
+// Returns false if the user isn't permitted to operate on it,
+// Returns false if any error occurred and logs the error.
 func (r *Router) HandleUserFilePermit(
 	c *gin.Context,
 	fileID string,
@@ -1012,6 +1030,8 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 		return nil
 	}
 
+	isExternal := user.IsExternalUser(file.OwnerID)
+
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &GetFileByIDResponse{
 		ID:          file.GetId(),
@@ -1025,6 +1045,7 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 		UpdatedAt:   file.GetUpdatedAt(),
 		Role:        role,
 		Shared:      false,
+		IsExternal:  isExternal,
 	}
 
 	if permission != nil {
@@ -1066,7 +1087,7 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	streamReader := download.NewStreamReadCloser(stream)
 
 	// IMPORTANT: Must use a buffer that its size is at least download.PartSize, otherwise data loss
-	// would occure.
+	// would occur.
 	buf := make([]byte, download.PartSize)
 	convertRequest, err := gotenberg.NewOfficeRequestWithBuffer(filename, streamReader, buf)
 	if err != nil {

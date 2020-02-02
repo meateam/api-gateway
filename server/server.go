@@ -35,6 +35,8 @@ const (
 	configElasticsearchSniff    = "elasticsearch_sniff"
 	configHealthCheckInterval   = "health_check_interval"
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
+	configWebUI                 = "web_ui"
+	configApprovalServiceURL    = "approval_url"
 )
 
 var (
@@ -66,6 +68,8 @@ func init() {
 	viper.SetDefault(configElasticsearchSniff, false)
 	viper.SetDefault(configHealthCheckInterval, 5)
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
+	viper.SetDefault(configWebUI, "http://localhost")
+	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

@@ -72,6 +72,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 				"environment":        os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 				"authUrl":            viper.GetString(configAuthURL),
 				"supportLink":        viper.GetString(configSupportLink),
+				"approvalServiceUrl": viper.GetString(configApprovalServiceURL),
 			},
 		)
 	})
@@ -140,7 +141,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
-		searchConn, gotenbergClient, om, logger)
+		searchConn, userConn, delegateConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)

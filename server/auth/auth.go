@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"go.elastic.co/apm"
 )
 
@@ -201,6 +203,9 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
 func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason string) {
 	r.logger.Info(reason)
-	c.Redirect(http.StatusTemporaryRedirect, authURL)
+	redirectURI := viper.GetString("web_ui") + c.Request.RequestURI
+	encodedRedirectURI := url.QueryEscape(redirectURI)
+	authRedirectURL := fmt.Sprintf("%s?RelayState=%s", authURL, encodedRedirectURI)
+	c.Redirect(http.StatusTemporaryRedirect, authRedirectURL)
 	c.Abort()
 }
