@@ -153,7 +153,7 @@ type GetFileByIDResponse struct {
 	Parent      string `json:"parent,omitempty"`
 	CreatedAt   int64  `json:"createdAt,omitempty"`
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
-	IsExternal  bool   `json:"isExternal,omitempty"`
+	IsExternal  bool   `json:"isExternal"`
 }
 
 type partialFile struct {
@@ -253,7 +253,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 
 		return
 	}
-	isExternal := r.IsUserExternal(c, file.OwnerID)
+	isExternal := user.IsExternalUser(file.OwnerID)
 	c.JSON(http.StatusOK, CreateGetFileResponse(file, isExternal))
 }
 
@@ -338,7 +338,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	files := filesResp.GetFiles()
 	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		isExternal := r.IsUserExternal(c, file.OwnerID)
+		isExternal := user.IsExternalUser(file.OwnerID)
 		responseFiles = append(responseFiles, CreateGetFileResponse(file, isExternal))
 	}
 
@@ -376,45 +376,12 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			return
 		}
 
-		isExternal := r.IsUserExternal(c, file.OwnerID)
+		isExternal := user.IsExternalUser(file.OwnerID)
 
 		files = append(files, CreateGetFileResponse(file, isExternal))
 	}
 
 	c.JSON(http.StatusOK, files)
-}
-
-// IsUserExternal checks if the userID given is internal or external
-func (r *Router) IsUserExternal(c *gin.Context, userID string) bool {
-
-	getUserByIDRequest := &usrpb.GetByIDRequest{
-		Id: userID,
-	}
-
-	getUserByIDResponse, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
-	if err != nil {
-		// The user was not found. meaning it might be external
-	} else {
-		if getUserByIDResponse.GetUser().GetId() == userID {
-			// if the ids are equal then the user is internal
-			return false
-		} else {
-			// Something went wrong
-			c.AbortWithStatus(http.StatusConflict)
-			return false
-		}
-	}
-
-	getExUserByIDRequest := &dlgpb.GetUserByIDRequest{
-		Id: userID,
-	}
-	getExUserByIDResponse, err := r.delegationClient.GetUserByID(c.Request.Context(), getExUserByIDRequest)
-	if err != nil || getExUserByIDResponse.GetUser().GetId() != userID {
-		// if we're here, then the user is neither internal nor external
-		c.AbortWithStatus(http.StatusConflict)
-		return false
-	}
-	return true
 }
 
 // DeleteFileByID is the request handler for DELETE /files/:id request.
@@ -613,7 +580,7 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 
 			return
 		}
-		isExternal := r.IsUserExternal(c, file.OwnerID)
+		isExternal := user.IsExternalUser(file.OwnerID)
 		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file, isExternal))
 	}
 
