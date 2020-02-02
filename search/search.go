@@ -112,7 +112,6 @@ func (r *Router) Search(c *gin.Context) {
 
 				return
 			}
-
 			responseFiles = append(responseFiles, file.CreateGetFileResponse(res))
 		}
 	}

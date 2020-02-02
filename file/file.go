@@ -12,6 +12,7 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
+	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -20,6 +21,7 @@ import (
 	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	usrpb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -133,6 +135,8 @@ type Router struct {
 	permissionClient ppb.PermissionClient
 	permitClient     ptpb.PermitClient
 	searchClient     spb.SearchClient
+	userClient       usrpb.UsersClient
+	delegationClient dlgpb.DelegationClient
 	gotenbergClient  *gotenberg.Client
 	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
@@ -149,6 +153,7 @@ type GetFileByIDResponse struct {
 	Parent      string `json:"parent,omitempty"`
 	CreatedAt   int64  `json:"createdAt,omitempty"`
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
+	IsExternal  bool   `json:"isExternal"`
 }
 
 type partialFile struct {
@@ -178,6 +183,8 @@ func NewRouter(
 	permissionConn *grpc.ClientConn,
 	permitConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
+	userConn *grpc.ClientConn,
+	delegationConn *grpc.ClientConn,
 	gotenbergClient *gotenberg.Client,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
@@ -195,6 +202,8 @@ func NewRouter(
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.permitClient = ptpb.NewPermitClient(permitConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
+	r.userClient = usrpb.NewUsersClient(userConn)
+	r.delegationClient = dlgpb.NewDelegationClient(delegationConn)
 	r.gotenbergClient = gotenbergClient
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -244,7 +253,6 @@ func (r *Router) GetFileByID(c *gin.Context) {
 
 		return
 	}
-
 	c.JSON(http.StatusOK, CreateGetFileResponse(file))
 }
 
@@ -568,7 +576,6 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 
 			return
 		}
-
 		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file))
 	}
 
@@ -902,6 +909,8 @@ func CreateGetFileResponse(file *fpb.File) *GetFileByIDResponse {
 		return nil
 	}
 
+	isExternal := user.IsExternalUser(file.OwnerID)
+
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &GetFileByIDResponse{
 		ID:          file.GetId(),
@@ -913,6 +922,7 @@ func CreateGetFileResponse(file *fpb.File) *GetFileByIDResponse {
 		Parent:      file.GetParent(),
 		CreatedAt:   file.GetCreatedAt(),
 		UpdatedAt:   file.GetUpdatedAt(),
+		IsExternal:  isExternal,
 	}
 
 	// If file contains parent object instead of its id.
