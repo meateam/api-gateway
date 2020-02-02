@@ -253,8 +253,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 
 		return
 	}
-	isExternal := user.IsExternalUser(file.OwnerID)
-	c.JSON(http.StatusOK, CreateGetFileResponse(file, isExternal))
+	c.JSON(http.StatusOK, CreateGetFileResponse(file))
 }
 
 // Extracts parameters from request query to a map, non-existing parameter has a value of ""
@@ -338,8 +337,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	files := filesResp.GetFiles()
 	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		isExternal := user.IsExternalUser(file.OwnerID)
-		responseFiles = append(responseFiles, CreateGetFileResponse(file, isExternal))
+		responseFiles = append(responseFiles, CreateGetFileResponse(file))
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
@@ -376,9 +374,7 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			return
 		}
 
-		isExternal := user.IsExternalUser(file.OwnerID)
-
-		files = append(files, CreateGetFileResponse(file, isExternal))
+		files = append(files, CreateGetFileResponse(file))
 	}
 
 	c.JSON(http.StatusOK, files)
@@ -580,8 +576,7 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 
 			return
 		}
-		isExternal := user.IsExternalUser(file.OwnerID)
-		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file, isExternal))
+		populatedPermittedAncestors = append(populatedPermittedAncestors, CreateGetFileResponse(file))
 	}
 
 	c.JSON(http.StatusOK, populatedPermittedAncestors)
@@ -909,10 +904,12 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 }
 
 // CreateGetFileResponse Creates a file grpc response to http response struct
-func CreateGetFileResponse(file *fpb.File, isExternal bool) *GetFileByIDResponse {
+func CreateGetFileResponse(file *fpb.File) *GetFileByIDResponse {
 	if file == nil {
 		return nil
 	}
+
+	isExternal := user.IsExternalUser(file.OwnerID)
 
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &GetFileByIDResponse{
