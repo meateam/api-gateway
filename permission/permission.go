@@ -41,8 +41,9 @@ const (
 )
 
 type createPermissionRequest struct {
-	UserID string `json:"userID,omitempty"`
-	Role   string `json:"role,omitempty"`
+	UserID   string `json:"userID,omitempty"`
+	Role     string `json:"role,omitempty"`
+	Override bool   `json:"override"`
 }
 
 // Permission is a struct that describes a user's permission to a file.
@@ -222,7 +223,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		UserID:  permission.UserID,
 		Role:    permission.Role,
 		Creator: reqUser.ID,
-	})
+	}, permission.Override)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -354,12 +355,13 @@ func IsPermitted(ctx context.Context,
 // CreatePermission creates permission in the permission-service.
 func CreatePermission(ctx context.Context,
 	permissionClient ppb.PermissionClient,
-	permission Permission) (*ppb.PermissionObject, error) {
+	permission Permission, override bool) (*ppb.PermissionObject, error) {
 	permissionRequest := &ppb.CreatePermissionRequest{
-		FileID:  permission.FileID,
-		UserID:  permission.UserID,
-		Role:    ppb.Role(ppb.Role_value[permission.Role]),
-		Creator: permission.Creator,
+		FileID:   permission.FileID,
+		UserID:   permission.UserID,
+		Role:     ppb.Role(ppb.Role_value[permission.Role]),
+		Creator:  permission.Creator,
+		Override: override,
 	}
 	createdPermission, err := permissionClient.CreatePermission(ctx, permissionRequest)
 	if err != nil {
