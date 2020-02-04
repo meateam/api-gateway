@@ -476,9 +476,12 @@ func (r *Router) Download(c *gin.Context) {
 		c.String(http.StatusBadRequest, "file id is required")
 		return
 	}
-
-	if role, _ := r.HandleUserFilePermission(c, fileID, DownloadRole); role == "" {
-		return
+	role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
+	if role == "" {
+		if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 	}
 
 	// Get the file meta from the file service
