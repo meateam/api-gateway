@@ -365,7 +365,6 @@ func CreatePermission(ctx context.Context,
 	}
 	createdPermission, err := permissionClient.CreatePermission(ctx, permissionRequest)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
