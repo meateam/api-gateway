@@ -40,7 +40,7 @@ const (
 )
 
 type createPermitRequest struct {
-	FileName       string   `json:"fileName`
+	FileName       string   `json:"fileName"`
 	Users          []User   `json:"users,omitempty"`
 	Classification string   `json:"classification,omitempty"`
 	Info           string   `json:"info,omitempty"`
