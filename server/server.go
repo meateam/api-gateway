@@ -37,6 +37,7 @@ const (
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
 	configWebUI                 = "web_ui"
 	configApprovalServiceURL    = "approval_url"
+	configBucketPrefix          = "bucket_prefix"
 )
 
 var (
@@ -70,6 +71,7 @@ func init() {
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
 	viper.SetDefault(configWebUI, "http://localhost")
 	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
+	viper.SetDefault(configBucketPrefix, "defaultprefix")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
