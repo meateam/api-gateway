@@ -12,6 +12,7 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	uspb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -146,7 +147,8 @@ func ExtractRequestUser(ctx context.Context) *User {
 // normalizeCephBucketName gets a bucket name and normalizes it
 // according to ceph s3's constraints.
 func normalizeCephBucketName(bucketName string) string {
-	lowerCaseBucketName := strings.ToLower(bucketName)
+	prefix := viper.GetString("bucket_prefix")
+	lowerCaseBucketName := strings.ToLower(prefix + bucketName)
 
 	// Make a Regex for catching only letters and numbers.
 	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
