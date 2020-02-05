@@ -40,6 +40,7 @@ const (
 )
 
 type createPermitRequest struct {
+	FileName       string   `json:"fileName"`
 	Users          []User   `json:"users,omitempty"`
 	Classification string   `json:"classification,omitempty"`
 	Info           string   `json:"info,omitempty"`
@@ -172,6 +173,7 @@ func (r *Router) CreateFilePermits(c *gin.Context) {
 
 	createdPermits, err := r.permitClient.CreatePermit(c.Request.Context(), &ptpb.CreatePermitRequest{
 		FileID:         fileID,
+		FileName:       permitRequest.FileName,
 		SharerID:       reqUser.ID,
 		Users:          userIDs,
 		Classification: permitRequest.Classification,
