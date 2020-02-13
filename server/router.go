@@ -67,12 +67,15 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"chromeDownloadLink": viper.GetString(configDownloadChromeURL),
-				"apmServerUrl":       viper.GetString(configExternalApmURL),
-				"environment":        os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"authUrl":            viper.GetString(configAuthURL),
-				"supportLink":        viper.GetString(configSupportLink),
-				"approvalServiceUrl": viper.GetString(configApprovalServiceURL),
+				"chromeDownloadLink":    viper.GetString(configDownloadChromeURL),
+				"apmServerUrl":          viper.GetString(configExternalApmURL),
+				"environment":           os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+				"authUrl":               viper.GetString(configAuthURL),
+				"supportLink":           viper.GetString(configSupportLink),
+				"approvalServiceUrl":    viper.GetString(configApprovalServiceURL),
+				"externalShareName":     viper.GetString(configExternalShareName),
+				"myExternalSharesName":  viper.GetString(configMyExternalSharesName),
+				"externalExclusiveUnit": viper.GetString(configExternalExclusiveUnit),
 			},
 		)
 	})
