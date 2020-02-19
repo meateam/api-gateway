@@ -41,6 +41,8 @@ const (
 	configExternalShareName     = "external_share_name"
 	configMyExternalSharesName  = "my_external_shares_name"
 	configExternalExclusiveUnit = "external_exclusive_unit"
+	configVipService            = "vip_service"
+	configEnableExternalShare   = "enable_external_share"
 )
 
 var (
@@ -78,6 +80,8 @@ func init() {
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configExternalExclusiveUnit, "יחידת ביג מאם")
+	viper.SetDefault(configVipService, "http://localhost:8094")
+	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
