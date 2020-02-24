@@ -32,6 +32,9 @@ const (
 
 	// InternalUserSource is the value of the source field of user that indicated that the user is internal
 	InternalUserSource = "internal"
+
+	// MongoIDLength is the number of letters in a mongo ID.
+	MongoIDLength = 24
 )
 
 //Router is a structure that handles users requests.
@@ -158,5 +161,5 @@ func normalizeCephBucketName(bucketName string) string {
 // IsExternalUser gets a userID and returns true if user is from an external source.
 // Otherwise, returns false. Currently just and all of the external users has a @ in their ID.
 func IsExternalUser(userID string) bool {
-	return strings.Contains(userID, "@")
+	return len(userID) != MongoIDLength
 }

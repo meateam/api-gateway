@@ -17,6 +17,7 @@ services:
       GW_CHROME_DOWNLOAD_URL: 'https://google.com/chrome/'
       GW_APPROVAL_URL: http://23.102.32.203/api/v1/request
       GW_WEB_UI: "http://localhost:8093"
+      GW_VIP_SERVICE: "http://localhost:8094"
       ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'info'
@@ -218,9 +219,9 @@ services:
       SS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     ports:
       - 8088:8080
-    # depends_on: 
-    #   elasticsearch:
-    #     condition: service_healthy
+    depends_on: 
+      elasticsearch:
+        condition: service_healthy
   gotenberg-service:
     image: bluehub.azurecr.io/meateam/gotenberg:6
     environment:
@@ -232,7 +233,7 @@ services:
     ports:
       - 8089:8080
   spike-service:
-    image: bluehub.azurecr.io/meateam/spike-service:develop
+    image: bluehub.azurecr.io/meateam/spike-service:latest
     environment:
       AUDIENCE: "0mBMe5vYJyuFtvHpEWVDPumqaVl~xr"
       SPIKE_CLIENT_ID: "EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub"
@@ -240,6 +241,7 @@ services:
       REDIS_URL: 'redis://redis:6379'
       SPIKE_TOKEN_URL: "https://spike.westeurope.cloudapp.azure.com:1337/oauth2/token"
       SPIKE_PUBLIC_KEY_FULL_PATH: "/usr/src/app/utils/publickey.pem"
+      SPIKE_PUBKEY_PATH: 'https://spike.westeurope.cloudapp.azure.com:1337/.well-known/publickey.pem'
       NODE_TLS_REJECT_UNAUTHORIZED: 0
     depends_on:
       - redis
@@ -285,19 +287,19 @@ services:
     image: 'redis:alpine'
     ports:
       - '6379:6379'
-  # elasticsearch:
-  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
-  #   environment: 
-  #     - discovery.type=single-node
-  #   container_name: elasticsearch
-  #   ports: ['9200:9200']
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:9200"]
-  #     interval: 5s
-  #     timeout: 10s
-  #     retries: 5
-  # kibana:
-  #   image: docker.elastic.co/kibana/kibana:7.5.0
-  #   container_name: kibana
-  #   ports: ['5601:5601']
-  #   depends_on: ['elasticsearch']
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
+    environment: 
+      - discovery.type=single-node
+    container_name: elasticsearch
+    ports: ['9200:9200']
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.5.0
+    container_name: kibana
+    ports: ['5601:5601']
+    depends_on: ['elasticsearch']
