@@ -161,5 +161,5 @@ func normalizeCephBucketName(bucketName string) string {
 // IsExternalUser gets a userID and returns true if user is from an external source.
 // Otherwise, returns false. Currently just and all of the external users has a @ in their ID.
 func IsExternalUser(userID string) bool {
-	return len(userID) != 24
+	return len(userID) != MongoIDLength
 }
