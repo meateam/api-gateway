@@ -29,7 +29,7 @@ import (
 
 const (
 	// MaxSimpleUploadSize 5MB.
-	MaxSimpleUploadSize = 5 << 20
+	MaxSimpleUploadSize = 20 << 20
 
 	// MinPartUploadSize 5MB min limit.
 	MinPartUploadSize = 5 << 20
