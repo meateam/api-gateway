@@ -132,7 +132,16 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// initiate middlewares
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
-	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn, spikeConn, permitConn, delegateConn}
+	conns := []*grpc.ClientConn{
+		fileConn,
+		uploadConn,
+		downloadConn,
+		permissionConn,
+		userConn,
+		searchConn,
+		spikeConn,
+		permitConn,
+		delegateConn}
 
 	health := NewHealthChecker()
 	healthInterval := viper.GetInt(configHealthCheckInterval)

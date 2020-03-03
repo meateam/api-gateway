@@ -30,7 +30,6 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.6.1
-	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	go.elastic.co/apm v1.6.0
 	go.elastic.co/apm/module/apmgin v1.6.0
 	go.elastic.co/apm/module/apmgrpc v1.6.0

@@ -25,9 +25,6 @@ const (
 	// AuthHeaderBearer is the prefix for the authorization token in AuthHeader.
 	AuthHeaderBearer = "Bearer"
 
-	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
-	AuthUserHeader = "Auth-User"
-
 	// FirstNameClaim is the claim name for the firstname of the user
 	FirstNameClaim = "firstName"
 

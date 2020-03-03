@@ -26,27 +26,21 @@ const (
 	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
 	AuthUserHeader = "Auth-User"
 
-	// DelegatorKey is the context key used to get and set the delegator's data in the context.
-	DelegatorKey = "Delegator"
-
 	// OutAdminScope is the scope name required for uploading,
 	// downloading, and sharing files for an out-source user
 	OutAdminScope = "externalAdmin"
 
-	// ScopesKey  is the context key used to get the service scopes in the context
-	ScopesKey = "Scopes"
-
 	// UpdatePermitStatusScope is the scope name required for updating a permit's scope
 	UpdatePermitStatusScope = "status"
 
-	// AuthTypeHeader is the key of the servive-host header
+	// AuthTypeHeader is the key of the service-host header
 	AuthTypeHeader = "Auth-Type"
 
 	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
 )
 
-// Middleware is a structure that handels the authentication middleware.
+// Middleware is a structure that handles the authentication middleware.
 type Middleware struct {
 	spikeClient    spb.SpikeClient
 	delegateClient dpb.DelegationClient
@@ -106,13 +100,13 @@ func (m *Middleware) ScopeMiddleware(requiredScope string) gin.HandlerFunc {
 			m.logger,
 			c.AbortWithError(
 				http.StatusUnauthorized,
-				fmt.Errorf("the service is not allowed to do this opperation"),
+				fmt.Errorf("the service is not allowed to do this operation"),
 			),
 		)
 	}
 }
 
-// ExtractScopes extract the token from the Auth header and validate
+// extractScopes extract the token from the Auth header and validate
 // it with spike service. Then it add the scopes to the context.
 // and then checks if there is a delegator
 // It check another header for that, and if its true it validate the delegator in the
