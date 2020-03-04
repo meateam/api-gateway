@@ -37,10 +37,9 @@ const (
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
 	configWebUI                 = "web_ui"
 	configApprovalServiceURL    = "approval_url"
-	configBucketPrefix          = "bucket_prefix"
+	configBucketPostfix         = "bucket_postfix"
 	configExternalShareName     = "external_share_name"
 	configMyExternalSharesName  = "my_external_shares_name"
-	configExternalExclusiveUnit = "external_exclusive_unit"
 	configVipService            = "vip_service"
 	configEnableExternalShare   = "enable_external_share"
 )
@@ -76,10 +75,9 @@ func init() {
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
 	viper.SetDefault(configWebUI, "http://localhost")
 	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
-	viper.SetDefault(configBucketPrefix, "defaultprefix")
+	viper.SetDefault(configBucketPostfix, "")
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
-	viper.SetDefault(configExternalExclusiveUnit, "יחידת ביג מאם")
 	viper.SetDefault(configVipService, "http://localhost:8094")
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetEnvPrefix(envPrefix)

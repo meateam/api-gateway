@@ -26,35 +26,30 @@ const (
 	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
 	AuthUserHeader = "Auth-User"
 
-	// DelegatorKey is the context key used to get and set the delegator's data in the context.
-	DelegatorKey = "Delegator"
-
 	// OutAdminScope is the scope name required for uploading,
 	// downloading, and sharing files for an out-source user
 	OutAdminScope = "externalAdmin"
 
-	// ScopesKey  is the context key used to get the service scopes in the context
-	ScopesKey = "Scopes"
-
 	// UpdatePermitStatusScope is the scope name required for updating a permit's scope
 	UpdatePermitStatusScope = "status"
 
-	// AuthTypeHeader is the key of the servive-host header
+	// AuthTypeHeader is the key of the service-host header
 	AuthTypeHeader = "Auth-Type"
 
 	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
 )
 
-// Middleware is a structure that handels the authentication middleware.
+// Middleware is a structure that handles the authentication middleware.
 type Middleware struct {
 	spikeClient    spb.SpikeClient
 	delegateClient dpb.DelegationClient
 	logger         *logrus.Logger
 }
 
-// NewOAuthMiddleware creates a new Router. If logger is non-nil then it will be
-// set as-is, otherwise logger would default to logrus.New().
+// NewOAuthMiddleware generates a middleware.
+// If logger is non-nil then it will be set as-is,
+// otherwise logger would default to logrus.New().
 func NewOAuthMiddleware(
 	spikeConn *grpc.ClientConn,
 	delegateConn *grpc.ClientConn,
@@ -65,13 +60,13 @@ func NewOAuthMiddleware(
 		logger = logrus.New()
 	}
 
-	r := &Middleware{logger: logger}
+	m := &Middleware{logger: logger}
 
-	r.spikeClient = spb.NewSpikeClient(spikeConn)
+	m.spikeClient = spb.NewSpikeClient(spikeConn)
 
-	r.delegateClient = dpb.NewDelegationClient(delegateConn)
+	m.delegateClient = dpb.NewDelegationClient(delegateConn)
 
-	return r
+	return m
 }
 
 // ScopeMiddleware creates a middleware function that checks the scopes in context.
@@ -106,17 +101,14 @@ func (m *Middleware) ScopeMiddleware(requiredScope string) gin.HandlerFunc {
 			m.logger,
 			c.AbortWithError(
 				http.StatusUnauthorized,
-				fmt.Errorf("the service is not allowed to do this opperation"),
+				fmt.Errorf("the service is not allowed to do this operation"),
 			),
 		)
 	}
 }
 
-// ExtractScopes extract the token from the Auth header and validate
-// it with spike service. Then it add the scopes to the context.
-// and then checks if there is a delegator
-// It check another header for that, and if its true it validate the delegator in the
-// delegation service, and then adds it as delegator to the context.
+// extractScopes extracts the token from the Auth header and validates
+// them with spike service. Returns the scopes.
 func (m *Middleware) extractScopes(c *gin.Context) []string {
 
 	tokenString := m.extractTokenFromHeader(c)
@@ -143,18 +135,17 @@ func (m *Middleware) extractScopes(c *gin.Context) []string {
 		return nil
 	}
 
-	scopes := spikeResponse.GetScopes()
-	return scopes
+	return spikeResponse.GetScopes()
 }
 
-// storeDelegator checks if there is a delegator and if so it validate the
-// delegator with the delegation service, then adds it as delegator to the context.
+// storeDelegator checks if there is a delegator, and if so it validates the
+// delegator with the delegation service.
+// Then it sets the User in the request's context to be the delegator.
 func (m *Middleware) storeDelegator(c *gin.Context) {
-	// Find if the action is made on behalf of a user
-	// Note: Later the scope should include the delegator
+	// Check if the action is made on behalf of a user
 	delegatorID := c.GetHeader(AuthUserHeader)
 
-	// if there is a delegator, validate him, then add him to context
+	// If there is a delegator, validate him, then add him to context
 	if delegatorID != "" {
 		getUserByIDRequest := &dpb.GetUserByIDRequest{
 			Id: delegatorID,
@@ -164,7 +155,7 @@ func (m *Middleware) storeDelegator(c *gin.Context) {
 			if status.Code(err) == codes.NotFound {
 				loggermiddleware.LogError(m.logger,
 					c.AbortWithError(http.StatusUnauthorized,
-						fmt.Errorf("Delegator: %v is not found", delegatorID)))
+						fmt.Errorf("delegator: %v is not found", delegatorID)))
 				return
 			}
 			loggermiddleware.LogError(m.logger, c.AbortWithError(http.StatusInternalServerError,
@@ -196,7 +187,7 @@ func (m *Middleware) extractTokenFromHeader(c *gin.Context) string {
 	// The header value missing the correct prefix
 	if authArr[0] != AuthHeaderBearer {
 		loggermiddleware.LogError(m.logger, c.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
-			"authorization header is not legal. value should start with 'Bearer': %v", authArr[0])))
+			"authorization header is invalid. Value should start with 'Bearer %v'", authArr[0])))
 		return ""
 	}
 

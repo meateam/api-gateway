@@ -125,7 +125,6 @@ func (h *Health) healthCheck(c *gin.Context) {
 	if h.Get() {
 		status = http.StatusOK
 	}
-	status = http.StatusOK
 
 	c.Status(status)
 }

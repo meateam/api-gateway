@@ -67,17 +67,16 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"chromeDownloadLink":    viper.GetString(configDownloadChromeURL),
-				"apmServerUrl":          viper.GetString(configExternalApmURL),
-				"environment":           os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"authUrl":               viper.GetString(configAuthURL),
-				"supportLink":           viper.GetString(configSupportLink),
-				"approvalServiceUrl":    viper.GetString(configApprovalServiceURL),
-				"externalShareName":     viper.GetString(configExternalShareName),
-				"myExternalSharesName":  viper.GetString(configMyExternalSharesName),
-				"externalExclusiveUnit": viper.GetString(configExternalExclusiveUnit),
-				"vipServiceUrl":         viper.GetString(configVipService),
-				"enableExternalShare":   viper.GetString(configEnableExternalShare),
+				"chromeDownloadLink":   viper.GetString(configDownloadChromeURL),
+				"apmServerUrl":         viper.GetString(configExternalApmURL),
+				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+				"authUrl":              viper.GetString(configAuthURL),
+				"supportLink":          viper.GetString(configSupportLink),
+				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
+				"externalShareName":    viper.GetString(configExternalShareName),
+				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
+				"vipServiceUrl":        viper.GetString(configVipService),
+				"enableExternalShare":  viper.GetString(configEnableExternalShare),
 			},
 		)
 	})
@@ -132,7 +131,16 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// initiate middlewares
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
-	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn, spikeConn, permitConn, delegateConn}
+	conns := []*grpc.ClientConn{
+		fileConn,
+		uploadConn,
+		downloadConn,
+		permissionConn,
+		userConn,
+		searchConn,
+		spikeConn,
+		permitConn,
+		delegateConn}
 
 	health := NewHealthChecker()
 	healthInterval := viper.GetInt(configHealthCheckInterval)

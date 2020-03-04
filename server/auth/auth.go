@@ -25,9 +25,6 @@ const (
 	// AuthHeaderBearer is the prefix for the authorization token in AuthHeader.
 	AuthHeaderBearer = "Bearer"
 
-	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
-	AuthUserHeader = "Auth-User"
-
 	// FirstNameClaim is the claim name for the firstname of the user
 	FirstNameClaim = "firstName"
 
@@ -42,6 +39,9 @@ const (
 
 	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
+
+	// configWebUI is the name of the environment variable containing the path to the ui.
+	configWebUI = "web_ui"
 )
 
 // Router is a structure that handels the authentication middleware.
@@ -78,7 +78,7 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	}
 }
 
-// UserMiddleware is a middleware for users use throw the UI.
+// UserMiddleware is a middleware which validates the user requesting the operation.
 // It validates the jwt token in c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
 // If the token is not valid or expired, it will redirect the client to authURL.
 // If the token is valid, it will set the user's data into the gin context
@@ -203,7 +203,7 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
 func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason string) {
 	r.logger.Info(reason)
-	redirectURI := viper.GetString("web_ui") + c.Request.RequestURI
+	redirectURI := viper.GetString(configWebUI) + c.Request.RequestURI
 	encodedRedirectURI := url.QueryEscape(redirectURI)
 	authRedirectURL := fmt.Sprintf("%s?RelayState=%s", authURL, encodedRedirectURI)
 	c.Redirect(http.StatusTemporaryRedirect, authRedirectURL)

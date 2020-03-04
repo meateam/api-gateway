@@ -2,6 +2,9 @@ version: '2.1'
 services:
   api-gateway:
     image: api-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       GW_AUTH_URL: 'http://localhost:8084/auth/login'
       GW_PORT: 8080
@@ -15,9 +18,10 @@ services:
       GW_ALLOW_ORIGINS: 'http://localhost*'
       GW_SUPPORT_LINK: 'https://open.rocket.chat/home'
       GW_CHROME_DOWNLOAD_URL: 'https://google.com/chrome/'
-      GW_APPROVAL_URL: http://23.102.32.203/api/v1/request
+      GW_APPROVAL_URL: http://localhost/api/v1/request
       GW_WEB_UI: "http://localhost:8093"
       GW_VIP_SERVICE: "http://localhost:8094"
+      GW_BUCKET_POSTFIX: "kdrive"
       ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'info'
@@ -59,10 +63,10 @@ services:
       S3_ENDPOINT: 'http://minio:9000'
       TCP_PORT: '8080'
       HOST_NAME: 'upload-service'
-      ELASTICSEARCH_URL: 'http://52.169.253.183:9200'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'debug'
-      ELASTIC_APM_SERVER_URL: 'http://52.169.253.183:8200'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       ELASTIC_APM_SERVICE_NAME: 'upload-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
@@ -82,10 +86,10 @@ services:
       S3_ENDPOINT: 'http://minio:9000'
       TCP_PORT: '8080'
       HOST_NAME: 'download-service'
-      ELASTICSEARCH_URL: 'http://52.169.253.183:9200'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'debug'
-      ELASTIC_APM_SERVER_URL: 'http://52.169.253.183:8200'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       ELASTIC_APM_SERVICE_NAME: 'download-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
@@ -101,14 +105,14 @@ services:
     image: 'bluehub.azurecr.io/meateam/file-service:develop'
     environment:
       BIND_ADDRESS: '0.0.0.0:8080'
-      ELASTICSEARCH_URL: 'http://52.169.253.183:9200'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
       ELASTICSEARCH_USER: ''
       ELASTICSEARCH_PASSWORD: ''
       LOG_INDEX: 'kdrive'
       APM_SECRET_TOKEN: ''
       FS_APM_SERVICE_NAME: 'file-service'
       ELASTIC_APM_VERIFY_SERVER_CERT: 'false'
-      ELASTIC_APM_SERVER_URL: 'http://52.169.253.183:8200'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       USER_QUOTA_LIMIT: '10'
       NODE_ENV: 'dev'
       DEBUG_MODE: 'false'
@@ -138,7 +142,7 @@ services:
       USERS_RPC_ENDPOINT: 'user-service:8080'
       SECRET_KEY: 'pandora@drive'
       CLIENT_ENDPOINT: 'http://localhost:8093'
-      SHRAGA_URL: "http://13.79.7.3"
+      SHRAGA_URL: "http://localhost"
       STRATEGY: 'shraga'
     depends_on:
       - saml-idp
@@ -156,8 +160,8 @@ services:
     ports:
       - '8086:8080'
     environment:
-      ELASTIC_APM_SERVER_URL: 'http://52.169.253.183:8200'
-      ELASTICSEARCH_URL: 'http://52.169.253.183:9200'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
       KARTOFFEL_URL: 'http://kartoffel-master.eastus.cloudapp.azure.com:3000'
       RPC_PORT: '8080'
       REDIS_PORT: '6379'
@@ -204,12 +208,12 @@ services:
     environment:
       SS_PORT: 8080
       SS_HOST_NAME: search-service
-      SS_ELASTICSEARCH_URL: http://52.169.253.183:9200
+      SS_ELASTICSEARCH_URL: http://localhost:9200
       SS_ELASTICSEARCH_INDEX: files
       LOG_INDEX: kdrive
       LOG_LEVEL: debug
       SS_HEALTH_CHECK_INTERVAL: 5
-      ELASTIC_APM_SERVER_URL: 'http://52.169.253.183:8200'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       ELASTIC_APM_SERVICE_NAME: 'search-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
@@ -254,7 +258,7 @@ services:
     environment:
       DEL_PROT: 8080
       DEL_SPIKE_REQUIRED: 'false'
-      PHONE_BOOK_URL: 'http://94.245.91.5'
+      PHONE_BOOK_URL: 'http://localhost'
       NODE_TLS_REJECT_UNAUTHORIZED: 0
   permit-service:
     image: bluehub.azurecr.io/meateam/permit-service:develop
@@ -264,14 +268,14 @@ services:
       PMTS_MONGO_HOST: mongodb://mongo:27017/permit
       PMTS_GRANT_TYPE: client_credentials
       PMTS_AUDIENCE: "_LCF5avgIpoXSWhY5Jl8mMi0Q~4_~R"
-      PMTS_APPROVAL_URL: http://23.102.32.203/api/v1/request
+      PMTS_APPROVAL_URL: http://localhost/api/v1/request
       PMTS_SPIKE_SERVICE: spike-service:8080
       PMTS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
-      ELASTICSEARCH_URL: http://52.169.253.183:9200
+      ELASTICSEARCH_URL: http://localhost:9200
       LOG_INDEX: kdrive
       LOG_LEVEL: debug
       HEALTH_CHECK_INTERVAL: 5
-      ELASTIC_APM_SERVER_URL: 'http://52.169.253.183:8200'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       ELASTIC_APM_SERVICE_NAME: 'permit-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'

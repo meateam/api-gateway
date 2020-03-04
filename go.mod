@@ -3,18 +3,10 @@ module github.com/meateam/api-gateway
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.26.4 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/elastic/go-sysinfo v1.2.0 // indirect
 	github.com/gin-contrib/cors v1.3.0
 	github.com/gin-gonic/gin v1.5.0
-	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
-	github.com/json-iterator/go v1.1.8 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/leodido/go-urn v1.2.0 // indirect
-	github.com/mailru/easyjson v0.7.0 // indirect
-	github.com/mattn/go-isatty v0.0.11 // indirect
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
@@ -30,17 +22,12 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.6.1
-	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	go.elastic.co/apm v1.6.0
 	go.elastic.co/apm/module/apmgin v1.6.0
 	go.elastic.co/apm/module/apmgrpc v1.6.0
 	go.elastic.co/apm/module/apmhttp v1.6.0
-	golang.org/x/net v0.0.0-20200202094626-16171245cfb2 // indirect
-	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 // indirect
-	google.golang.org/genproto v0.0.0-20200204235621-fb4a7afc5178 // indirect
+	go.mongodb.org/mongo-driver v1.3.0
 	google.golang.org/grpc v1.27.0
-	gopkg.in/go-playground/validator.v9 v9.30.2 // indirect
-	gopkg.in/yaml.v2 v2.2.7 // indirect
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger

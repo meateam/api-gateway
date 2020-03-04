@@ -13,6 +13,7 @@ import (
 	uspb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -33,8 +34,8 @@ const (
 	// InternalUserSource is the value of the source field of user that indicated that the user is internal
 	InternalUserSource = "internal"
 
-	// MongoIDLength is the number of letters in a mongo ID.
-	MongoIDLength = 24
+	// configBucketPostfix is the name of the environment variable containing the postfix for the bucket.
+	configBucketPostfix = "bucket_postfix"
 )
 
 //Router is a structure that handles users requests.
@@ -150,8 +151,8 @@ func ExtractRequestUser(ctx context.Context) *User {
 // normalizeCephBucketName gets a bucket name and normalizes it
 // according to ceph s3's constraints.
 func normalizeCephBucketName(bucketName string) string {
-	prefix := viper.GetString("bucket_prefix")
-	lowerCaseBucketName := strings.ToLower(prefix + bucketName)
+	postfix := viper.GetString(configBucketPostfix)
+	lowerCaseBucketName := strings.ToLower(bucketName + postfix)
 
 	// Make a Regex for catching only letters and numbers.
 	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
@@ -159,7 +160,9 @@ func normalizeCephBucketName(bucketName string) string {
 }
 
 // IsExternalUser gets a userID and returns true if user is from an external source.
-// Otherwise, returns false. Currently just and all of the external users has a @ in their ID.
+// Otherwise, returns false.
+// Currently just and all of the external users don't have a valid mongoID .
 func IsExternalUser(userID string) bool {
-	return len(userID) != MongoIDLength
+	_, err := primitive.ObjectIDFromHex(userID)
+	return err != nil
 }

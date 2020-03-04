@@ -28,15 +28,8 @@ const (
 	// ParamReqID is the name of the request id param in URL.
 	ParamReqID = "requestId"
 
-	// ParamPermissionID is the name of the permission id param in URL.
-	ParamPermissionID = "permissionId"
-
 	// QueryDeleteUserPermission is the id of the user to delete its permission to a file.
 	QueryDeleteUserPermission = "userId"
-
-	// GetFilePermitsRole is the role that is required of the authenticated requester to have to be
-	// permitted to make the GetFilePermits action.
-	GetFilePermitsRole = ppb.Role_READ
 )
 
 type createPermitRequest struct {
