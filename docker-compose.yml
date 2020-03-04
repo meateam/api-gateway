@@ -2,6 +2,9 @@ version: '2.1'
 services:
   api-gateway:
     image: api-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       GW_AUTH_URL: 'http://localhost:8084/auth/login'
       GW_PORT: 8080
@@ -18,6 +21,7 @@ services:
       GW_APPROVAL_URL: http://localhost/api/v1/request
       GW_WEB_UI: "http://localhost:8093"
       GW_VIP_SERVICE: "http://localhost:8094"
+      GW_BUCKET_POSTFIX: "kdrive"
       ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'info'
