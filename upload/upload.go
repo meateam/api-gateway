@@ -769,7 +769,7 @@ func (r *Router) HandleUpload(
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-			break
+			return err
 		default:
 		}
 

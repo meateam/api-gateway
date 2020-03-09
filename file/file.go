@@ -19,6 +19,7 @@ import (
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	uspb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -53,6 +54,14 @@ const (
 	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
 	QueryFileDownloadPreview = "preview"
+
+	// QueryPopulateOwner is the querystring key for populating the owner field
+	// in the response object of a file.
+	QueryPopulateOwner = "populateOwner"
+
+	// QueryPopulateSharer is the querystring key for populating the sharer field
+	// in the response object of a file.
+	QueryPopulateSharer = "populateSharer"
 
 	// OwnerRole is the owner role name when referred to as a permission.
 	OwnerRole = "OWNER"
@@ -137,6 +146,7 @@ type Router struct {
 	uploadClient     upb.UploadClient
 	permissionClient ppb.PermissionClient
 	searchClient     spb.SearchClient
+	userClient       uspb.UsersClient
 	gotenbergClient  *gotenberg.Client
 	logger           *logrus.Logger
 }
@@ -157,11 +167,13 @@ type GetFileByIDResponse struct {
 	Size        int64       `json:"size"`
 	Description string      `json:"description,omitempty"`
 	OwnerID     string      `json:"ownerId,omitempty"`
+	Owner       *uspb.User  `json:"owner,omitempty"`
 	Parent      string      `json:"parent,omitempty"`
 	CreatedAt   int64       `json:"createdAt,omitempty"`
 	UpdatedAt   int64       `json:"updatedAt,omitempty"`
 	Role        string      `json:"role,omitempty"`
 	Shared      bool        `json:"shared"`
+	Sharer      *uspb.User  `json:"sharer,omitempty"`
 	Permission  *Permission `json:"permission,omitempty"`
 }
 
@@ -192,6 +204,7 @@ func NewRouter(
 	uploadConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
+	userConn *grpc.ClientConn,
 	gotenbergClient *gotenberg.Client,
 	logger *logrus.Logger,
 ) *Router {
@@ -207,6 +220,7 @@ func NewRouter(
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
+	r.userClient = uspb.NewUsersClient(userConn)
 	r.gotenbergClient = gotenbergClient
 
 	return r
@@ -349,7 +363,23 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 
 		if userFilePermission != "" {
-			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission))
+			fileResponse := CreateGetFileResponse(file, userFilePermission, foundPermission)
+			if _, exists := c.GetQuery(QueryPopulateOwner); exists {
+				getUserByIDRequest := &uspb.GetByIDRequest{
+					Id: file.GetOwnerID(),
+				}
+
+				user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+				if err != nil {
+					httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+					loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+					return
+				}
+
+				fileResponse.Owner = user.GetUser()
+			}
+			responseFiles = append(responseFiles, fileResponse)
 		}
 	}
 
@@ -394,9 +424,25 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 				Role:    permission.GetRole(),
 				Creator: permission.GetCreator(),
 			}
+			fileResponse := CreateGetFileResponse(file, permission.GetRole().String(), userPermission)
+			if _, exists := c.GetQuery(QueryPopulateSharer); exists {
+				getUserByIDRequest := &uspb.GetByIDRequest{
+					Id: userPermission.GetCreator(),
+				}
+
+				user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+				if err != nil {
+					httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+					loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+					return
+				}
+
+				fileResponse.Sharer = user.GetUser()
+			}
 			files = append(
 				files,
-				CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
+				fileResponse,
 			)
 		}
 	}
