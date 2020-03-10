@@ -1112,19 +1112,6 @@ func (r *Router) populateFileSharer(ctx context.Context, files []*GetFileByIDRes
 		files[userStruct.index].Sharer = userStruct.user
 	}
 
-	// for i := 0; i < len(files); i++ {
-	// 	getUserByIDRequest := &uspb.GetByIDRequest{
-	// 		Id: files[i].Permission.Creator,
-	// 	}
-
-	// 	user, err := r.userClient.GetUserByID(ctx, getUserByIDRequest)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	files[i].Sharer = user.GetUser()
-	// }
-
 	return nil
 }
 
