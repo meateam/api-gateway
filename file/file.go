@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -54,10 +55,6 @@ const (
 	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
 	QueryFileDownloadPreview = "preview"
-
-	// QueryPopulateOwner is the querystring key for populating the owner field
-	// in the response object of a file.
-	QueryPopulateOwner = "populateOwner"
 
 	// QueryPopulateSharer is the querystring key for populating the sharer field
 	// in the response object of a file.
@@ -167,7 +164,6 @@ type GetFileByIDResponse struct {
 	Size        int64       `json:"size"`
 	Description string      `json:"description,omitempty"`
 	OwnerID     string      `json:"ownerId,omitempty"`
-	Owner       *uspb.User  `json:"owner,omitempty"`
 	Parent      string      `json:"parent,omitempty"`
 	CreatedAt   int64       `json:"createdAt,omitempty"`
 	UpdatedAt   int64       `json:"updatedAt,omitempty"`
@@ -363,23 +359,16 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 
 		if userFilePermission != "" {
-			fileResponse := CreateGetFileResponse(file, userFilePermission, foundPermission)
-			if _, exists := c.GetQuery(QueryPopulateOwner); exists {
-				getUserByIDRequest := &uspb.GetByIDRequest{
-					Id: file.GetOwnerID(),
-				}
+			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission))
+		}
+	}
 
-				user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
-				if err != nil {
-					httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-					loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	if _, exists := c.GetQuery(QueryPopulateSharer); exists {
+		if err := r.populateFileSharer(c.Request.Context(), responseFiles); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-					return
-				}
-
-				fileResponse.Owner = user.GetUser()
-			}
-			responseFiles = append(responseFiles, fileResponse)
+			return
 		}
 	}
 
@@ -424,26 +413,20 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 				Role:    permission.GetRole(),
 				Creator: permission.GetCreator(),
 			}
-			fileResponse := CreateGetFileResponse(file, permission.GetRole().String(), userPermission)
-			if _, exists := c.GetQuery(QueryPopulateSharer); exists {
-				getUserByIDRequest := &uspb.GetByIDRequest{
-					Id: userPermission.GetCreator(),
-				}
 
-				user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
-				if err != nil {
-					httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-					loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-					return
-				}
-
-				fileResponse.Sharer = user.GetUser()
-			}
 			files = append(
 				files,
-				fileResponse,
+				CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
 			)
+		}
+	}
+
+	if _, exists := c.GetQuery(QueryPopulateSharer); exists {
+		if err := r.populateFileSharer(c.Request.Context(), files); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
 		}
 	}
 
@@ -1078,6 +1061,69 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	}
 
 	c.Status(http.StatusOK)
+
+	return nil
+}
+
+// populateFileSharer populates the sharer field with the info of the user who gave the
+// permission to each of the files in the given files slice.
+// Implementation is making len(files) concurrent requests with r.userClient.
+func (r *Router) populateFileSharer(ctx context.Context, files []*GetFileByIDResponse) error {
+	usersChan := make(chan struct{ user *uspb.User; index int; err error }, len(files))
+	wg := sync.WaitGroup{}
+	for i := 0; i < len(files); i++ {
+		if (files[i].Permission == nil) {
+			continue
+		}
+
+		getUserByIDRequest := &uspb.GetByIDRequest{
+			Id: files[i].Permission.Creator,
+		}
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			user, err := r.userClient.GetUserByID(ctx, getUserByIDRequest)
+			if err != nil {
+				usersChan <- struct{user *uspb.User; index int; err error}{
+					user: nil,
+					index: index,
+					err: err,
+				}
+
+				return
+			}
+
+			usersChan <- struct{user *uspb.User; index int; err error}{
+				user: user.GetUser(),
+				index: index,
+				err: err,
+			}
+		}(i)
+	}
+	
+	wg.Wait()
+	close(usersChan)
+
+	for userStruct := range usersChan {
+		if userStruct.err != nil {
+			return userStruct.err
+		}
+
+		files[userStruct.index].Sharer = userStruct.user
+	}
+
+	// for i := 0; i < len(files); i++ {
+	// 	getUserByIDRequest := &uspb.GetByIDRequest{
+	// 		Id: files[i].Permission.Creator,
+	// 	}
+
+	// 	user, err := r.userClient.GetUserByID(ctx, getUserByIDRequest)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	files[i].Sharer = user.GetUser()
+	// }
 
 	return nil
 }
