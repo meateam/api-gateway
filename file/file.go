@@ -56,6 +56,10 @@ const (
 	// removing the content-disposition header from a file download.
 	QueryFileDownloadPreview = "preview"
 
+	// QueryPopulateOwner is the querystring key for populating the owner field
+	// in the response object of a file.
+	QueryPopulateOwner = "populateOwner"
+
 	// QueryPopulateSharer is the querystring key for populating the sharer field
 	// in the response object of a file.
 	QueryPopulateSharer = "populateSharer"
@@ -164,6 +168,7 @@ type GetFileByIDResponse struct {
 	Size        int64       `json:"size"`
 	Description string      `json:"description,omitempty"`
 	OwnerID     string      `json:"ownerId,omitempty"`
+	Owner       *uspb.User  `json:"owner,omitempty"`
 	Parent      string      `json:"parent,omitempty"`
 	CreatedAt   int64       `json:"createdAt,omitempty"`
 	UpdatedAt   int64       `json:"updatedAt,omitempty"`
@@ -363,8 +368,19 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 	}
 
+	// Populate sharer field if ?populateSharer is found in the request's query.
 	if _, exists := c.GetQuery(QueryPopulateSharer); exists {
 		if err := r.populateFileSharer(c.Request.Context(), responseFiles); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+	}
+
+	// Populate owner field if ?populateOwner is found in the request's query.
+	if _, exists := c.GetQuery(QueryPopulateOwner); exists {
+		if err := r.populateFileOwner(c.Request.Context(), responseFiles); err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -1065,14 +1081,76 @@ func (r *Router) HandlePreview(c *gin.Context, file *fpb.File, stream dpb.Downlo
 	return nil
 }
 
+// populateFileOwner populates the owner field with the info of the user who gave the
+// permission to each of the files in the given files slice.
+// Implementation is making len(files) concurrent requests with r.userClient.
+func (r *Router) populateFileOwner(ctx context.Context, files []*GetFileByIDResponse) error {
+	usersChan := make(chan struct {
+		user  *uspb.User
+		index int
+		err   error
+	}, len(files))
+	wg := sync.WaitGroup{}
+	for i := 0; i < len(files); i++ {
+		getUserByIDRequest := &uspb.GetByIDRequest{
+			Id: files[i].OwnerID,
+		}
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			user, err := r.userClient.GetUserByID(ctx, getUserByIDRequest)
+			if err != nil {
+				usersChan <- struct {
+					user  *uspb.User
+					index int
+					err   error
+				}{
+					user:  nil,
+					index: index,
+					err:   err,
+				}
+
+				return
+			}
+
+			usersChan <- struct {
+				user  *uspb.User
+				index int
+				err   error
+			}{
+				user:  user.GetUser(),
+				index: index,
+				err:   err,
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(usersChan)
+
+	for userStruct := range usersChan {
+		if userStruct.err != nil {
+			return userStruct.err
+		}
+
+		files[userStruct.index].Owner = userStruct.user
+	}
+
+	return nil
+}
+
 // populateFileSharer populates the sharer field with the info of the user who gave the
 // permission to each of the files in the given files slice.
 // Implementation is making len(files) concurrent requests with r.userClient.
 func (r *Router) populateFileSharer(ctx context.Context, files []*GetFileByIDResponse) error {
-	usersChan := make(chan struct{ user *uspb.User; index int; err error }, len(files))
+	usersChan := make(chan struct {
+		user  *uspb.User
+		index int
+		err   error
+	}, len(files))
 	wg := sync.WaitGroup{}
 	for i := 0; i < len(files); i++ {
-		if (files[i].Permission == nil) {
+		if files[i].Permission == nil {
 			continue
 		}
 
@@ -1084,23 +1162,31 @@ func (r *Router) populateFileSharer(ctx context.Context, files []*GetFileByIDRes
 			defer wg.Done()
 			user, err := r.userClient.GetUserByID(ctx, getUserByIDRequest)
 			if err != nil {
-				usersChan <- struct{user *uspb.User; index int; err error}{
-					user: nil,
+				usersChan <- struct {
+					user  *uspb.User
+					index int
+					err   error
+				}{
+					user:  nil,
 					index: index,
-					err: err,
+					err:   err,
 				}
 
 				return
 			}
 
-			usersChan <- struct{user *uspb.User; index int; err error}{
-				user: user.GetUser(),
+			usersChan <- struct {
+				user  *uspb.User
+				index int
+				err   error
+			}{
+				user:  user.GetUser(),
 				index: index,
-				err: err,
+				err:   err,
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 	close(usersChan)
 
