@@ -896,7 +896,7 @@ func (r *Router) DownloadZip(c *gin.Context) {
 				Method:             zip.Deflate,
 				UncompressedSize64: uint64(object.GetSize()),
 			}
-			header.SetModTime(time.Unix(object.GetUpdatedAt()/time.Microsecond.Microseconds(), 0))
+			header.SetModTime(time.Unix(object.GetUpdatedAt()/time.Second.Milliseconds(), 0))
 
 			if hasStringSuffixInSlice(object.GetName(), standardExcludeCompressExtensions) ||
 				hasPattern(standardExcludeCompressContentTypes, object.GetType()) {
