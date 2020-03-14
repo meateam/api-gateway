@@ -16,7 +16,6 @@ require (
 	github.com/meateam/search-service v0.0.0-20191216105153-4b8090ce4489
 	github.com/meateam/upload-service v0.0.0-20191216095848-6216c791f102
 	github.com/meateam/user-service v0.0.0-20200105125121-7ce90f7c2081
-	github.com/minio/minio v0.0.0-20200314070115-10fd53d6bbc8
 	github.com/olivere/elastic/v7 v7.0.12
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2

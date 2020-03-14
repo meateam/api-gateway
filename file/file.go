@@ -8,11 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/klauspost/compress/zip"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/download-service/download"
@@ -23,7 +21,6 @@ import (
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	uspb "github.com/meateam/user-service/proto"
-	minioutil "github.com/minio/minio/pkg/ioutil"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -54,6 +51,9 @@ const (
 
 	// FolderContentType is the custom content type of a folder.
 	FolderContentType = "application/vnd.drive.folder"
+
+	// ContentDispositionHeader content-disposition header name.
+	ContentDispositionHeader = "Content-Disposition"
 
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
@@ -523,6 +523,11 @@ func (r *Router) Download(c *gin.Context) {
 
 	filename := fileMeta.GetName()
 	contentType := fileMeta.GetType()
+	if contentType == FolderContentType {
+		r.downloadFolder(c, fileMeta)
+
+		return
+	}
 	contentLength := fmt.Sprintf("%d", fileMeta.GetSize())
 
 	downloadRequest := &dpb.DownloadRequest{
@@ -551,7 +556,7 @@ func (r *Router) Download(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", contentLength)
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header(ContentDispositionHeader, "attachment; filename="+filename)
 
 	loggermiddleware.LogError(r.logger, HandleStream(c, stream))
 }
@@ -853,9 +858,13 @@ func (r *Router) DownloadZip(c *gin.Context) {
 		return
 	}
 
-	objects := make([]*fpb.File, 0, len(body.Files))
+	files := make([]*fpb.File, 0, len(body.Files))
 	for i := 0; i < len(body.Files); i++ {
-		object, err := r.fileClient.GetFileByID(
+		if role, _ := r.HandleUserFilePermission(c, body.Files[i], DownloadRole); role == "" {
+			return
+		}
+		
+		file, err := r.fileClient.GetFileByID(
 			c.Request.Context(),
 			&fpb.GetByFileByIDRequest{
 				Id: body.Files[i],
@@ -869,145 +878,15 @@ func (r *Router) DownloadZip(c *gin.Context) {
 			return
 		}
 
-		objects = append(objects, object)
+		files = append(files, file)
 	}
 
-	archive := zip.NewWriter(c.Writer)
-	defer archive.Close()
+	if err := r.zipMulipleFiles(c, files); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-	buffer := make([]byte, download.PartSize)
-	for _, object := range objects {
-		zipit := func(object *fpb.File) error {
-			stream, err := r.downloadClient.Download(c.Request.Context(), &dpb.DownloadRequest{
-				Key:    object.GetKey(),
-				Bucket: object.GetBucket(),
-			})
-
-			if err != nil {
-				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-				loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-				return err
-			}
-
-			readCloser := download.NewStreamReadCloser(stream)
-			header := &zip.FileHeader{
-				Name:               object.GetName(),
-				Method:             zip.Deflate,
-				UncompressedSize64: uint64(object.GetSize()),
-			}
-			header.SetModTime(time.Unix(object.GetUpdatedAt()/time.Second.Milliseconds(), 0))
-
-			if hasStringSuffixInSlice(object.GetName(), standardExcludeCompressExtensions) ||
-				hasPattern(standardExcludeCompressContentTypes, object.GetType()) {
-				// We strictly disable compression for standard extensions/content-types.
-				header.Method = zip.Store
-			}
-
-			writer, err := archive.CreateHeader(header)
-			if err != nil {
-				c.AbortWithError(http.StatusInternalServerError, err)
-				return err
-			}
-
-			httpWriter := minioutil.WriteOnClose(writer)
-
-			if _, err = io.CopyBuffer(httpWriter, readCloser, buffer); err != nil {
-				httpWriter.Close()
-				if !httpWriter.HasWritten() {
-					httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-					loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-				}
-
-				return err
-			}
-
-			if err = httpWriter.Close(); err != nil {
-				if !httpWriter.HasWritten() {
-					httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-					loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-					return err
-				}
-			}
-
-			return nil
-		}
-
-		if object.GetType() != FolderContentType {
-			if err := zipit(object); err != nil {
-				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-				loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-				return
-			}
-		}
+		return
 	}
-}
-
-// Utility which returns if a string is present in the list.
-// Comparison is case insensitive.
-func hasStringSuffixInSlice(str string, list []string) bool {
-	str = strings.ToLower(str)
-	for _, v := range list {
-		if strings.HasSuffix(str, strings.ToLower(v)) {
-			return true
-		}
-	}
-	return false
-}
-
-// Returns true if any of the given wildcard patterns match the matchStr.
-func hasPattern(patterns []string, matchStr string) bool {
-	for _, pattern := range patterns {
-		if ok := matchSimple(pattern, matchStr); ok {
-			return true
-		}
-	}
-	return false
-}
-
-// MatchSimple - finds whether the text matches/satisfies the pattern string.
-// supports only '*' wildcard in the pattern.
-// considers a file system path as a flat name space.
-func matchSimple(pattern, name string) bool {
-	if pattern == "" {
-		return name == pattern
-	}
-	if pattern == "*" {
-		return true
-	}
-	rname := make([]rune, 0, len(name))
-	rpattern := make([]rune, 0, len(pattern))
-	for _, r := range name {
-		rname = append(rname, r)
-	}
-	for _, r := range pattern {
-		rpattern = append(rpattern, r)
-	}
-	simple := true // Does only wildcard '*' match.
-	return deepMatchRune(rname, rpattern, simple)
-}
-
-func deepMatchRune(str, pattern []rune, simple bool) bool {
-	for len(pattern) > 0 {
-		switch pattern[0] {
-		default:
-			if len(str) == 0 || str[0] != pattern[0] {
-				return false
-			}
-		case '?':
-			if len(str) == 0 && !simple {
-				return false
-			}
-		case '*':
-			return deepMatchRune(str, pattern[1:], simple) ||
-				(len(str) > 0 && deepMatchRune(str[1:], pattern, simple))
-		}
-		str = str[1:]
-		pattern = pattern[1:]
-	}
-	return len(str) == 0 && len(pattern) == 0
 }
 
 // CheckUserFilePermission checks if userID is permitted to fileID with the wanted role.
