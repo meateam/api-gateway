@@ -10,9 +10,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/quota"
+	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
+	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/gotenberg-go-client/v6"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -22,7 +26,7 @@ import (
 )
 
 const (
-	healtcheckRouter  = "/api/healtcheck"
+	healthcheckRoute  = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
 )
 
@@ -39,7 +43,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Setup logging, metrics, cors middlewares.
 	r.Use(
 		// Ignore logging healthcheck routes.
-		gin.LoggerWithWriter(gin.DefaultWriter, healtcheckRouter),
+		gin.LoggerWithWriter(gin.DefaultWriter, healthcheckRoute),
 		gin.Recovery(),
 		apmgin.Middleware(r),
 		cors.New(corsRouterConfig()),
@@ -47,18 +51,13 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		loggermiddleware.SetLogger(
 			&loggermiddleware.Config{
 				Logger:             logger,
-				SkipPath:           []string{healtcheckRouter},
+				SkipPath:           []string{healthcheckRoute},
 				SkipBodyPathRegexp: regexp.MustCompile(uploadRouteRegexp),
 			},
 		),
 	)
 
 	apiRoutesGroup := r.Group("/api")
-
-	// Health Check route.
-	apiRoutesGroup.GET("/healthcheck", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
 
 	// Frontend configuration route.
 	apiRoutesGroup.GET("/config", func(c *gin.Context) {
@@ -75,9 +74,14 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	})
 
 	// Initiate services gRPC connections.
-	fileConn, err := initServiceConn(viper.GetString(configfileService))
+	fileConn, err := initServiceConn(viper.GetString(configFileService))
 	if err != nil {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
+	}
+
+	userConn, err := initServiceConn(viper.GetString(configUserService))
+	if err != nil {
+		logger.Fatalf("couldn't setup user service connection: %v", err)
 	}
 
 	uploadConn, err := initServiceConn(viper.GetString(configUploadService))
@@ -90,18 +94,54 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup download service connection: %v", err)
 	}
 
+	permissionConn, err := initServiceConn(viper.GetString(configPermissionService))
+	if err != nil {
+		logger.Fatalf("couldn't setup permission service connection: %v", err)
+	}
+
+	searchConn, err := initServiceConn(viper.GetString(configSearchService))
+	if err != nil {
+		logger.Fatalf("couldn't setup search service connection: %v", err)
+	}
+
+	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn}
+
+	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
+
+	health := NewHealthChecker()
+	healthInterval := viper.GetInt(configHealthCheckInterval)
+	healthRPCTimeout := viper.GetInt(configHealthCheckRPCTimeout)
+
+	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, conns...)
+
+	// Health Check route.
+	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
+
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, userConn, gotenbergClient, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
+	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
+	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
+	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
-	// Authentication middleware on routes group.
+	middlewares := make([]gin.HandlerFunc, 0, 2)
+
 	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
-	authRequiredRoutesGroup := apiRoutesGroup.Group("/", authRequiredMiddleware)
+	middlewares = append(middlewares, authRequiredMiddleware)
+
+	if metricsLogger := NewMetricsLogger(); metricsLogger != nil {
+		middlewares = append(middlewares, metricsLogger)
+	}
+	// Authentication middleware on routes group.
+	authRequiredRoutesGroup := apiRoutesGroup.Group("/", middlewares...)
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to user service.
+	usr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to quota service.
 	qr.Setup(authRequiredRoutesGroup)
@@ -109,8 +149,14 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate client connection to upload service.
 	ur.Setup(authRequiredRoutesGroup)
 
+	// Initiate client connection to permission service.
+	pr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to search service.
+	sr.Setup(authRequiredRoutesGroup)
+
 	// Create a slice to manage connections and return it.
-	return r, []*grpc.ClientConn{fileConn, uploadConn, downloadConn}
+	return r, conns
 }
 
 // corsRouterConfig configures cors policy for cors.New gin middleware.
