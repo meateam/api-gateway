@@ -40,8 +40,8 @@ const (
 	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
 
-	// configWebUI is the name of the environment variable containing the path to the ui.
-	configWebUI = "web_ui"
+	// ConfigWebUI is the name of the environment variable containing the path to the ui.
+	ConfigWebUI = "web_ui"
 )
 
 // Router is a structure that handels the authentication middleware.
@@ -203,7 +203,7 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
 func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason string) {
 	r.logger.Info(reason)
-	redirectURI := viper.GetString(configWebUI) + c.Request.RequestURI
+	redirectURI := viper.GetString(ConfigWebUI) + c.Request.RequestURI
 	encodedRedirectURI := url.QueryEscape(redirectURI)
 	authRedirectURL := fmt.Sprintf("%s?RelayState=%s", authURL, encodedRedirectURI)
 	c.Redirect(http.StatusTemporaryRedirect, authRedirectURL)
