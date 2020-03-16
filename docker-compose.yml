@@ -14,12 +14,14 @@ services:
       GW_PERMISSION_SERVICE: 'permission-service:8080'
       GW_USER_SERVICE: 'user-service:8080'
       GW_SEARCH_SERVICE: 'search-service:8080'
+      GW_PERMIT_SERVICE: 'permit-service:8080'
+      GW_DELEGATION_SERVICE: 'delegation-service:8080'
+      GW_WEB_UI: 'web-ui:8080'
       GW_GOTENBERG_SERVICE: 'http://gotenberg-service:8080'
       GW_ALLOW_ORIGINS: 'http://localhost*'
       GW_SUPPORT_LINK: 'https://open.rocket.chat/home'
       GW_CHROME_DOWNLOAD_URL: 'https://google.com/chrome/'
       GW_APPROVAL_URL: http://localhost/api/v1/request
-      GW_WEB_UI: "http://localhost:8093"
       GW_VIP_SERVICE: "http://localhost:8094"
       GW_BUCKET_POSTFIX: "kdrive"
       ELASTICSEARCH_URL: 'http://localhost:9200'
@@ -141,8 +143,8 @@ services:
       SAML_CALLBACK_URL: 'http://localhost:8084/auth/metadata.xml/callback'
       USERS_RPC_ENDPOINT: 'user-service:8080'
       SECRET_KEY: 'pandora@drive'
-      CLIENT_ENDPOINT: 'http://localhost:8093'
-      SHRAGA_URL: "http://localhost"
+      CLIENT_ENDPOINT: 'http://localhost'
+      SHRAGA_URL: 'web-ui:8080'
       STRATEGY: 'shraga'
     depends_on:
       - saml-idp

@@ -35,7 +35,7 @@ const (
 	InternalUserSource = "internal"
 
 	// configBucketPostfix is the name of the environment variable containing the postfix for the bucket.
-	configBucketPostfix = "bucket_postfix"
+	ConfigBucketPostfix = "bucket_postfix"
 )
 
 //Router is a structure that handles users requests.
@@ -151,7 +151,7 @@ func ExtractRequestUser(ctx context.Context) *User {
 // normalizeCephBucketName gets a bucket name and normalizes it
 // according to ceph s3's constraints.
 func normalizeCephBucketName(bucketName string) string {
-	postfix := viper.GetString(configBucketPostfix)
+	postfix := viper.GetString(ConfigBucketPostfix)
 	lowerCaseBucketName := strings.ToLower(bucketName + postfix)
 
 	// Make a Regex for catching only letters and numbers.

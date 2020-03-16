@@ -145,7 +145,7 @@ func (m *Middleware) storeDelegator(c *gin.Context) {
 	// Check if the action is made on behalf of a user
 	delegatorID := c.GetHeader(AuthUserHeader)
 
-	// If there is a delegator, validate him, then add him to context
+	// If there is a delegator, validate him, then add him to the context
 	if delegatorID != "" {
 		getUserByIDRequest := &dpb.GetUserByIDRequest{
 			Id: delegatorID,
@@ -158,6 +158,7 @@ func (m *Middleware) storeDelegator(c *gin.Context) {
 						fmt.Errorf("delegator: %v is not found", delegatorID)))
 				return
 			}
+
 			loggermiddleware.LogError(m.logger, c.AbortWithError(http.StatusInternalServerError,
 				fmt.Errorf("internal error while authenticating the delegator: %v", err)))
 			return
@@ -187,7 +188,7 @@ func (m *Middleware) extractTokenFromHeader(c *gin.Context) string {
 	// The header value missing the correct prefix
 	if authArr[0] != AuthHeaderBearer {
 		loggermiddleware.LogError(m.logger, c.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
-			"authorization header is invalid. Value should start with 'Bearer %v'", authArr[0])))
+			"authorization header is invalid. Value should start with 'Bearer'")))
 		return ""
 	}
 

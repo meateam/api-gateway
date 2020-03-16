@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/meateam/api-gateway/server/auth"
+	"github.com/meateam/api-gateway/user"
 	ilogger "github.com/meateam/elasticsearch-logger"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -35,9 +37,7 @@ const (
 	configElasticsearchSniff    = "elasticsearch_sniff"
 	configHealthCheckInterval   = "health_check_interval"
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
-	configWebUI                 = "web_ui"
 	configApprovalServiceURL    = "approval_url"
-	configBucketPostfix         = "bucket_postfix"
 	configExternalShareName     = "external_share_name"
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
@@ -73,13 +73,13 @@ func init() {
 	viper.SetDefault(configElasticsearchSniff, false)
 	viper.SetDefault(configHealthCheckInterval, 5)
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
-	viper.SetDefault(configWebUI, "http://localhost")
 	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
-	viper.SetDefault(configBucketPostfix, "")
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
 	viper.SetDefault(configEnableExternalShare, false)
+	viper.SetDefault(user.ConfigBucketPostfix, "")
+	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

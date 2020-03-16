@@ -140,7 +140,8 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		searchConn,
 		spikeConn,
 		permitConn,
-		delegateConn}
+		delegateConn,
+	}
 
 	health := NewHealthChecker()
 	healthInterval := viper.GetInt(configHealthCheckInterval)
