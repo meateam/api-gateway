@@ -18,24 +18,24 @@ import (
 // mapFolderDescendantPath gets a root folder and its descendants and returns a map of the root folder's and
 // its descendants path mapped by their IDs.
 func mapFolderDescendantPath(folder *fpb.File, descendants []*fpb.GetDescendantsByIDResponse_Descendant) map[string]string {
-	filePathMap := make(map[string]string, len(descendants) + 1)
+	filePathMap := make(map[string]string, len(descendants)+1)
 	filePathMap[folder.GetId()] = folder.GetName() + "/"
 	currentBase := folder.GetId()
 	currentBaseFileIndex := 0
 
 	// While there's a file that its path hasn't been set continue to the next descendant and set its path.
-	for len(filePathMap) < len(descendants) + 1 {
+	for len(filePathMap) < len(descendants)+1 {
 		for i := 0; i < len(descendants); i++ {
 			if descendants[i].GetParent().GetId() == currentBase && filePathMap[currentBase] != "" {
 				path := filePathMap[currentBase] + descendants[i].GetFile().GetName()
 				if descendants[i].GetFile().GetType() == FolderContentType {
 					path += "/"
 				}
-	
+
 				filePathMap[descendants[i].GetFile().GetId()] = path
 			}
 		}
-		
+
 		currentBase = descendants[currentBaseFileIndex].GetFile().GetId()
 		currentBaseFileIndex++
 	}
@@ -74,7 +74,7 @@ func (r *Router) zipFolderToWriter(
 	folder *fpb.File,
 	archive *zip.Writer) error {
 	folderHeader := &zip.FileHeader{
-		Name: mappedPaths[folder.GetId()],
+		Name:   mappedPaths[folder.GetId()],
 		Method: zip.Deflate,
 	}
 
@@ -102,11 +102,11 @@ func (r *Router) zipFolderToWriter(
 				Key:    descendant.GetFile().GetKey(),
 				Bucket: descendant.GetFile().GetBucket(),
 			})
-	
+
 			if err != nil {
 				return err
 			}
-	
+
 			readCloser := download.NewStreamReadCloser(stream)
 			header := &zip.FileHeader{
 				Name:               mappedPaths[descendant.GetFile().GetId()],
@@ -114,13 +114,13 @@ func (r *Router) zipFolderToWriter(
 				UncompressedSize64: uint64(descendant.GetFile().GetSize()),
 			}
 			header.SetModTime(time.Unix(descendant.GetFile().GetUpdatedAt()/time.Second.Milliseconds(), 0))
-	
+
 			if hasStringSuffixInSlice(mappedPaths[descendant.GetFile().GetId()], standardExcludeCompressExtensions) ||
 				hasPattern(standardExcludeCompressContentTypes, descendant.GetFile().GetType()) {
 				// We strictly disable compression for standard extensions/content-types.
 				header.Method = zip.Store
 			}
-	
+
 			if err := zipFileToWriter(readCloser, archive, header, buffer); err != nil {
 				return err
 			}
@@ -141,7 +141,7 @@ func (r *Router) downloadFolder(c *gin.Context, folder *fpb.File) {
 
 	now := strings.ReplaceAll(time.Now().UTC().Format(time.RFC3339), ":", "")
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.Header(ContentDispositionHeader, "attachment; filename="+folder.GetName() + "-" + now)
+	c.Header(ContentDispositionHeader, "attachment; filename="+folder.GetName()+"-"+now+".zip")
 
 	archive := zip.NewWriter(c.Writer)
 	defer archive.Close()
@@ -173,11 +173,11 @@ func (r *Router) zipMulipleFiles(c *gin.Context, files []*fpb.File) error {
 				Key:    file.GetKey(),
 				Bucket: file.GetBucket(),
 			})
-	
+
 			if err != nil {
 				return err
 			}
-	
+
 			readCloser := download.NewStreamReadCloser(stream)
 			header := &zip.FileHeader{
 				Name:               file.GetName(),
@@ -185,13 +185,13 @@ func (r *Router) zipMulipleFiles(c *gin.Context, files []*fpb.File) error {
 				UncompressedSize64: uint64(file.GetSize()),
 			}
 			header.SetModTime(time.Unix(file.GetUpdatedAt()/time.Second.Milliseconds(), 0))
-	
+
 			if hasStringSuffixInSlice(file.GetName(), standardExcludeCompressExtensions) ||
 				hasPattern(standardExcludeCompressContentTypes, file.GetType()) {
 				// We strictly disable compression for standard extensions/content-types.
 				header.Method = zip.Store
 			}
-	
+
 			if err := zipFileToWriter(readCloser, archive, header, buffer); err != nil {
 				return err
 			}
