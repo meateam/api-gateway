@@ -144,7 +144,7 @@ var (
 		OdtMimeType,
 		OdpMimeType,
 	}
-	
+
 	// Some standard object extensions which we strictly dis-allow for compression.
 	standardExcludeCompressExtensions = []string{".gz", ".bz2", ".rar", ".zip", ".7z", ".xz", ".mp4", ".mkv", ".mov"}
 
@@ -426,6 +426,10 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 
 	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
+		if permission.GetCreator() == reqUser.ID {
+			continue
+		}
+
 		file, err := r.fileClient.GetFileByID(c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
@@ -435,19 +439,17 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			return
 		}
 
-		if file.GetOwnerID() != reqUser.ID {
-			userPermission := &ppb.PermissionObject{
-				FileID:  permission.GetFileID(),
-				UserID:  reqUser.ID,
-				Role:    permission.GetRole(),
-				Creator: permission.GetCreator(),
-			}
-
-			files = append(
-				files,
-				CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
-			)
+		userPermission := &ppb.PermissionObject{
+			FileID:  permission.GetFileID(),
+			UserID:  reqUser.ID,
+			Role:    permission.GetRole(),
+			Creator: permission.GetCreator(),
 		}
+
+		files = append(
+			files,
+			CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
+		)
 	}
 
 	if _, exists := c.GetQuery(QueryPopulateSharer); exists {
@@ -863,7 +865,7 @@ func (r *Router) DownloadZip(c *gin.Context) {
 		if role, _ := r.HandleUserFilePermission(c, body.Files[i], DownloadRole); role == "" {
 			return
 		}
-		
+
 		file, err := r.fileClient.GetFileByID(
 			c.Request.Context(),
 			&fpb.GetByFileByIDRequest{
