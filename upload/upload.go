@@ -15,6 +15,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
@@ -109,6 +110,7 @@ type Router struct {
 	fileClient       fpb.FileServiceClient
 	permissionClient ppb.PermissionClient
 	searchClient     spb.SearchClient
+	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
 	mu               sync.Mutex
 }
@@ -135,6 +137,7 @@ func NewRouter(uploadConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
+	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
@@ -148,12 +151,16 @@ func NewRouter(uploadConn *grpc.ClientConn,
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
 
+	r.oAuthMiddleware = oAuthMiddleware
+
 	return r
 }
 
-// Setup sets up r and intializes its routes under rg.
+// Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.POST("/upload", r.Upload)
+	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+
+	rg.POST("/upload", checkExternalAdminScope, r.Upload)
 }
 
 // Upload is the request handler for /upload request.

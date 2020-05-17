@@ -9,6 +9,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
@@ -40,8 +41,9 @@ const (
 )
 
 type createPermissionRequest struct {
-	UserID string `json:"userID,omitempty"`
-	Role   string `json:"role,omitempty"`
+	UserID   string `json:"userID,omitempty"`
+	Role     string `json:"role,omitempty"`
+	Override bool   `json:"override"`
 }
 
 // Permission is a struct that describes a user's permission to a file.
@@ -57,6 +59,7 @@ type Router struct {
 	permissionClient ppb.PermissionClient
 	fileClient       fpb.FileServiceClient
 	userClient       upb.UsersClient
+	oAuthMiddleware  *oauth.Middleware
 	logger           *logrus.Logger
 }
 
@@ -67,6 +70,7 @@ func NewRouter(
 	permissionConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
 	userConnection *grpc.ClientConn,
+	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -79,13 +83,18 @@ func NewRouter(
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
 	r.userClient = upb.NewUsersClient(userConnection)
+
+	r.oAuthMiddleware = oAuthMiddleware
+
 	return r
 }
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
+	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+
 	rg.GET(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.GetFilePermissions)
-	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.CreateFilePermission)
+	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), checkExternalAdminScope, r.CreateFilePermission)
 	rg.DELETE(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.DeleteFilePermission)
 }
 
@@ -148,19 +157,27 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 
 	permission := &createPermissionRequest{}
 	if err := c.ShouldBindJSON(permission); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("request has wrong format")))
 		return
 	}
 
 	// Forbid a user to give himself any permission.
 	if permission.UserID == reqUser.ID {
-		c.AbortWithStatus(http.StatusBadRequest)
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("a user cannot give himself permissions")))
 		return
 	}
 
 	// Forbid creating a permission of NONE.
 	switch ppb.Role(ppb.Role_value[permission.Role]) {
 	case ppb.Role_NONE:
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("permission type %s is not valid! ", permission.Role)))
+		return
 	default:
 		break
 	}
@@ -206,7 +223,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		UserID:  permission.UserID,
 		Role:    permission.Role,
 		Creator: reqUser.ID,
-	})
+	}, permission.Override)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -338,12 +355,13 @@ func IsPermitted(ctx context.Context,
 // CreatePermission creates permission in the permission-service.
 func CreatePermission(ctx context.Context,
 	permissionClient ppb.PermissionClient,
-	permission Permission) (*ppb.PermissionObject, error) {
+	permission Permission, override bool) (*ppb.PermissionObject, error) {
 	permissionRequest := &ppb.CreatePermissionRequest{
-		FileID:  permission.FileID,
-		UserID:  permission.UserID,
-		Role:    ppb.Role(ppb.Role_value[permission.Role]),
-		Creator: permission.Creator,
+		FileID:   permission.FileID,
+		UserID:   permission.UserID,
+		Role:     ppb.Role(ppb.Role_value[permission.Role]),
+		Creator:  permission.Creator,
+		Override: override,
 	}
 	createdPermission, err := permissionClient.CreatePermission(ctx, permissionRequest)
 	if err != nil {

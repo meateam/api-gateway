@@ -12,6 +12,8 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	uspb "github.com/meateam/user-service/proto"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -25,6 +27,15 @@ const (
 
 	// ParamPartialName is the name of the partial user name param in URL.
 	ParamPartialName = "partial"
+
+	// ExternalUserSource is the value of the source field of user that indicated that the user is external
+	ExternalUserSource = "external"
+
+	// InternalUserSource is the value of the source field of user that indicated that the user is internal
+	InternalUserSource = "internal"
+
+	// configBucketPostfix is the name of the environment variable containing the postfix for the bucket.
+	ConfigBucketPostfix = "bucket_postfix"
 )
 
 //Router is a structure that handles users requests.
@@ -38,6 +49,7 @@ type User struct {
 	ID        string `json:"id"`
 	FirstName string `json:"firstname"`
 	LastName  string `json:"lastname"`
+	Source    string `json:"source"`
 	Bucket    string `json:"bucket"`
 }
 
@@ -60,7 +72,7 @@ func NewRouter(
 	return r
 }
 
-// Setup sets up r and intializes its routes under rg.
+// Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
@@ -139,9 +151,18 @@ func ExtractRequestUser(ctx context.Context) *User {
 // normalizeCephBucketName gets a bucket name and normalizes it
 // according to ceph s3's constraints.
 func normalizeCephBucketName(bucketName string) string {
-	lowerCaseBucketName := strings.ToLower(bucketName)
+	postfix := viper.GetString(ConfigBucketPostfix)
+	lowerCaseBucketName := strings.ToLower(bucketName + postfix)
 
 	// Make a Regex for catching only letters and numbers.
 	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
 	return reg.ReplaceAllString(lowerCaseBucketName, "-")
+}
+
+// IsExternalUser gets a userID and returns true if user is from an external source.
+// Otherwise, returns false.
+// Currently just and all of the external users don't have a valid mongoID .
+func IsExternalUser(userID string) bool {
+	_, err := primitive.ObjectIDFromHex(userID)
+	return err != nil
 }
