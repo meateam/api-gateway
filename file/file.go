@@ -11,7 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	"github.com/meateam/api-gateway/oauth"
+	auth "github.com/meateam/api-gateway/oauth"
+	oauth "github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	"github.com/meateam/download-service/download"
@@ -232,10 +233,10 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+	checkGetFileScope := r.oAuthMiddleware.ScopeMiddleware(auth.GetFileScope)
 
-	rg.GET("/files", checkExternalAdminScope, r.GetFilesByFolder)
-	rg.GET("/files/:id", checkExternalAdminScope, r.GetFileByID)
+	rg.GET("/files", checkGetFileScope, r.GetFilesByFolder)
+	rg.GET("/files/:id", checkGetFileScope, r.GetFileByID)
 	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
@@ -252,6 +253,11 @@ func (r *Router) GetFileByID(c *gin.Context) {
 
 	alt := c.Query("alt")
 	if alt == "media" {
+		canDownload := r.oAuthMiddleware.validateRequiredScope(c, oauth.DownloadScope)
+		if !canDownload {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
 		r.Download(c)
 
 		return

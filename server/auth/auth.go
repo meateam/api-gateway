@@ -9,6 +9,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -71,7 +72,7 @@ func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 
 		isService := c.GetHeader(AuthTypeHeader)
 
-		if isService != ServiceAuthTypeValue {
+		if isService != oauth.ServiceAuthTypeValue && isService != oauth.ServiceAuthCodeTypeValue {
 			r.UserMiddleware(c, secret, authURL)
 		}
 		c.Next()
@@ -136,6 +137,8 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 		LastName:  lastName,
 		Source:    user.InternalUserSource,
 	})
+
+	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
 
 	c.Next()
 }

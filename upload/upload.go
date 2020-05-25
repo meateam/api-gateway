@@ -158,9 +158,9 @@ func NewRouter(uploadConn *grpc.ClientConn,
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+	checkUploadScope := r.oAuthMiddleware.ScopeMiddleware(oauth.UploadScope)
 
-	rg.POST("/upload", checkExternalAdminScope, r.Upload)
+	rg.POST("/upload", checkUploadScope, r.Upload)
 }
 
 // Upload is the request handler for /upload request.
