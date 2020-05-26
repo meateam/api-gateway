@@ -233,7 +233,7 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkGetFileScope := r.oAuthMiddleware.ScopeMiddleware(auth.GetFileScope)
+	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(auth.GetFileScope)
 
 	rg.GET("/files", checkGetFileScope, r.GetFilesByFolder)
 	rg.GET("/files/:id", checkGetFileScope, r.GetFileByID)
@@ -253,9 +253,12 @@ func (r *Router) GetFileByID(c *gin.Context) {
 
 	alt := c.Query("alt")
 	if alt == "media" {
-		canDownload := r.oAuthMiddleware.validateRequiredScope(c, oauth.DownloadScope)
+		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
 		if !canDownload {
-			c.AbortWithStatus(http.StatusForbidden)
+			loggermiddleware.LogError(r.logger, c.AbortWithError(
+				http.StatusForbidden,
+				fmt.Errorf("required scope '%s' is not supplied", oauth.DownloadScope),
+			))
 			return
 		}
 		r.Download(c)

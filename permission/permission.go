@@ -91,7 +91,7 @@ func NewRouter(
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkShareScope := r.oAuthMiddleware.ScopeMiddleware(oauth.ShareScope)
+	checkShareScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.ShareScope)
 
 	rg.GET(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.GetFilePermissions)
 	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), checkShareScope, r.CreateFilePermission)
