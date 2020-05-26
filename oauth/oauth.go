@@ -329,12 +329,12 @@ func (m *Middleware) ValidateRequiredScope(ctx *gin.Context, requiredScope strin
 		return true
 	}
 
-	// temporerly
+	// temporary
 	authType := ctx.Value(ContextAuthType)
 	if authType == DropboxAuthTypeValue {
 		return true
 	}
-	// ----------
+	// temporary
 
 	contextScopes := ctx.Value(ContextScopesKey)
 	var scopes []string
