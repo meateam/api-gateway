@@ -49,6 +49,9 @@ const (
 	// ParamFileCreatedAt is a constant for file created at parameter in a request.
 	ParamFileCreatedAt = "createdAt"
 
+	// ParamFileID is the name of the file id param in URL.
+	ParamFileID = "id"
+
 	// ParamFileUpdatedAt is a constant for file updated at parameter in a request.
 	ParamFileUpdatedAt = "updatedAt"
 
@@ -245,9 +248,13 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-	fileID := c.Param("id")
+	fileID, isPermitted := r.ExtractAndValidateFileID(c)
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+	if isPermitted == false {
+		c.String(http.StatusForbidden, "operation not permitted")
 		return
 	}
 
@@ -448,9 +455,13 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	fileID := c.Param("id")
+	fileID, isPermitted := r.ExtractAndValidateFileID(c)
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+	if isPermitted == false {
+		c.String(http.StatusForbidden, "operation not permitted")
 		return
 	}
 
@@ -480,11 +491,16 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 // Download is the request handler for /files/:id?alt=media request.
 func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
-	fileID := c.Param("id")
+	fileID, isPermitted := r.ExtractAndValidateFileID(c)
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
 		return
 	}
+	if isPermitted == false {
+		c.String(http.StatusForbidden, "operation not permitted")
+		return
+	}
+
 	role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 	if role == "" {
 		if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
@@ -541,9 +557,13 @@ func (r *Router) Download(c *gin.Context) {
 // The function gets an id as a parameter and the partial file to update.
 // It returns the updated file id.
 func (r *Router) UpdateFile(c *gin.Context) {
-	fileID := c.Param("id")
+	fileID, isPermitted := r.ExtractAndValidateFileID(c)
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+	if isPermitted == false {
+		c.String(http.StatusForbidden, "operation not permitted")
 		return
 	}
 
@@ -580,9 +600,13 @@ func (r *Router) UpdateFile(c *gin.Context) {
 // The function gets an id.
 // It returns the updated file id's.
 func (r *Router) GetFileAncestors(c *gin.Context) {
-	fileID := c.Param("id")
+	fileID, isPermitted := r.ExtractAndValidateFileID(c)
 	if fileID == "" {
 		c.String(http.StatusBadRequest, "file id is required")
+		return
+	}
+	if isPermitted == false {
+		c.String(http.StatusForbidden, "operation not permitted")
 		return
 	}
 
@@ -1148,4 +1172,38 @@ func IsFileConvertableToPdf(contentType string) bool {
 	}
 
 	return false
+}
+
+// IsBelongToApp returns a boolean value indicating wheather an app can do an operation on the file.
+// The drive is permitted to to any operation.
+func (r *Router) IsAppPermitted(ctx *gin.Context, fileID string) bool {
+	appID := ctx.Value(oauth.ContextAppKey)
+	if appID == oauth.DriveAppID {
+		return true
+	}
+
+	getFileByIDRequest := &fpb.GetByFileByIDRequest{
+		Id: fileID,
+	}
+
+	file, err := r.fileClient.GetFileByID(ctx.Request.Context(), getFileByIDRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, ctx.AbortWithError(httpStatusCode, err))
+
+		return false
+	}
+
+	return file.AppID == appID
+}
+
+func (r *Router) ExtractAndValidateFileID(ctx *gin.Context) (string, bool) {
+	fileID := ctx.Param(ParamFileID)
+	if fileID == "" {
+		return "", false
+	}
+
+	isPermitted := r.IsAppPermitted(ctx, fileID)
+
+	return fileID, isPermitted
 }
