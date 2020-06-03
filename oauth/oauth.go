@@ -146,6 +146,7 @@ func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string
 	scopes := spikeToken.GetScopes()
 
 	ctx.Set(ContextScopesKey, scopes)
+	ctx.Set(ContextAppKey, "shahar")
 
 	// Checks the scopes, and if correct, store the user in the context.
 	for _, scope := range scopes {

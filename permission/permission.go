@@ -194,6 +194,10 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
+	ctxAppID := c.Value(oauth.ContextAppKey).(string)
+	if file.AppID != ctxAppID {
+		return
+	}
 
 	// Forbid changing the file owner's permission.
 	if file.GetOwnerID() == permission.UserID {
