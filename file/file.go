@@ -348,10 +348,19 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 	}
 
+	appID := c.Value(oauth.ContextAppKey).(string)
+
+	err := ValidateAppID(c, filesParent, r.fileClient)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(
+			http.StatusForbidden,
+			fmt.Errorf("folder does not belong to the app"),
+		))
+		return
+	}
+
 	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
 		ParamFileCreatedAt, ParamFileUpdatedAt)
-
-	appID := c.Value(oauth.ContextAppKey).(string)
 
 	fileFilter := fpb.File{
 		Name:        paramMap[ParamFileName],
@@ -1192,12 +1201,17 @@ func IsFileConvertableToPdf(contentType string) bool {
 	return false
 }
 
-// ValidatePermission returns an error if the app cannot do an operation on the file, otherwise, nil.
+// ValidateAppID returns an error if the app cannot do an operation on the file, otherwise, nil.
 // The drive is permitted to to any operation.
-func ValidatePermission(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient) error {
+func ValidateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient) error {
 	appID := ctx.Value(oauth.ContextAppKey)
-	// Drive is always permitted
-	if appID == oauth.DriveAppID {
+	// Drive and Dropbox is always permitted
+	if appID == oauth.DriveAppID || appID == oauth.DropboxAppID {
+		return nil
+	}
+
+	// Root folder belongs to all apps
+	if fileID == "" {
 		return nil
 	}
 
@@ -1225,7 +1239,7 @@ func ExtractAndValidateFileID(ctx *gin.Context, fileClient fpb.FileServiceClient
 		return "", fmt.Errorf("fileID not provided")
 	}
 
-	err := ValidatePermission(ctx, fileID, fileClient)
+	err := ValidateAppID(ctx, fileID, fileClient)
 
 	return fileID, err
 }

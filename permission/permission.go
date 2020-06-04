@@ -194,8 +194,12 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
+
+	// An app cannot create a permission for a file that does not belong to it.
+	// Unless its Drive or Dropbox.
 	ctxAppID := c.Value(oauth.ContextAppKey).(string)
-	if file.AppID != ctxAppID {
+	if (file.AppID != ctxAppID) && (file.AppID != oauth.DriveAppID) && (file.AppID != oauth.DropboxAppID) {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
 		return
 	}
 
