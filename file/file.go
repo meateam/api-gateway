@@ -176,6 +176,7 @@ type GetFileByIDResponse struct {
 	Shared      bool        `json:"shared"`
 	Permission  *Permission `json:"permission,omitempty"`
 	IsExternal  bool        `json:"isExternal"`
+	AppID       string      `json:"appID,omitempty"`
 }
 
 type partialFile struct {
@@ -443,6 +444,10 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 			return
+		}
+		// Show only drive and dropbox shared files
+		if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
+			continue
 		}
 
 		if file.GetOwnerID() != reqUser.ID {
@@ -1109,6 +1114,7 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 		Role:        role,
 		Shared:      false,
 		IsExternal:  isExternal,
+		AppID:       file.GetAppID(),
 	}
 
 	if permission != nil {
@@ -1224,7 +1230,7 @@ func ValidateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	if err != nil {
 		return err
 	}
-	if file.AppID != appID {
+	if file.GetAppID() != appID {
 		return fmt.Errorf("fileID not provided")
 	}
 
