@@ -14,10 +14,16 @@ services:
       GW_PERMISSION_SERVICE: 'permission-service:8080'
       GW_USER_SERVICE: 'user-service:8080'
       GW_SEARCH_SERVICE: 'search-service:8080'
+      GW_PERMIT_SERVICE: 'permit-service:8080'
+      GW_DELEGATION_SERVICE: 'delegation-service:8080'
+      GW_WEB_UI: 'web-ui:8080'
       GW_GOTENBERG_SERVICE: 'http://gotenberg-service:8080'
       GW_ALLOW_ORIGINS: 'http://localhost*'
       GW_SUPPORT_LINK: 'https://open.rocket.chat/home'
       GW_CHROME_DOWNLOAD_URL: 'https://google.com/chrome/'
+      GW_APPROVAL_URL: http://localhost/api/v1/request
+      GW_VIP_SERVICE: "http://localhost:8094"
+      GW_BUCKET_POSTFIX: "kdrive"
       ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'info'
@@ -138,7 +144,8 @@ services:
       USERS_RPC_ENDPOINT: 'user-service:8080'
       SECRET_KEY: 'pandora@drive'
       CLIENT_ENDPOINT: 'http://localhost'
-      STRATEGY: 'saml'
+      SHRAGA_URL: 'web-ui:8080'
+      STRATEGY: 'shraga'
     depends_on:
       - saml-idp
       - user-service
@@ -203,7 +210,7 @@ services:
     environment:
       SS_PORT: 8080
       SS_HOST_NAME: search-service
-      SS_ELASTICSEARCH_URL: http://elasticsearch:9200
+      SS_ELASTICSEARCH_URL: http://localhost:9200
       SS_ELASTICSEARCH_INDEX: files
       LOG_INDEX: kdrive
       LOG_LEVEL: debug
@@ -231,6 +238,61 @@ services:
       - /gotenberg/tmp
     ports:
       - 8089:8080
+  spike-service:
+    image: bluehub.azurecr.io/meateam/spike-service:latest
+    environment:
+      AUDIENCE: "0mBMe5vYJyuFtvHpEWVDPumqaVl~xr"
+      SPIKE_CLIENT_ID: "EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub"
+      SPIKE_CLIENT_SECRET: "u5qxEK0sy17ReZ7t8aVeN1gCcdI9hRiM78i9J_9Z6jA2YWcvbgczcchKqZ4WnXOsdT6jxmuVCLC3~RXuVcE5EsOG4JJi~B8AJQSB"
+      REDIS_URL: 'redis://redis:6379'
+      SPIKE_TOKEN_URL: "https://spike.westeurope.cloudapp.azure.com:1337/oauth2/token"
+      SPIKE_PUBLIC_KEY_FULL_PATH: "/usr/src/app/utils/publickey.pem"
+      SPIKE_PUBKEY_PATH: 'https://spike.westeurope.cloudapp.azure.com:1337/.well-known/publickey.pem'
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+    depends_on:
+      - redis
+    ports:
+      - '8090:8080'
+  delegation-service:
+    image: bluehub.azurecr.io/meateam/delegation-service:develop
+    ports:
+      - '8091:8080'
+    environment:
+      DEL_PROT: 8080
+      DEL_SPIKE_REQUIRED: 'false'
+      PHONE_BOOK_URL: 'http://localhost'
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+  permit-service:
+    image: bluehub.azurecr.io/meateam/permit-service:develop
+    environment:
+      PMTS_PORT: 8080
+      HOST_NAME: permit-service
+      PMTS_MONGO_HOST: mongodb://mongo:27017/permit
+      PMTS_GRANT_TYPE: client_credentials
+      PMTS_AUDIENCE: "_LCF5avgIpoXSWhY5Jl8mMi0Q~4_~R"
+      PMTS_APPROVAL_URL: http://localhost/api/v1/request
+      PMTS_SPIKE_SERVICE: spike-service:8080
+      PMTS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
+      ELASTICSEARCH_URL: http://localhost:9200
+      LOG_INDEX: kdrive
+      LOG_LEVEL: debug
+      HEALTH_CHECK_INTERVAL: 5
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVICE_NAME: 'permit-service'
+      ELASTIC_APM_SERVICE_VERSION: '0.1'
+      ELASTIC_APM_ENVIRONMENT: 'development'
+      ELASTIC_APM_ACTIVE: 'true'
+      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_METRICS_INTERVAL: '10s'
+    ports:
+      - 8092:8080
+    depends_on:
+      - mongo
+      - spike-service
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '6379:6379'
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
     environment: 

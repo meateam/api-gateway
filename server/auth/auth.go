@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"go.elastic.co/apm"
 )
 
@@ -31,6 +33,15 @@ const (
 
 	// UserNameLabel is the label for the full user name.
 	UserNameLabel = "username"
+
+	// AuthTypeHeader is the key of the servive-host header
+	AuthTypeHeader = "Auth-Type"
+
+	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	ServiceAuthTypeValue = "Service"
+
+	// ConfigWebUI is the name of the environment variable containing the path to the ui.
+	ConfigWebUI = "web_ui"
 )
 
 // Router is a structure that handels the authentication middleware.
@@ -40,7 +51,9 @@ type Router struct {
 
 // NewRouter creates a new Router. If logger is non-nil then it will be
 // set as-is, otherwise logger would default to logrus.New().
-func NewRouter(logger *logrus.Logger) *Router {
+func NewRouter(
+	logger *logrus.Logger,
+) *Router {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -51,66 +64,80 @@ func NewRouter(logger *logrus.Logger) *Router {
 	return r
 }
 
-// Middleware validates the jwt token in c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
+// Middleware check that the client has valid authentication to use the route
+// This function also set variables like user and service to the context.
+func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		isService := c.GetHeader(AuthTypeHeader)
+
+		if isService != ServiceAuthTypeValue {
+			r.UserMiddleware(c, secret, authURL)
+		}
+		c.Next()
+	}
+}
+
+// UserMiddleware is a middleware which validates the user requesting the operation.
+// It validates the jwt token in c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
 // If the token is not valid or expired, it will redirect the client to authURL.
 // If the token is valid, it will set the user's data into the gin context
 // at user.ContextUserKey.
-func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := r.ExtractToken(secret, authURL, c)
-		// Check if the extraction was successful
-		if token == nil {
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-
-		if !ok || !token.Valid {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token: %v", token))
-			return
-		}
-
-		// Check type assertion
-		id, idOk := claims["id"].(string)
-		firstName, firstNameOk := claims[FirstNameClaim].(string)
-		lastName, lastNameOk := claims[LastNameClaim].(string)
-
-		// If any of the claims are invalid then redirect to authentication
-		if !idOk || !firstNameOk || !lastNameOk {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
-			return
-		}
-
-		// The current transaction of the apm, adding the user id to the context.
-		currentTarnasction := apm.TransactionFromContext(c.Request.Context())
-		currentTarnasction.Context.SetUserID(id)
-		currentTarnasction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
-
-		// Check type assertion.
-		// For some reason can't convert directly to int64
-		exp, ok := claims["exp"].(float64)
-		if !ok {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token exp: %v", claims["exp"]))
-			return
-		}
-
-		expTime := time.Unix(int64(exp), 0)
-		timeUntilExp := time.Until(expTime)
-
-		// Verify again that the token is not expired
-		if timeUntilExp <= 0 {
-			r.redirectToAuthService(c, authURL, fmt.Sprintf("user %s token expired at %s", expTime, id))
-			return
-		}
-
-		c.Set(user.ContextUserKey, user.User{
-			ID:        id,
-			FirstName: firstName,
-			LastName:  lastName,
-		})
-
-		c.Next()
+func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
+	token := r.ExtractToken(secret, authURL, c)
+	// Check if the extraction was successful
+	if token == nil {
+		return
 	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+
+	if !ok || !token.Valid {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token: %v", token))
+		return
+	}
+
+	// Check type assertion
+	id, idOk := claims["id"].(string)
+	firstName, firstNameOk := claims[FirstNameClaim].(string)
+	lastName, lastNameOk := claims[LastNameClaim].(string)
+
+	// If any of the claims are invalid then redirect to authentication
+	if !idOk || !firstNameOk || !lastNameOk {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
+		return
+	}
+
+	// The current transaction of the apm, adding the user id to the context.
+	currentTarnasction := apm.TransactionFromContext(c.Request.Context())
+	currentTarnasction.Context.SetUserID(id)
+	currentTarnasction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
+
+	// Check type assertion.
+	// For some reason can't convert directly to int64
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token exp: %v", claims["exp"]))
+		return
+	}
+
+	expTime := time.Unix(int64(exp), 0)
+	timeUntilExp := time.Until(expTime)
+
+	// Verify again that the token is not expired
+	if timeUntilExp <= 0 {
+		r.redirectToAuthService(c, authURL, fmt.Sprintf("user %s token expired at %s", expTime, id))
+		return
+	}
+
+	c.Set(user.ContextUserKey, user.User{
+		ID:        id,
+		FirstName: firstName,
+		LastName:  lastName,
+		Source:    user.InternalUserSource,
+	})
+
+	c.Next()
 }
 
 // ExtractToken extract the jwt token from c.Cookie(AuthCookie) or c.GetHeader(AuthHeader).
@@ -132,7 +159,7 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 		// The header value missing the correct prefix
 		if authArr[0] != AuthHeaderBearer {
 			r.redirectToAuthService(c, authURL,
-				fmt.Sprintf("authorization header is not legal. value should start with 'Bearer': %v", authArr[0]))
+				fmt.Sprintf("authorization header is not legal. Value should start with 'Bearer': %v", authArr[0]))
 			return nil
 		}
 
@@ -176,6 +203,9 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 // redirectToAuthService temporary redirects c to authURL and aborts the pending handlers.
 func (r *Router) redirectToAuthService(c *gin.Context, authURL string, reason string) {
 	r.logger.Info(reason)
-	c.Redirect(http.StatusTemporaryRedirect, authURL)
+	redirectURI := viper.GetString(ConfigWebUI) + c.Request.RequestURI
+	encodedRedirectURI := url.QueryEscape(redirectURI)
+	authRedirectURL := fmt.Sprintf("%s?RelayState=%s", authURL, encodedRedirectURI)
+	c.Redirect(http.StatusTemporaryRedirect, authRedirectURL)
 	c.Abort()
 }

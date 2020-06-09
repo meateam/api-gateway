@@ -8,9 +8,12 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/delegation"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
+	"github.com/meateam/api-gateway/permit"
 	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
@@ -64,16 +67,26 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"chromeDownloadLink": viper.GetString(configDownloadChromeURL),
-				"apmServerUrl":       viper.GetString(configExternalApmURL),
-				"environment":        os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"authUrl":            viper.GetString(configAuthURL),
-				"supportLink":        viper.GetString(configSupportLink),
+				"chromeDownloadLink":   viper.GetString(configDownloadChromeURL),
+				"apmServerUrl":         viper.GetString(configExternalApmURL),
+				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+				"authUrl":              viper.GetString(configAuthURL),
+				"supportLink":          viper.GetString(configSupportLink),
+				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
+				"externalShareName":    viper.GetString(configExternalShareName),
+				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
+				"vipServiceUrl":        viper.GetString(configVipService),
+				"enableExternalShare":  viper.GetString(configEnableExternalShare),
 			},
 		)
 	})
 
 	// Initiate services gRPC connections.
+	delegateConn, err := initServiceConn(viper.GetString(configDelegationService))
+	if err != nil {
+		logger.Fatalf("couldn't setup delegation service connection: %v", err)
+	}
+
 	fileConn, err := initServiceConn(viper.GetString(configFileService))
 	if err != nil {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
@@ -99,14 +112,36 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup permission service connection: %v", err)
 	}
 
+	permitConn, err := initServiceConn(viper.GetString(configPermitService))
+	if err != nil {
+		logger.Fatalf("couldn't setup permit service connection: %v", err)
+	}
+
 	searchConn, err := initServiceConn(viper.GetString(configSearchService))
 	if err != nil {
 		logger.Fatalf("couldn't setup search service connection: %v", err)
 	}
 
-	conns := []*grpc.ClientConn{fileConn, uploadConn, downloadConn, permissionConn, userConn, searchConn}
+	spikeConn, err := initServiceConn(viper.GetString(configSpikeService))
+	if err != nil {
+		logger.Fatalf("couldn't setup spike service connection: %v", err)
+	}
 
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
+
+	// initiate middlewares
+	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
+	conns := []*grpc.ClientConn{
+		fileConn,
+		uploadConn,
+		downloadConn,
+		permissionConn,
+		userConn,
+		searchConn,
+		spikeConn,
+		permitConn,
+		delegateConn,
+	}
 
 	health := NewHealthChecker()
 	healthInterval := viper.GetInt(configHealthCheckInterval)
@@ -118,12 +153,15 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
 
 	// Initiate routers.
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, searchConn, gotenbergClient, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, logger)
+	dr := delegation.NewRouter(delegateConn, logger)
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
+		searchConn, userConn, delegateConn, gotenbergClient, om, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
-	pr := permission.NewRouter(permissionConn, fileConn, userConn, logger)
+	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
+	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, delegateConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
@@ -136,6 +174,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	}
 	// Authentication middleware on routes group.
 	authRequiredRoutesGroup := apiRoutesGroup.Group("/", middlewares...)
+
+	// Initiate client connection to delegation service.
+	dr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
@@ -151,6 +192,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Initiate client connection to permission service.
 	pr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to permit service.
+	ptr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to search service.
 	sr.Setup(authRequiredRoutesGroup)

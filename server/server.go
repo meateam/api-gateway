@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/meateam/api-gateway/server/auth"
+	"github.com/meateam/api-gateway/user"
 	ilogger "github.com/meateam/elasticsearch-logger"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -12,11 +14,14 @@ const (
 	envPrefix                   = "GW"
 	configPort                  = "port"
 	configUploadService         = "upload_service"
+	configDelegationService     = "delegation_service"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
 	configUserService           = "user_service"
 	configPermissionService     = "permission_service"
+	configPermitService         = "permit_service"
 	configSearchService         = "search_service"
+	configSpikeService          = "spike_service"
 	configGotenbergService      = "gotenberg_service"
 	configSecret                = "secret"
 	configAuthURL               = "auth_url"
@@ -32,6 +37,11 @@ const (
 	configElasticsearchSniff    = "elasticsearch_sniff"
 	configHealthCheckInterval   = "health_check_interval"
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
+	configApprovalServiceURL    = "approval_url"
+	configExternalShareName     = "external_share_name"
+	configMyExternalSharesName  = "my_external_shares_name"
+	configVipService            = "vip_service"
+	configEnableExternalShare   = "enable_external_share"
 )
 
 var (
@@ -41,11 +51,14 @@ var (
 func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
+	viper.SetDefault(configDelegationService, "delegation-service:8080")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
 	viper.SetDefault(configPermissionService, "permission-service:8080")
+	viper.SetDefault(configPermitService, "permit-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
+	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
@@ -60,6 +73,13 @@ func init() {
 	viper.SetDefault(configElasticsearchSniff, false)
 	viper.SetDefault(configHealthCheckInterval, 5)
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
+	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
+	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
+	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
+	viper.SetDefault(configVipService, "http://localhost:8094")
+	viper.SetDefault(configEnableExternalShare, false)
+	viper.SetDefault(user.ConfigBucketPostfix, "")
+	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
