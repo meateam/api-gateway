@@ -92,6 +92,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
 	}
 
+	quotaConn, err := initServiceConn(viper.GetString(configFileService))
+	if err != nil {
+		logger.Fatalf("couldn't setup file service connection: %v", err)
+	}
+
 	userConn, err := initServiceConn(viper.GetString(configUserService))
 	if err != nil {
 		logger.Fatalf("couldn't setup user service connection: %v", err)
@@ -133,6 +138,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
 	conns := []*grpc.ClientConn{
 		fileConn,
+		quotaConn,
 		uploadConn,
 		downloadConn,
 		permissionConn,
@@ -156,7 +162,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	dr := delegation.NewRouter(delegateConn, logger)
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
 		searchConn, userConn, delegateConn, gotenbergClient, om, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, quotaConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)

@@ -2,6 +2,7 @@ package upload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,6 +19,7 @@ import (
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
+	qpb "github.com/meateam/file-service/proto/quota"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
@@ -36,6 +38,9 @@ const (
 
 	// MaxPartUploadSize 500MB max limit.
 	MaxPartUploadSize = 512 << 20
+
+	// File id to update
+	ParamFileID = "fileId"
 
 	// MediaUploadType media upload type name.
 	MediaUploadType = "media"
@@ -108,6 +113,7 @@ func marshalSearchPB(f *fpb.File, file *spb.File) error {
 type Router struct {
 	uploadClient     upb.UploadClient
 	fileClient       fpb.FileServiceClient
+	quotaClient      qpb.QuotaServiceClient
 	permissionClient ppb.PermissionClient
 	searchClient     spb.SearchClient
 	oAuthMiddleware  *oauth.Middleware
@@ -135,6 +141,7 @@ type resumableFileUploadProgress struct {
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(uploadConn *grpc.ClientConn,
 	fileConn *grpc.ClientConn,
+	quotaConn *grpc.ClientConn,
 	permissionConn *grpc.ClientConn,
 	searchConn *grpc.ClientConn,
 	oAuthMiddleware *oauth.Middleware,
@@ -148,6 +155,7 @@ func NewRouter(uploadConn *grpc.ClientConn,
 
 	r.uploadClient = upb.NewUploadClient(uploadConn)
 	r.fileClient = fpb.NewFileServiceClient(fileConn)
+	r.quotaClient = qpb.NewQuotaServiceClient(quotaConn)
 	r.permissionClient = ppb.NewPermissionClient(permissionConn)
 	r.searchClient = spb.NewSearchClient(searchConn)
 
@@ -161,6 +169,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
 
 	rg.POST("/upload", checkExternalAdminScope, r.Upload)
+	rg.PUT("/upload/:"+ParamFileID, checkExternalAdminScope, r.Update)
 }
 
 // Upload is the request handler for /upload request.
@@ -171,7 +180,6 @@ func (r *Router) Upload(c *gin.Context) {
 			r.logger,
 			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
 		)
-
 		return
 	}
 
@@ -189,6 +197,34 @@ func (r *Router) Upload(c *gin.Context) {
 	switch uploadType {
 	case MediaUploadType:
 		r.UploadMedia(c)
+	case MultipartUploadType:
+		r.UploadMultipart(c)
+	case ResumableUploadType:
+		r.UploadPart(c)
+	default:
+		c.String(http.StatusBadRequest, fmt.Sprintf("unknown uploadType=%v", uploadType))
+		return
+	}
+}
+
+// Upload is the request handler for /upload request.
+func (r *Router) Update(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
+		)
+		return
+	}
+
+	uploadType, exists := c.GetQuery(UploadTypeQueryKey)
+	if !exists {
+		r.UpdateInit(c)
+		return
+	}
+
+	switch uploadType {
 	case MultipartUploadType:
 		r.UploadMultipart(c)
 	case ResumableUploadType:
@@ -395,6 +431,117 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	}
 
 	c.String(http.StatusOK, createFileResp.GetId())
+}
+
+// UpdateComplete completes a resumable update file upload and update the user quota.
+func (r *Router) UpdateComplete(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	parentQuery := c.Query(ParentQueryKey)
+
+	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parentQuery)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	if !isPermitted {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	uploadID, exists := c.GetQuery(UploadIDQueryKey)
+	if !exists {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", UploadIDQueryKey))
+		return
+	}
+
+	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	fileID := upload.GetFileID()
+	oldFile, err := r.fileClient.GetFileByID(
+		c.Request.Context(),
+		&fpb.GetByFileByIDRequest{Id: fileID},
+	)
+
+	uploadCompleteRequest := &upb.UploadCompleteRequest{
+		UploadId: uploadID,
+		Key:      upload.GetKey(),
+		Bucket:   upload.GetBucket(),
+	}
+
+	resp, err := r.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
+		UploadID: upload.GetUploadID(),
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	var parent *fpb.File_Parent
+	if parentQuery == "" {
+		parent = &fpb.File_Parent{
+			Parent: "null",
+		}
+	} else {
+		parent = &fpb.File_Parent{
+			Parent: parentQuery,
+		}
+	}
+
+	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), &fpb.UpdateFilesRequest{
+		IdList: []string{fileID},
+		PartialFile: &fpb.File{
+			Key:      upload.Key,
+			Name:     upload.Name,
+			FileOrId: parent,
+			Size:     resp.GetContentLength(),
+		},
+	})
+
+	if err != nil {
+		r.deleteUpdateOnError(c, err, *oldFile)
+		return
+	}
+
+	for _, failedFile := range updateFilesResponse.GetFailedFiles() {
+		err := errors.New(failedFile.GetError())
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	deleteObjectsResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
+		Bucket: upload.Bucket,
+		Keys: []string{oldFile.Key},
+	})
+
+	for _, failedFile := range deleteObjectsResponse.GetFailed() {
+		err := errors.New(failedFile)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.String(http.StatusOK, fileID)
 }
 
 // UploadMedia uploads a file from request's body.
@@ -627,6 +774,82 @@ func (r *Router) UploadInit(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// UpdateInit initiates a resumable upload to update a large file to.
+func (r *Router) UpdateInit(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	parent := c.Query(ParentQueryKey)
+	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	if err != nil || !isPermitted {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	fileID := c.Param(ParamFileID)
+	file, err := r.fileClient.GetFileByID(
+		c.Request.Context(),
+		&fpb.GetByFileByIDRequest{Id: fileID},
+	)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	newFileSize, err := strconv.ParseInt(c.Request.Header.Get(ContentLengthCustomHeader), 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is invalid", ContentLengthCustomHeader))
+		return
+	}
+
+	if newFileSize < 0 {
+		newFileSize = 0
+	}
+
+	createUpdateResponse, err := r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUpdateRequest{
+		Bucket:  reqUser.Bucket,
+		Name:    file.Name,
+		OwnerID: reqUser.ID,
+		Parent:  parent,
+		Size:    newFileSize,
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	uploadInitReq := &upb.UploadInitRequest{
+		Key:         createUpdateResponse.GetKey(),
+		Bucket:      createUpdateResponse.GetBucket(),
+		ContentType: file.Type,
+	}
+
+	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
+		Key:      createUpdateResponse.GetKey(),
+		Bucket:   createUpdateResponse.GetBucket(),
+		UploadID: resp.GetUploadId(),
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	c.Header(UploadIDCustomHeader, resp.GetUploadId())
+	c.Status(http.StatusOK)
+}
+
 // UploadPart uploads a multipart file to a resumable upload.
 func (r *Router) UploadPart(c *gin.Context) {
 	multipartReader, err := c.Request.MultipartReader()
@@ -652,7 +875,6 @@ func (r *Router) UploadPart(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
 		return
 	}
 
@@ -669,7 +891,6 @@ func (r *Router) UploadPart(c *gin.Context) {
 	if err != nil {
 		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, contentRangeErr))
-
 		return
 	}
 
@@ -733,7 +954,11 @@ func (r *Router) HandleError(
 
 		// Upload response that all parts have finished uploading.
 		if err == io.EOF {
-			r.UploadComplete(c)
+			if !upload.GetIsUpdate() {
+				r.UploadComplete(c)
+			} else {
+				r.UpdateComplete(c)
+			}
 			return
 		}
 
@@ -903,6 +1128,29 @@ func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
 		r.permissionClient,
 		fileID,
 		reqUser.ID)
+	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+	if deleteErr != nil {
+		err = fmt.Errorf("%v: %v", err, deleteErr)
+	}
+
+	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+}
+
+func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile fpb.File) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	deleteObjectsResponse, deleteErr := r.uploadClient.DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
+		Bucket: oldFile.Bucket,
+		Keys: []string{oldFile.Key},
+	})
+
+	for _, failedFile := range deleteObjectsResponse.GetFailed() {
+		err = fmt.Errorf("%v: %v", err, failedFile)
+	}
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 	if deleteErr != nil {
 		err = fmt.Errorf("%v: %v", err, deleteErr)
