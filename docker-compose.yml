@@ -104,7 +104,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'file-service:develop'
+    image: 'bluehub.azurecr.io/meateam/file-service:develop'
     environment:
       BIND_ADDRESS: '0.0.0.0:8080'
       ELASTICSEARCH_URL: 'http://localhost:9200'
