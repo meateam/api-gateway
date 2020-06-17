@@ -806,7 +806,7 @@ func (r *Router) UpdateInit(c *gin.Context) {
 		newFileSize = 0
 	}
 
-	createUpdateResponse, err := r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUpdateRequest{
+	createUpdateResponse, err := r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  reqUser.Bucket,
 		Name:    file.Name,
 		OwnerID: reqUser.ID,

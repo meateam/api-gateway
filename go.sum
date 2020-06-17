@@ -203,6 +203,8 @@ github.com/meateam/file-service/proto v0.0.0-20200609121208-62f018084853 h1:vK6R
 github.com/meateam/file-service/proto v0.0.0-20200609121208-62f018084853/go.mod h1:Hf7K+gmsRn0yVRU3oSGb5r3JkPXGstUnT9Gh8+0fR6U=
 github.com/meateam/file-service/proto v0.0.0-20200614120322-62ada6d75b7c h1:sdqLgDi07/NM/tBYLk9GYJBbHBzuKSSsPEBal1XnACI=
 github.com/meateam/file-service/proto v0.0.0-20200614120322-62ada6d75b7c/go.mod h1:Hf7K+gmsRn0yVRU3oSGb5r3JkPXGstUnT9Gh8+0fR6U=
+github.com/meateam/file-service/proto v0.0.0-20200617094201-3eadef5cfa05 h1:Q8zBGcpsYO1Wx2QA1VWWYvWXt+cSaIhUL9KevGPMRaA=
+github.com/meateam/file-service/proto v0.0.0-20200617094201-3eadef5cfa05/go.mod h1:Hf7K+gmsRn0yVRU3oSGb5r3JkPXGstUnT9Gh8+0fR6U=
 github.com/meateam/gotenberg-go-client/v6 v6.0.7 h1:9De2v5f6LPo92nzVjBbAlwyrMmqmPhQLIDZLP5qNHYo=
 github.com/meateam/gotenberg-go-client/v6 v6.0.7/go.mod h1:6Rfyc4psQ0N2GUBOp7fUjXblxHG+U9NdicqVgXd2tTQ=
 github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b h1:kLuCtglmkQf5K1FYI3CytVBAlaGdlh0rUg6qgnF+dvQ=
