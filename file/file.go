@@ -123,10 +123,6 @@ const (
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
 )
 
-var AllowedAllOperationsApps = []string{oauth.DriveAppID}
-
-var AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID}
-
 var (
 	// TypesConvertableToPdf is a slice of the names of the mime types that can be converted to PDF and previewed.
 	TypesConvertableToPdf = []string{
@@ -140,6 +136,14 @@ var (
 		OdtMimeType,
 		OdpMimeType,
 	}
+
+	// AllowedAllOperationsApps are the applications which are allowed to do any operation
+	// open to external apps on files which are not theirs
+	AllowedAllOperationsApps = []string{oauth.DriveAppID}
+
+	// AllowedDownloadApps are the applications which are only allowed to download
+	// files which are not theirs
+	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID}
 )
 
 // Router is a structure that handles upload requests.
@@ -253,7 +257,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-	fileID, err := ExtractAndValidateFileID(c, r.fileClient, AllowedDownloadApps)
+	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedDownloadApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -334,14 +338,14 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 
 	appID := c.Value(oauth.ContextAppKey).(string)
 	filesParent := c.Query(ParamFileParent)
-	err := ValidateAppID(c, filesParent, r.fileClient, AllowedAllOperationsApps)
+	err := validateAppID(c, filesParent, r.fileClient, AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
 	if _, exists := c.GetQuery(QueryShareFiles); exists {
-		// Only Drive can access GetSharedFiles.
+		// Only AllowedAllOperationsApps can access GetSharedFiles.
 		if !stringInSlice(appID, AllowedAllOperationsApps) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -477,7 +481,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	fileID, err := ExtractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
+	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -513,13 +517,13 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 // Download is the request handler for /files/:id?alt=media request.
 func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
-	fileID, err := ExtractAndValidateFileID(c, r.fileClient, AllowedDownloadApps)
+	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedDownloadApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+		c.String(http.StatusBadRequest, "fileID is required")
 		return
 	}
 
@@ -579,13 +583,13 @@ func (r *Router) Download(c *gin.Context) {
 // The function gets an id as a parameter and the partial file to update.
 // It returns the updated file id.
 func (r *Router) UpdateFile(c *gin.Context) {
-	fileID, err := ExtractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
+	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+		c.String(http.StatusBadRequest, "fileID is required")
 		return
 	}
 
@@ -622,13 +626,13 @@ func (r *Router) UpdateFile(c *gin.Context) {
 // The function gets an id.
 // It returns the updated file id's.
 func (r *Router) GetFileAncestors(c *gin.Context) {
-	fileID, err := ExtractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
+	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+		c.String(http.StatusBadRequest, "fileID is required")
 		return
 	}
 
@@ -1197,27 +1201,23 @@ func IsFileConvertableToPdf(contentType string) bool {
 	return false
 }
 
-// ValidateAppID returns an error if the app cannot do an operation on the file, otherwise, nil.
+// validateAppID returns an error if the app cannot do an operation on the file, otherwise, nil.
 // The allowedApps are permitted to do any operation.
-func ValidateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient, allowedApps []string) error {
+func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient, allowedApps []string) error {
 	appID := ctx.Value(oauth.ContextAppKey).(string)
 
-	// Check if the appID is in the allowed appIDs
+	// Check if the appID is in the allowed appIDs.
 	if stringInSlice(appID, allowedApps) {
 		return nil
 	}
 
-	getFileByIDRequest := &fpb.GetByFileByIDRequest{
-		Id: fileID,
-	}
-
-	// Root folder belongs to all apps
+	// Root folder belongs to all apps.
 	if fileID == "" {
 		return nil
 	}
 
 	// Get the file's metadata.
-	file, err := fileClient.GetFileByID(ctx, getFileByIDRequest)
+	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		return ctx.AbortWithError(http.StatusForbidden, err)
 	}
@@ -1231,9 +1231,9 @@ func ValidateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 // ExtractAndValidateFileID extracts the fileID from the context and validates that the operation
 // is permitted by the application according to the appID.
 // The allowedApps are permitted to do any operation.
-func ExtractAndValidateFileID(ctx *gin.Context, fileClient fpb.FileServiceClient, allowedApps []string) (string, error) {
+func extractAndValidateFileID(ctx *gin.Context, fileClient fpb.FileServiceClient, allowedApps []string) (string, error) {
 	fileID := ctx.Param(ParamFileID)
-	err := ValidateAppID(ctx, fileID, fileClient, allowedApps)
+	err := validateAppID(ctx, fileID, fileClient, allowedApps)
 
 	return fileID, err
 }

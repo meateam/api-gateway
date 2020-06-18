@@ -102,7 +102,7 @@ func NewOAuthMiddleware(
 	return m
 }
 
-// ScopeMiddleware creates a middleware function that checks the scopes in context.
+// AuthorizationScopeMiddleware creates a middleware function that checks the scopes in context.
 // If the request is not from a service (AuthTypeHeader), Next will be immediately called.
 // If scopes are nil, the client is the drive client which is fine. Else, the required
 // scope should be included in the scopes array. If the required scope exists,and a
