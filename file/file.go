@@ -58,6 +58,10 @@ const (
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
+	// QueryFolder is a constant for queryFolder parameter in a request.
+	// If exists, the files returned will only belong to the app of QueryFolder.
+	QueryFolder = "queryFolder"
+
 	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
 	QueryFileDownloadPreview = "preview"
@@ -121,6 +125,9 @@ const (
 
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
+
+	// fileIdIsRequiredMessage is the error message for missing fileID
+	fileIdIsRequiredMessage = "fileID is required"
 )
 
 var (
@@ -257,13 +264,15 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedDownloadApps)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, err)
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
 		return
 	}
-	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedDownloadApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -347,7 +356,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	if _, exists := c.GetQuery(QueryShareFiles); exists {
 		// Only AllowedAllOperationsApps can access GetSharedFiles.
 		if !stringInSlice(appID, AllowedAllOperationsApps) {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
 		r.GetSharedFiles(c)
@@ -369,6 +378,16 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
 		ParamFileCreatedAt, ParamFileUpdatedAt)
 
+	queryAppID := appID
+	// Check if a specific app was requested by the drive.
+	// Other apps are not permitted to do so.
+	if stringInSlice(appID, AllowedAllOperationsApps) {
+		queryFolder := c.Query(QueryFolder)
+		if queryFolder != "" {
+			queryAppID = queryFolder
+		}
+	}
+
 	fileFilter := fpb.File{
 		Name:        paramMap[ParamFileName],
 		Type:        paramMap[ParamFileType],
@@ -377,7 +396,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
 		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
 		Float:       false,
-		AppID:       appID,
+		AppID:       queryAppID,
 	}
 
 	fileOwner := reqUser.ID
@@ -481,13 +500,15 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, err)
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
 		return
 	}
-	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -517,15 +538,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 // Download is the request handler for /files/:id?alt=media request.
 func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
-	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedDownloadApps)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, err)
-		return
-	}
-	if fileID == "" {
-		c.String(http.StatusBadRequest, "fileID is required")
-		return
-	}
+	fileID := c.Param(ParamFileID)
 
 	role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 	if role == "" {
@@ -583,13 +596,15 @@ func (r *Router) Download(c *gin.Context) {
 // The function gets an id as a parameter and the partial file to update.
 // It returns the updated file id.
 func (r *Router) UpdateFile(c *gin.Context) {
-	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, err)
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
 		return
 	}
-	if fileID == "" {
-		c.String(http.StatusBadRequest, "fileID is required")
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -626,13 +641,15 @@ func (r *Router) UpdateFile(c *gin.Context) {
 // The function gets an id.
 // It returns the updated file id's.
 func (r *Router) GetFileAncestors(c *gin.Context) {
-	fileID, err := extractAndValidateFileID(c, r.fileClient, AllowedAllOperationsApps)
-	if err != nil {
-		loggermiddleware.LogError(r.logger, err)
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
 		return
 	}
-	if fileID == "" {
-		c.String(http.StatusBadRequest, "fileID is required")
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -1226,16 +1243,6 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	}
 
 	return nil
-}
-
-// ExtractAndValidateFileID extracts the fileID from the context and validates that the operation
-// is permitted by the application according to the appID.
-// The allowedApps are permitted to do any operation.
-func extractAndValidateFileID(ctx *gin.Context, fileClient fpb.FileServiceClient, allowedApps []string) (string, error) {
-	fileID := ctx.Param(ParamFileID)
-	err := validateAppID(ctx, fileID, fileClient, allowedApps)
-
-	return fileID, err
 }
 
 // stringInSlice checks if a given string is in a given slice of strings
