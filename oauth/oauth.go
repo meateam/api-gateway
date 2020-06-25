@@ -58,13 +58,16 @@ const (
 	UploadScope = "upload"
 
 	// GetFileScope is the scope required for getting a file's metadata
-	GetFileScope = "get"
+	GetFileScope = "get_metadata"
 
 	// ShareScope is the scope required for file share and unshare
 	ShareScope = "share"
 
 	// DownloadScope is the scope required for file upload
 	DownloadScope = "download"
+
+	// DownloadScope is the scope required for file upload
+	DeleteScope = "delete"
 
 	// DriveAppID is the app ID of the drive client.
 	DriveAppID = "drive"
@@ -290,9 +293,9 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 func (m *Middleware) register(ctx *gin.Context, delegator *spb.User, clientID string) {
 
 	ctx.Set(user.ContextUserKey, user.User{
-		ID:        delegator.Id,
-		FirstName: delegator.FirstName,
-		LastName:  delegator.LastName,
+		ID:        delegator.GetId(),
+		FirstName: delegator.GetFirstName(),
+		LastName:  delegator.GetLastName(),
 		Source:    user.InternalUserSource,
 	})
 
@@ -330,7 +333,7 @@ func (m *Middleware) ValidateRequiredScope(ctx *gin.Context, requiredScope strin
 		return true
 	}
 
-	// temporary
+	// temporary dropbox
 	authType := ctx.Value(ContextAuthType)
 	if authType == DropboxAuthTypeValue {
 		return true

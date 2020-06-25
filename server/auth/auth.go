@@ -70,9 +70,9 @@ func NewRouter(
 func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		isService := c.GetHeader(AuthTypeHeader)
+		authType := c.GetHeader(AuthTypeHeader)
 
-		if isService != oauth.ServiceAuthTypeValue && isService != oauth.ServiceAuthCodeTypeValue {
+		if authType == "" {
 			r.UserMiddleware(c, secret, authURL)
 		}
 		c.Next()
