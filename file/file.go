@@ -58,9 +58,9 @@ const (
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
-	// QueryFolder is a constant for queryFolder parameter in a request.
-	// If exists, the files returned will only belong to the app of QueryFolder.
-	QueryFolder = "queryFolder"
+	// QueryAppID is a constant for queryAppId parameter in a request.
+	// If exists, the files returned will only belong to the app of QueryAppID.
+	QueryAppID = "queryAppId"
 
 	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
@@ -353,13 +353,29 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
+	queryAppID := appID
+
+	// indicates wheather files from a specific appID were requested.
+	isSpecificApp := false
+
+	// Check if a specific app was requested by the drive.
+	// Other apps are not permitted to do so.
+	if stringInSlice(appID, AllowedAllOperationsApps) {
+		requestedAppID := c.Query(QueryAppID)
+		if requestedAppID != "" {
+			isSpecificApp = true
+			queryAppID = requestedAppID
+		}
+	}
+
 	if _, exists := c.GetQuery(QueryShareFiles); exists {
 		// Only AllowedAllOperationsApps can access GetSharedFiles.
 		if !stringInSlice(appID, AllowedAllOperationsApps) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
-		r.GetSharedFiles(c)
+
+		r.GetSharedFiles(c, isSpecificApp, queryAppID)
 		return
 	}
 
@@ -377,16 +393,6 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 
 	paramMap := queryParamsToMap(c, ParamFileName, ParamFileType, ParamFileDescription, ParamFileSize,
 		ParamFileCreatedAt, ParamFileUpdatedAt)
-
-	queryAppID := appID
-	// Check if a specific app was requested by the drive.
-	// Other apps are not permitted to do so.
-	if stringInSlice(appID, AllowedAllOperationsApps) {
-		queryFolder := c.Query(QueryFolder)
-		if queryFolder != "" {
-			queryAppID = queryFolder
-		}
-	}
 
 	fileFilter := fpb.File{
 		Name:        paramMap[ParamFileName],
@@ -440,8 +446,11 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFiles)
 }
 
-// GetSharedFiles is the request handler for GET /files?shares
-func (r *Router) GetSharedFiles(c *gin.Context) {
+// GetSharedFiles is the request handler for GET /files?shares.
+// Can only be requested by AllowedAllOperationsApps.
+// queryAppID is the specific app requested by the application.
+// isSpecificApp indicates wheather files from a specific appID were requested.
+func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID string) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -470,9 +479,16 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 
 			return
 		}
-		// Show only drive and dropbox shared files
-		if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
+
+		// If a specific appID was requested, return only its files.
+		// Otherwise, return shared files of dropbox and drive.
+		if isSpecificApp && file.GetAppID() != queryAppID {
 			continue
+		} else {
+			// Show only drive and dropbox shared files
+			if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
+				continue
+			}
 		}
 
 		if file.GetOwnerID() != reqUser.ID {
