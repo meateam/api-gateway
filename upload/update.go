@@ -12,12 +12,12 @@ import (
 
 const (
 	// File id to update
-	ParamFileID = "fileId"
+	ParamID = "id"
 )
 
 // UpdateSetup initializes its routes under rg.
 func (r *Router) UpdateSetup(rg *gin.RouterGroup, checkExternalAdminScope gin.HandlerFunc) {
-	rg.PUT("/upload/:"+ParamFileID, checkExternalAdminScope, r.Update)
+	rg.PUT("/upload/:"+ParamID, checkExternalAdminScope, r.Update)
 }
 
 // Update is the request handler for /upload/:fileId request.
