@@ -34,7 +34,7 @@ const (
 	// InternalUserSource is the value of the source field of user that indicated that the user is internal
 	InternalUserSource = "internal"
 
-	// configBucketPostfix is the name of the environment variable containing the postfix for the bucket.
+	// configBucketPostfix is the name Userof the environment variable containing the postfix for the bucket.
 	ConfigBucketPostfix = "bucket_postfix"
 )
 
