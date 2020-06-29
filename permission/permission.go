@@ -195,6 +195,14 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
+	// An app cannot create a permission for a file that does not belong to it.
+	// Unless the app is Drive.
+	ctxAppID := c.Value(oauth.ContextAppKey).(string)
+	if (ctxAppID != file.GetAppID()) && (ctxAppID != oauth.DriveAppID) {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
+		return
+	}
+
 	// Forbid changing the file owner's permission.
 	if file.GetOwnerID() == permission.UserID {
 		c.AbortWithStatus(http.StatusUnauthorized)

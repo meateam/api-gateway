@@ -224,6 +224,8 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	parent := c.Query(ParentQueryKey)
 
+	appID := c.Value(oauth.ContextAppKey).(string)
+
 	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
 	if err != nil || !isPermitted {
 		c.AbortWithStatus(http.StatusForbidden)
@@ -248,6 +250,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		Type:    c.ContentType(),
 		Name:    folderFullName,
 		Parent:  parent,
+		AppID:   appID,
 	})
 
 	if err != nil {
@@ -349,6 +352,8 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		return
 	}
 
+	appID := c.Value(oauth.ContextAppKey).(string)
+
 	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     upload.GetKey(),
 		Bucket:  upload.GetBucket(),
@@ -357,6 +362,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		Type:    resp.GetContentType(),
 		Name:    upload.Name,
 		Parent:  parent,
+		AppID:   appID,
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -496,6 +502,8 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		fileFullName = filename
 	}
 
+	appID := c.Value(oauth.ContextAppKey).(string)
+
 	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     key,
 		Bucket:  reqUser.Bucket,
@@ -504,6 +512,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		Type:    contentType,
 		Name:    fileFullName,
 		Parent:  parent,
+		AppID:   appID,
 	})
 
 	if err != nil {

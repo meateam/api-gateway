@@ -105,7 +105,7 @@ func NewOAuthMiddleware(
 	return m
 }
 
-// ScopeMiddleware creates a middleware function that checks the scopes in context.
+// AuthorizationScopeMiddleware creates a middleware function that checks the scopes in context.
 // If the request is not from a service (AuthTypeHeader), Next will be immediately called.
 // If scopes are nil, the client is the drive client which is fine. Else, the required
 // scope should be included in the scopes array. If the required scope exists,and a
@@ -149,6 +149,7 @@ func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string
 	scopes := spikeToken.GetScopes()
 
 	ctx.Set(ContextScopesKey, scopes)
+	ctx.Set(ContextAppKey, "shahar")
 
 	// Checks the scopes, and if correct, store the user in the context.
 	for _, scope := range scopes {
