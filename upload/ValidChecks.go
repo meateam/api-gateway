@@ -12,16 +12,16 @@ import (
 )
 
 // isUserFromContext check if can extracts the user's details from c.
-func (r *Router) isUserFromContext(c *gin.Context) (*user.User, bool) {
+func (r *Router) getUserFromContext(c *gin.Context) *user.User {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		loggermiddleware.LogError(
 			r.logger,
 			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
 		)
-		return nil, false
+		return nil
 	}
-	return reqUser, true
+	return reqUser
 }
 
 // isUploadPermitted checks if userID has permission to upload a file to fileID,
@@ -47,7 +47,7 @@ func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, fileID 
 }
 
 // isQueryInContext check if has query in context
-func (r *Router) isQueryInContext(c *gin.Context, query string) (string, bool) {
+func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool) {
 	queryRes, exists := c.GetQuery(query)
 	if !exists {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", query))

@@ -8,37 +8,117 @@ import (
 	fpb "github.com/meateam/file-service/proto/file"
 	upb "github.com/meateam/upload-service/proto"
 	"net/http"
+	"strconv"
 )
 
 const (
 	// File id to update
-	ParamID = "id"
+	ParamFileID = "id"
 )
 
 // UpdateSetup initializes its routes under rg.
 func (r *Router) UpdateSetup(rg *gin.RouterGroup, checkExternalAdminScope gin.HandlerFunc) {
-	rg.PUT("/upload/:"+ParamID, checkExternalAdminScope, r.Update)
+	rg.PUT("/upload/:"+ParamFileID, checkExternalAdminScope, r.Update)
 }
 
 // Update is the request handler for /upload/:fileId request.
 // Here it is requesting a new upload for a file update
 func (r *Router) Update(c *gin.Context) {
-	_, success := r.isUserFromContext(c)
-	if !success {
+	reqUser := r.getUserFromContext(c)
+	if reqUser == nil {
 		return
 	}
-	_, exists := c.GetQuery(UploadTypeQueryKey)
+
+	_, exists := r.getQueryFromContext(c, UploadTypeQueryKey)
 	if !exists {
 		r.UpdateInit(c)
 		return
 	}
 }
 
+// UpdateInit initiates a resumable upload to update a large file to.
+func (r *Router) UpdateInit(c *gin.Context) {
+	reqUser := r.getUserFromContext(c)
+	if reqUser == nil {
+		return
+	}
+
+	parent, exists := r.getQueryFromContext(c, ParentQueryKey)
+	if !exists {
+		return
+	}
+
+	isPermitted := r.isUploadPermittedForUser(c, reqUser.ID, parent)
+	if !isPermitted {
+		return
+	}
+
+	fileID := c.Param(ParamFileID)
+	file, err := r.fileClient.GetFileByID(
+		c.Request.Context(),
+		&fpb.GetByFileByIDRequest{Id: fileID},
+	)
+
+	if err != nil {
+		r.abortWithError(c, err)
+		return
+	}
+
+	newFileSize, err := strconv.ParseInt(c.Request.Header.Get(ContentLengthCustomHeader), 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is invalid", ContentLengthCustomHeader))
+		return
+	}
+
+	if newFileSize < 0 {
+		newFileSize = 0
+	}
+
+	createUpdateResponse, err := r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUploadRequest{
+		Bucket:  reqUser.Bucket,
+		Name:    file.Name,
+		OwnerID: reqUser.ID,
+		Parent:  parent,
+		Size:    newFileSize,
+	})
+
+	if err != nil {
+		r.abortWithError(c, err)
+		return
+	}
+
+	uploadInitReq := &upb.UploadInitRequest{
+		Key:         createUpdateResponse.GetKey(),
+		Bucket:      createUpdateResponse.GetBucket(),
+		ContentType: file.Type,
+	}
+
+	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
+	if err != nil {
+		r.abortWithError(c, err)
+		return
+	}
+
+	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
+		Key:      createUpdateResponse.GetKey(),
+		Bucket:   createUpdateResponse.GetBucket(),
+		UploadID: resp.GetUploadId(),
+	})
+
+	if err != nil {
+		r.abortWithError(c, err)
+		return
+	}
+
+	c.Header(UploadIDCustomHeader, resp.GetUploadId())
+	c.Status(http.StatusOK)
+}
+
 // UpdateComplete completes a resumable update file upload and update the user quota.
 // that too delede te old file content in th s3 storage
 func (r *Router) UpdateComplete(c *gin.Context) {
-	reqUser, success := r.isUserFromContext(c)
-	if !success {
+	reqUser := r.getUserFromContext(c)
+	if reqUser == nil {
 		return
 	}
 
@@ -49,7 +129,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	uploadID, exists := r.isQueryInContext(c, UploadIDQueryKey)
+	uploadID, exists := r.getQueryFromContext(c, UploadIDQueryKey)
 	if !exists {
 		return
 	}
@@ -82,6 +162,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		UploadID: upload.GetUploadID(),
 	}
 
+	// r.mu.Lock() Locks the action that no such action will go together, but will only occur after the operation is over (defer r.mu.Unlock())
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
@@ -139,8 +220,9 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.Fil
 		Keys:   []string{newFileKey},
 	})
 
+	// This will only happen once in an update, it is not possible to update more than one file
 	for _, failedFile := range deleteObjectsResponse.GetFailed() {
-		err = fmt.Errorf("%v: %v", err, failedFile)
+		err = fmt.Errorf("%v: ", failedFile)
 	}
 
 	if deleteErr != nil {
