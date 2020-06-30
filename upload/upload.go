@@ -185,7 +185,7 @@ func (r *Router) Upload(c *gin.Context) {
 		r.UploadInit(c)
 		return
 	}
-
+	
 	switch uploadType {
 	case MediaUploadType:
 		r.UploadMedia(c)
@@ -399,6 +399,12 @@ func (r *Router) UploadComplete(c *gin.Context) {
 
 // UploadMedia uploads a file from request's body.
 func (r *Router) UploadMedia(c *gin.Context) {
+	_, isUploadID := r.getQueryFromContext(c, UploadIDQueryKey)
+	if isUploadID {
+		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this with media is only possible with resumable"))
+		return
+	}
+
 	fileReader := c.Request.Body
 	if fileReader == nil {
 		c.String(http.StatusBadRequest, "missing file body")
@@ -418,6 +424,12 @@ func (r *Router) UploadMedia(c *gin.Context) {
 
 // UploadMultipart uploads a file from multipart/form-data request.
 func (r *Router) UploadMultipart(c *gin.Context) {
+	_, isUploadID := r.getQueryFromContext(c, UploadIDQueryKey)
+	if isUploadID {
+		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this with multipart is only possible with resumable"))
+		return
+	}
+
 	multipartForm, err := c.MultipartForm()
 	if err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("failed parsing multipart form data: %v", err))

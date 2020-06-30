@@ -2,16 +2,16 @@ package upload
 
 import (
 	"fmt"
+	"net/http"
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	"google.golang.org/grpc/status"
-	"net/http"
 )
 
-// isUserFromContext check if can extracts the user's details from c.
+// getUserFromContext check if can extracts the user's details from c.
 func (r *Router) getUserFromContext(c *gin.Context) *user.User {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
@@ -24,7 +24,7 @@ func (r *Router) getUserFromContext(c *gin.Context) *user.User {
 	return reqUser
 }
 
-// isUploadPermitted checks if userID has permission to upload a file to fileID,
+// isUploadPermittedForUser checks if userID has permission to upload a file to fileID,
 // requires ppb.Role_WRITE permission.
 func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, fileID string) bool {
 	userFilePermission, _, err := file.CheckUserFilePermission(
@@ -46,7 +46,7 @@ func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, fileID 
 	return true
 }
 
-// isQueryInContext check if has query in context
+// getQueryFromContext check if has query in context
 func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool) {
 	queryRes, exists := c.GetQuery(query)
 	if !exists {
