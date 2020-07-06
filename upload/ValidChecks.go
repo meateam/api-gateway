@@ -46,7 +46,7 @@ func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, parent 
 	return true
 }
 
-// getQueryFromContext check if has query in context
+// getQueryFromContext extracts the query from the context
 func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool) {
 	queryRes, exists := c.GetQuery(query)
 	if !exists {
