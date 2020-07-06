@@ -24,15 +24,15 @@ func (r *Router) getUserFromContext(c *gin.Context) *user.User {
 	return reqUser
 }
 
-// isUploadPermittedForUser checks if userID has permission to upload a file to fileID,
+// isUploadPermittedForUser checks if userID has permission to upload a file to folder,
 // requires ppb.Role_WRITE permission.
-func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, fileID string) bool {
+func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, parent string) bool {
 	userFilePermission, _, err := file.CheckUserFilePermission(
 		c.Request.Context(),
 		r.fileClient,
 		r.permissionClient,
 		userID,
-		fileID,
+		parent,
 		UploadRole)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))

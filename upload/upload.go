@@ -401,7 +401,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 func (r *Router) UploadMedia(c *gin.Context) {
 	_, isUploadID := r.getQueryFromContext(c, UploadIDQueryKey)
 	if isUploadID {
-		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this with media is only possible with resumable"))
+		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this action with media. It is only possible with resumable"))
 		return
 	}
 
@@ -426,7 +426,7 @@ func (r *Router) UploadMedia(c *gin.Context) {
 func (r *Router) UploadMultipart(c *gin.Context) {
 	_, isUploadID := r.getQueryFromContext(c, UploadIDQueryKey)
 	if isUploadID {
-		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this with multipart is only possible with resumable"))
+		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this action with multipart. It is only possible with resumable"))
 		return
 	}
 

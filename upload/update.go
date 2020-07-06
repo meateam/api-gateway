@@ -71,7 +71,8 @@ func (r *Router) UpdateInit(c *gin.Context) {
 	}
 
 	if newFileSize < 0 {
-		newFileSize = 0
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is must be positive", ContentLengthCustomHeader))
+		return
 	}
 
 	createUpdateResponse, err := r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUploadRequest{
@@ -220,9 +221,9 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.Fil
 		Keys:   []string{newFileKey},
 	})
 
-	// This will only happen once in an update, it is not possible to update more than one file
+	// Creates an error with all the files that were not updated
 	for _, failedFile := range deleteObjectsResponse.GetFailed() {
-		err = fmt.Errorf("%v: ", failedFile)
+		err = fmt.Errorf("%v: %v", err, failedFile)
 	}
 
 	if deleteErr != nil {
