@@ -162,7 +162,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		UploadID: upload.GetUploadID(),
 	}
 
-	// r.mu.Lock() Locks the action that no such action will go together, but will only occur after the operation is over (defer r.mu.Unlock())
+	// Locks the action so that no such action will occur at the same time
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
