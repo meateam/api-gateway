@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// getUserFromContext check if can extracts the user's details from c.
+// getUserFromContext extracts the user from the context.
 func (r *Router) getUserFromContext(c *gin.Context) *user.User {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
