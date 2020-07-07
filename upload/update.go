@@ -1,19 +1,23 @@
 package upload
 
 import (
-	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
+	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
-	"net/http"
-	"strconv"
 )
 
 const (
-	// File id to update
+	// ParamFileID id to update
 	ParamFileID = "id"
+
+	// UpdateFileRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the UpdateFile action.
+	UpdateFileRole = ppb.Role_WRITE
 )
 
 // UpdateSetup initializes its routes under rg.
@@ -23,41 +27,24 @@ func (r *Router) UpdateSetup(rg *gin.RouterGroup, checkExternalAdminScope gin.Ha
 
 // Update is the request handler for /upload/:fileId request.
 // Here it is requesting a new upload for a file update
+// Update initiates a resumable upload to update a large file to.
 func (r *Router) Update(c *gin.Context) {
 	reqUser := r.getUserFromContext(c)
 	if reqUser == nil {
 		return
 	}
 
-	_, exists := r.getQueryFromContext(c, UploadTypeQueryKey)
-	if !exists {
-		r.UpdateInit(c)
-		return
-	}
-}
-
-// UpdateInit initiates a resumable upload to update a large file to.
-func (r *Router) UpdateInit(c *gin.Context) {
-	reqUser := r.getUserFromContext(c)
-	if reqUser == nil {
-		return
-	}
-
-	parent, exists := r.getQueryFromContext(c, ParentQueryKey)
-	if !exists {
-		return
-	}
-
-	isPermitted := r.isUploadPermittedForUser(c, reqUser.ID, parent)
-	if !isPermitted {
-		return
-	}
+	parentID, _ := r.getQueryFromContext(c, ParentQueryKey)
 
 	fileID := c.Param(ParamFileID)
 	file, err := r.fileClient.GetFileByID(
 		c.Request.Context(),
 		&fpb.GetByFileByIDRequest{Id: fileID},
 	)
+
+	if role, _ := r.HandleUserFilePermission(c, fileID, UpdateFileRole); role == "" {
+		return
+	}
 
 	if err != nil {
 		r.abortWithError(c, err)
@@ -79,7 +66,7 @@ func (r *Router) UpdateInit(c *gin.Context) {
 		Bucket:  reqUser.Bucket,
 		Name:    file.Name,
 		OwnerID: reqUser.ID,
-		Parent:  parent,
+		Parent:  parentID,
 		Size:    newFileSize,
 	})
 
@@ -123,14 +110,14 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	parentQuery := c.Query(ParentQueryKey)
+	parentID := c.Query(ParentQueryKey)
 
-	isPermitted := r.isUploadPermittedForUser(c, reqUser.ID, parentQuery)
+	isPermitted := r.isUploadPermittedForUser(c, reqUser.ID, parentID)
 	if !isPermitted {
 		return
 	}
 
-	uploadID, exists := r.getQueryFromContext(c, UploadIDQueryKey)
+	uploadID, exists := r.getQueryFromContextWhitAbort(c, UploadIDQueryKey)
 	if !exists {
 		return
 	}
@@ -172,7 +159,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	parent := createParent(parentQuery)
+	parent := createParent(parentID)
 
 	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), &fpb.UpdateFilesRequest{
 		IdList: []string{fileID},
@@ -188,9 +175,9 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	for _, failedFile := range updateFilesResponse.GetFailedFiles() {
-		err := errors.New(failedFile.GetError())
-		r.abortWithError(c, err)
+	// Only refers to one, because it cannot update more than one
+	if len(updateFilesResponse.GetFailedFiles()) > 0 {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("There is a problem updating %s", updateFilesResponse.GetFailedFiles()[0]))
 		return
 	}
 
@@ -199,9 +186,9 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		Keys:   []string{oldFile.Key},
 	})
 
-	for _, failedFile := range deleteObjectsResponse.GetFailed() {
-		err := errors.New(failedFile)
-		r.abortWithError(c, err)
+	// Only refers to one, because it cannot delete more than one
+	if len(deleteObjectsResponse.GetFailed()) > 0 {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("There is a problem deleting %s", deleteObjectsResponse.GetFailed()[0]))
 		return
 	}
 

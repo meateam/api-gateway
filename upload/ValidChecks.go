@@ -1,6 +1,7 @@
 package upload
 
 import (
+	ppb "github.com/meateam/permission-service/proto"
 	"fmt"
 	"net/http"
 	"github.com/gin-gonic/gin"
@@ -26,13 +27,13 @@ func (r *Router) getUserFromContext(c *gin.Context) *user.User {
 
 // isUploadPermittedForUser checks if userID has permission to upload a file to folder,
 // requires ppb.Role_WRITE permission.
-func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, parent string) bool {
+func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, parentID string) bool {
 	userFilePermission, _, err := file.CheckUserFilePermission(
 		c.Request.Context(),
 		r.fileClient,
 		r.permissionClient,
 		userID,
-		parent,
+		parentID,
 		UploadRole)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -46,14 +47,54 @@ func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, parent 
 	return true
 }
 
+// HandleUserFilePermission gets a gin context and the id of the requested file,
+// returns true if the user is permitted to operate on the file.
+// Returns false if the user isn't permitted to operate on it,
+// Returns false if any error occurred and logs the error.
+func (r *Router) HandleUserFilePermission(
+	c *gin.Context,
+	fileID string,
+	role ppb.Role) (string, *ppb.PermissionObject) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return "", nil
+	}
+
+	userFilePermission, foundPermission, err := file.CheckUserFilePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID,
+		fileID,
+		role)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return "", nil
+	}
+
+	if userFilePermission == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+	}
+
+	return userFilePermission, foundPermission
+}
+
 // getQueryFromContext extracts the query from the context
-func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool) {
+func (r *Router) getQueryFromContextWhitAbort(c *gin.Context, query string) (string, bool) {
 	queryRes, exists := c.GetQuery(query)
 	if !exists {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", query))
 		return "", false
 	}
 	return queryRes, true
+}
+
+// getQueryFromContext extracts the query from the context
+func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool) {
+	return c.GetQuery(query)
 }
 
 // abortWithError is abort with error
