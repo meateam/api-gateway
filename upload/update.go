@@ -195,7 +195,8 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 	c.String(http.StatusOK, fileID)
 }
 
-// deleteUpdateOnError This happens when the metadata is not successfully updated, it deletes the new content that has been uploaded
+// deleteUpdateOnError happens when the metadata is not successfully updated.
+// it deletes the new s3 content that has been uploaded.
 func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.File, newFileKey string) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
