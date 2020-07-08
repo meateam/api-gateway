@@ -47,10 +47,10 @@ func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, parentI
 	return true
 }
 
-// HandleUserFilePermission gets a gin context and the id of the requested file,
-// returns true if the user is permitted to operate on the file.
-// Returns false if the user isn't permitted to operate on it,
-// Returns false if any error occurred and logs the error.
+// HandleUserFilePermission gets a gin context and the id of the requested file and the role he needs,
+// returns the user file permission and the found permission if the user is permitted to operate on the file.
+// Returns empty string and nil and abort with status if the user isn't permitted to operate on it,
+// Returns empty string and nil if any error occurred and logs the error.
 func (r *Router) HandleUserFilePermission(
 	c *gin.Context,
 	fileID string,
@@ -82,19 +82,14 @@ func (r *Router) HandleUserFilePermission(
 	return userFilePermission, foundPermission
 }
 
-// getQueryFromContext extracts the query from the context
-func (r *Router) getQueryFromContextWhitAbort(c *gin.Context, query string) (string, bool) {
+// getQueryFromContextWhitAbort extracts the query from the context
+func (r *Router) getQueryFromContextWithAbort(c *gin.Context, query string) (string, bool) {
 	queryRes, exists := c.GetQuery(query)
 	if !exists {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", query))
 		return "", false
 	}
 	return queryRes, true
-}
-
-// getQueryFromContext extracts the query from the context
-func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool) {
-	return c.GetQuery(query)
 }
 
 // abortWithError is abort with error

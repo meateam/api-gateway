@@ -160,6 +160,7 @@ func NewRouter(uploadConn *grpc.ClientConn,
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
 	rg.POST("/upload", checkExternalAdminScope, r.Upload)
+	
 	// initializes UPDATE routes
 	r.UpdateSetup(rg, checkExternalAdminScope)
 }
@@ -399,7 +400,8 @@ func (r *Router) UploadComplete(c *gin.Context) {
 
 // UploadMedia uploads a file from request's body.
 func (r *Router) UploadMedia(c *gin.Context) {
-	_, isUploadID := r.getQueryFromContext(c, UploadIDQueryKey)
+	// Checks whether there is UploadID in the URL, if it exist probably he trying to make resumable upload
+	_, isUploadID := c.GetQuery(UploadIDQueryKey)
 	if isUploadID {
 		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this action with media. It is only possible with resumable"))
 		return
@@ -424,7 +426,8 @@ func (r *Router) UploadMedia(c *gin.Context) {
 
 // UploadMultipart uploads a file from multipart/form-data request.
 func (r *Router) UploadMultipart(c *gin.Context) {
-	_, isUploadID := r.getQueryFromContext(c, UploadIDQueryKey)
+	// Checks whether there is UploadID in the URL, if it exist probably he trying to make resumable upload
+	_, isUploadID := c.GetQuery(UploadIDQueryKey)
 	if isUploadID {
 		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this action with multipart. It is only possible with resumable"))
 		return

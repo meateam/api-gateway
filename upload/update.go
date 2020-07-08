@@ -27,14 +27,14 @@ func (r *Router) UpdateSetup(rg *gin.RouterGroup, checkExternalAdminScope gin.Ha
 
 // Update is the request handler for /upload/:fileId request.
 // Here it is requesting a new upload for a file update
-// Update initiates a resumable upload to update a large file to.
+// Update initiates a resumable upload to update a large file.
 func (r *Router) Update(c *gin.Context) {
 	reqUser := r.getUserFromContext(c)
 	if reqUser == nil {
 		return
 	}
 
-	parentID, _ := r.getQueryFromContext(c, ParentQueryKey)
+	parentID, _ := c.GetQuery(ParentQueryKey)
 
 	fileID := c.Param(ParamFileID)
 	file, err := r.fileClient.GetFileByID(
@@ -117,7 +117,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	uploadID, exists := r.getQueryFromContextWhitAbort(c, UploadIDQueryKey)
+	uploadID, exists := r.getQueryFromContextWithAbort(c, UploadIDQueryKey)
 	if !exists {
 		return
 	}
@@ -133,6 +133,10 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		c.Request.Context(),
 		&fpb.GetByFileByIDRequest{Id: fileID},
 	)
+	if err != nil {
+		r.abortWithError(c, err)
+		return
+	}
 
 	uploadCompleteRequest := &upb.UploadCompleteRequest{
 		UploadId: uploadID,
@@ -171,13 +175,13 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 	})
 
 	if err != nil {
-		r.deleteUpdateOnError(c, err, oldFile, upload.GetKey())
+		r.deleteUpdateOnError(c, err, oldFile, upload)
 		return
 	}
 
 	// Only refers to one, because it cannot update more than one
 	if len(updateFilesResponse.GetFailedFiles()) > 0 {
-		c.String(http.StatusInternalServerError, fmt.Sprintf("There is a problem updating %s", updateFilesResponse.GetFailedFiles()[0]))
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while updating file %s", updateFilesResponse.GetFailedFiles()[0]))
 		return
 	}
 
@@ -188,7 +192,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 
 	// Only refers to one, because it cannot delete more than one
 	if len(deleteObjectsResponse.GetFailed()) > 0 {
-		c.String(http.StatusInternalServerError, fmt.Sprintf("There is a problem deleting %s", deleteObjectsResponse.GetFailed()[0]))
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while deleting file %s", deleteObjectsResponse.GetFailed()[0]))
 		return
 	}
 
@@ -197,7 +201,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 
 // deleteUpdateOnError happens when the metadata is not successfully updated.
 // it deletes the new s3 content that has been uploaded.
-func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.File, newFileKey string) {
+func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.File, upload *fpb.GetUploadByIDResponse) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -206,30 +210,41 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.Fil
 
 	deleteObjectsResponse, deleteErr := r.uploadClient.DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
 		Bucket: oldFile.GetBucket(),
-		Keys:   []string{newFileKey},
+		Keys:   []string{upload.GetKey()},
 	})
 
 	// Creates an error with all the files that were not updated
-	for _, failedFile := range deleteObjectsResponse.GetFailed() {
-		err = fmt.Errorf("%v: %v", err, failedFile)
+	for _, failedFileID := range deleteObjectsResponse.GetFailed() {
+		err = fmt.Errorf("%v: failed to delete fileID %v", err, failedFileID)
 	}
 
 	if deleteErr != nil {
 		err = fmt.Errorf("%v: %v", err, deleteErr)
 	}
 
+	deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
+		UploadID: upload.GetUploadID(),
+	}
+
+	// This will probably fail because entry here is created when there is a problem with the file service
+	_, deleteUploadErr := r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
+	if deleteUploadErr != nil {
+		err = fmt.Errorf("%v: %v", err, deleteUploadErr)
+	}
+
 	r.abortWithError(c, err)
 }
 
-func createParent(parentQuery string) *fpb.File_Parent {
+// createParent creates a parent object using the parentID
+func createParent(parentID string) *fpb.File_Parent {
 	var parent *fpb.File_Parent
-	if parentQuery == "" {
+	if parentID == "" {
 		parent = &fpb.File_Parent{
 			Parent: "null",
 		}
 	} else {
 		parent = &fpb.File_Parent{
-			Parent: parentQuery,
+			Parent: parentID,
 		}
 	}
 	return parent
