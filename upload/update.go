@@ -34,7 +34,7 @@ func (r *Router) Update(c *gin.Context) {
 		return
 	}
 
-	parentID, _ := c.GetQuery(ParentQueryKey)
+	//parentID, _ := c.GetQuery(ParentQueryKey)
 
 	fileID := c.Param(ParamFileID)
 	file, err := r.fileClient.GetFileByID(
@@ -42,12 +42,12 @@ func (r *Router) Update(c *gin.Context) {
 		&fpb.GetByFileByIDRequest{Id: fileID},
 	)
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, UpdateFileRole); role == "" {
+	if err != nil {
+		r.abortWithError(c, err)
 		return
 	}
 
-	if err != nil {
-		r.abortWithError(c, err)
+	if role, _ := r.HandleUserFilePermission(c, fileID, UpdateFileRole); role == "" {
 		return
 	}
 
@@ -63,10 +63,10 @@ func (r *Router) Update(c *gin.Context) {
 	}
 
 	createUpdateResponse, err := r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUploadRequest{
-		Bucket:  reqUser.Bucket,
-		Name:    file.Name,
-		OwnerID: reqUser.ID,
-		Parent:  parentID,
+		Bucket:  file.GetBucket(),
+		Name:    file.GetName(),
+		OwnerID: file.GetOwnerID(),
+		Parent:  file.GetParent(),
 		Size:    newFileSize,
 	})
 
