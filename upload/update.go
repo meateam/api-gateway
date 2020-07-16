@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/gin-gonic/gin"
-	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
@@ -34,8 +33,6 @@ func (r *Router) Update(c *gin.Context) {
 		return
 	}
 
-	//parentID, _ := c.GetQuery(ParentQueryKey)
-
 	fileID := c.Param(ParamFileID)
 	file, err := r.fileClient.GetFileByID(
 		c.Request.Context(),
@@ -43,11 +40,11 @@ func (r *Router) Update(c *gin.Context) {
 	)
 
 	if err != nil {
-		r.abortWithError(c, err)
+		r.abortWithHttpStatusByError(c, err)
 		return
 	}
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, UpdateFileRole); role == "" {
+	if isPermission := r.HandleUserFilePermission(c, fileID, UpdateFileRole); !isPermission {
 		return
 	}
 
@@ -71,7 +68,7 @@ func (r *Router) Update(c *gin.Context) {
 	})
 
 	if err != nil {
-		r.abortWithError(c, err)
+		r.abortWithHttpStatusByError(c, err)
 		return
 	}
 
@@ -83,7 +80,7 @@ func (r *Router) Update(c *gin.Context) {
 
 	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
-		r.abortWithError(c, err)
+		r.abortWithHttpStatusByError(c, err)
 		return
 	}
 
@@ -94,7 +91,7 @@ func (r *Router) Update(c *gin.Context) {
 	})
 
 	if err != nil {
-		r.abortWithError(c, err)
+		r.abortWithHttpStatusByError(c, err)
 		return
 	}
 
@@ -102,29 +99,21 @@ func (r *Router) Update(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-// UpdateComplete completes a resumable update file upload and update the user quota.
-// that too delede te old file content in th s3 storage
+// UpdateComplete completes a resumable update-file upload and updates the user quota, and deletes the old file's content.
 func (r *Router) UpdateComplete(c *gin.Context) {
 	reqUser := r.getUserFromContext(c)
 	if reqUser == nil {
 		return
 	}
 
-	parentID := c.Query(ParentQueryKey)
-
-	isPermitted := r.isUploadPermittedForUser(c, reqUser.ID, parentID)
-	if !isPermitted {
-		return
-	}
-
-	uploadID, exists := r.getQueryFromContextWithAbort(c, UploadIDQueryKey)
+	uploadID, exists := r.getQueryFromContext(c, UploadIDQueryKey)
 	if !exists {
 		return
 	}
 
 	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
-		r.abortWithError(c, err)
+		r.abortWithHttpStatusByError(c, err)
 		return
 	}
 
@@ -134,7 +123,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		&fpb.GetByFileByIDRequest{Id: fileID},
 	)
 	if err != nil {
-		r.abortWithError(c, err)
+		r.abortWithHttpStatusByError(c, err)
 		return
 	}
 
@@ -146,7 +135,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 
 	resp, err := r.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
-		r.abortWithError(c, err)
+		r.deleteUpdateOnError(c, err, oldFile, upload)
 		return
 	}
 
@@ -159,17 +148,14 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 	defer r.mu.Unlock()
 	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
-		r.abortWithError(c, err)
+		r.abortWithHttpStatusByError(c, err)
 		return
 	}
-
-	parent := createParent(parentID)
 
 	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), &fpb.UpdateFilesRequest{
 		IdList: []string{fileID},
 		PartialFile: &fpb.File{
 			Key:      upload.GetKey(),
-			FileOrId: parent,
 			Size:     resp.GetContentLength(),
 		},
 	})
@@ -180,8 +166,9 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 	}
 
 	// Only refers to one, because it cannot update more than one
-	if len(updateFilesResponse.GetFailedFiles()) > 0 {
-		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while updating file %s", updateFilesResponse.GetFailedFiles()[0]))
+	if len(updateFilesResponse.GetFailedFiles()) != 0 {
+		failedFileID := updateFilesResponse.GetFailedFiles()[0]
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while updating file %s", failedFileID))
 		return
 	}
 
@@ -191,20 +178,20 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 	})
 
 	// Only refers to one, because it cannot delete more than one
-	if len(deleteObjectsResponse.GetFailed()) > 0 {
-		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while deleting file %s", deleteObjectsResponse.GetFailed()[0]))
+	if len(deleteObjectsResponse.GetFailed()) != 0 {
+		failedFileID := deleteObjectsResponse.GetFailed()[0]
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while deleting file %s", failedFileID))
 		return
 	}
 
 	c.String(http.StatusOK, fileID)
 }
 
-// deleteUpdateOnError happens when the metadata is not successfully updated.
-// it deletes the new s3 content that has been uploaded.
+// deleteUpdateOnError handles an error in the update process after the new-file's content has been uploaded.
+// It deletes the new-file's content.
 func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.File, upload *fpb.GetUploadByIDResponse) {
-	reqUser := user.ExtractRequestUser(c)
+	reqUser := r.getUserFromContext(c)
 	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -213,8 +200,9 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.Fil
 		Keys:   []string{upload.GetKey()},
 	})
 
-	// Creates an error with all the files that were not updated
-	for _, failedFileID := range deleteObjectsResponse.GetFailed() {
+	// Creates an error with the file that were not updated
+	if len(deleteObjectsResponse.GetFailed()) != 0 {
+		failedFileID := deleteObjectsResponse.GetFailed()[0]
 		err = fmt.Errorf("%v: failed to delete fileID %v", err, failedFileID)
 	}
 
@@ -222,30 +210,15 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, oldFile *fpb.Fil
 		err = fmt.Errorf("%v: %v", err, deleteErr)
 	}
 
+	// This will probably fail because entry here is created when there is a problem with the file service
 	deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
 		UploadID: upload.GetUploadID(),
 	}
 
-	// This will probably fail because entry here is created when there is a problem with the file service
 	_, deleteUploadErr := r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if deleteUploadErr != nil {
-		err = fmt.Errorf("%v: %v", err, deleteUploadErr)
+		err = fmt.Errorf("%v: fail to delete upload %v", err, deleteUploadErr)
 	}
 
-	r.abortWithError(c, err)
-}
-
-// createParent creates a parent object using the parentID
-func createParent(parentID string) *fpb.File_Parent {
-	var parent *fpb.File_Parent
-	if parentID == "" {
-		parent = &fpb.File_Parent{
-			Parent: "null",
-		}
-	} else {
-		parent = &fpb.File_Parent{
-			Parent: parentID,
-		}
-	}
-	return parent
+	r.abortWithHttpStatusByError(c, err)
 }

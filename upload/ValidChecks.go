@@ -1,14 +1,15 @@
 package upload
 
 import (
-	ppb "github.com/meateam/permission-service/proto"
 	"fmt"
 	"net/http"
+
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
+	ppb "github.com/meateam/permission-service/proto"
 	"google.golang.org/grpc/status"
 )
 
@@ -16,10 +17,7 @@ import (
 func (r *Router) getUserFromContext(c *gin.Context) *user.User {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
-		loggermiddleware.LogError(
-			r.logger,
-			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
-		)
+		r.LogE(c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")))
 		return nil
 	}
 	return reqUser
@@ -34,56 +32,56 @@ func (r *Router) isUploadPermittedForUser(c *gin.Context, userID string, parentI
 		r.permissionClient,
 		userID,
 		parentID,
-		UploadRole)
+		UploadRole,
+	)
+
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		r.abortWithHttpStatusByError(c, err)
 		return false
 	}
+
+	// If no permission is returned it means there is no permission to do the action
 	if userFilePermission == "" {
-		c.AbortWithStatus(http.StatusForbidden)
+		r.LogE(c.AbortWithError(http.StatusForbidden, fmt.Errorf("Upload blocked, no permission")))
 		return false
 	}
 	return true
 }
 
-// HandleUserFilePermission gets a gin context and the id of the requested file and the role he needs,
-// returns the user file permission and the found permission if the user is permitted to operate on the file.
-// Returns empty string and nil and abort with status if the user isn't permitted to operate on it,
-// Returns empty string and nil if any error occurred and logs the error.
-func (r *Router) HandleUserFilePermission(
-	c *gin.Context,
-	fileID string,
-	role ppb.Role) (string, *ppb.PermissionObject) {
-	reqUser := user.ExtractRequestUser(c)
+// HandleUserFilePermission gets a gin context, the requested file id, and the role the user needs.
+// Returns the user file permission-string and the permission object if the user was shared to the file.
+// Returns an empty string and nil and aborts with status if the user isn't permitted to operate on it,
+// Returns an empty string and nil if any error occurred and logs the error.
+func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
+	reqUser := r.getUserFromContext(c)
 	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return "", nil
+		return false
 	}
 
-	userFilePermission, foundPermission, err := file.CheckUserFilePermission(c.Request.Context(),
+	userFilePermission, _, err := file.CheckUserFilePermission(
+		c.Request.Context(),
 		r.fileClient,
 		r.permissionClient,
 		reqUser.ID,
 		fileID,
-		role)
+		role,
+	)
 
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return "", nil
+		r.abortWithHttpStatusByError(c, err)
+		return false
 	}
 
+	// If no permission is returned it means there is no permission to do the action
 	if userFilePermission == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
+		r.LogE(c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("You do not have permission to do this operation")))
 	}
 
-	return userFilePermission, foundPermission
+	return true
 }
 
 // getQueryFromContextWhitAbort extracts the query from the context
-func (r *Router) getQueryFromContextWithAbort(c *gin.Context, query string) (string, bool) {
+func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool) {
 	queryRes, exists := c.GetQuery(query)
 	if !exists {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", query))
@@ -93,7 +91,12 @@ func (r *Router) getQueryFromContextWithAbort(c *gin.Context, query string) (str
 }
 
 // abortWithError is abort with error
-func (r *Router) abortWithError(c *gin.Context, err error) {
+func (r *Router) abortWithHttpStatusByError(c *gin.Context, err error) {
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	r.LogE(c.AbortWithError(httpStatusCode, err))
+}
+
+// LogE log to the console error
+func (r *Router) LogE(err error) {
+	loggermiddleware.LogError(r.logger, err)
 }
