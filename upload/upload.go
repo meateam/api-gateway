@@ -400,13 +400,6 @@ func (r *Router) UploadComplete(c *gin.Context) {
 
 // UploadMedia uploads a file from request's body.
 func (r *Router) UploadMedia(c *gin.Context) {
-	// Checks whether there is UploadID in the URL, if it exist probably he trying to make resumable upload
-	_, isUploadID := c.GetQuery(UploadIDQueryKey)
-	if isUploadID {
-		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this action with media. It is only possible with resumable"))
-		return
-	}
-
 	fileReader := c.Request.Body
 	if fileReader == nil {
 		c.String(http.StatusBadRequest, "missing file body")
@@ -426,13 +419,6 @@ func (r *Router) UploadMedia(c *gin.Context) {
 
 // UploadMultipart uploads a file from multipart/form-data request.
 func (r *Router) UploadMultipart(c *gin.Context) {
-	// Checks whether there is UploadID in the URL, if it exist probably he trying to make resumable upload
-	_, isUploadID := c.GetQuery(UploadIDQueryKey)
-	if isUploadID {
-		c.String(http.StatusNotAcceptable, fmt.Sprintf("You can't do this action with multipart. It is only possible with resumable"))
-		return
-	}
-
 	multipartForm, err := c.MultipartForm()
 	if err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("failed parsing multipart form data: %v", err))
