@@ -25,6 +25,7 @@ const (
 	configGotenbergService      = "gotenberg_service"
 	configSecret                = "secret"
 	configAuthURL               = "auth_url"
+	configDocsURL               = "docs_url"
 	configExternalApmURL        = "external_apm_url"
 	configAllowOrigins          = "allow_origins"
 	configSupportLink           = "support_link"
@@ -62,6 +63,7 @@ func init() {
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
+	viper.SetDefault(configDocsURL, "http://localhost:3000")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetDefault(configAllowOrigins, "http://localhost*")
 	viper.SetDefault(configSupportLink, "https://open.rocket.chat")
