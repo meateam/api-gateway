@@ -24,8 +24,8 @@ const (
 )
 
 // UpdateSetup initializes its routes under rg.
-func (r *Router) UpdateSetup(rg *gin.RouterGroup, checkExternalAdminScope gin.HandlerFunc) {
-	rg.PUT("/upload/:"+ParamFileID, checkExternalAdminScope, r.Update)
+func (r *Router) UpdateSetup(rg *gin.RouterGroup) {
+	rg.PUT("/upload/:"+ParamFileID, r.Update)
 }
 
 // Update is the request handler for /upload/:fileId request.

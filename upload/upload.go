@@ -162,7 +162,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.POST("/upload", checkExternalAdminScope, r.Upload)
 	
 	// initializes UPDATE routes
-	r.UpdateSetup(rg, checkExternalAdminScope)
+	r.UpdateSetup(rg)
 }
 
 // Upload is the request handler for /upload request.
