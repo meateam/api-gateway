@@ -159,8 +159,10 @@ func NewRouter(uploadConn *grpc.ClientConn,
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
-
 	rg.POST("/upload", checkExternalAdminScope, r.Upload)
+	
+	// initializes UPDATE routes
+	r.UpdateSetup(rg)
 }
 
 // Upload is the request handler for /upload request.
@@ -171,7 +173,6 @@ func (r *Router) Upload(c *gin.Context) {
 			r.logger,
 			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
 		)
-
 		return
 	}
 
@@ -185,7 +186,7 @@ func (r *Router) Upload(c *gin.Context) {
 		r.UploadInit(c)
 		return
 	}
-
+	
 	switch uploadType {
 	case MediaUploadType:
 		r.UploadMedia(c)
@@ -733,7 +734,11 @@ func (r *Router) HandleError(
 
 		// Upload response that all parts have finished uploading.
 		if err == io.EOF {
-			r.UploadComplete(c)
+			if !upload.GetIsUpdate() {
+				r.UploadComplete(c)
+			} else {
+				r.UpdateComplete(c)
+			}
 			return
 		}
 
@@ -869,7 +874,6 @@ func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID st
 	if err != nil {
 		return false, err
 	}
-
 	return userFilePermission != "", nil
 }
 
