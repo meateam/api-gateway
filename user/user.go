@@ -76,6 +76,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
+	rg.GET("/users/:%s/approverInfo", r.GetApproverInfo)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -128,6 +129,35 @@ func (r *Router) SearchByName(c *gin.Context) {
 
 	c.JSON(http.StatusOK, user)
 }
+
+// GetApproverInfo is the request handler for GET /users/:id/approverInfo
+func (r *Router) GetApproverInfo(c *gin.Context) {
+	reqUser := ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	userID := c.Param(ParamUserID)
+	if userID == "" {
+		c.String(http.StatusBadRequest, "id is required")
+		return
+	}
+
+	getApproverInfoRequest := &uspb.GetApproverInfoRequest{
+		Id: userID,
+	}
+
+	user, err := r.userClient.GetApproverInfo(c.Request.Context(), getApproverInfoRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
 
 // ExtractRequestUser gets a context.Context and extracts the user's details from c.
 func ExtractRequestUser(ctx context.Context) *User {

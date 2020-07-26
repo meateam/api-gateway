@@ -183,10 +183,6 @@ services:
     depends_on:
       - mongo
       - redis
-  redis:
-    image: 'redis:alpine'
-    ports:
-      - '6379:6379'
   permission-service:
     image: 'bluehub.azurecr.io/meateam/permission-service:develop'
     ports:
