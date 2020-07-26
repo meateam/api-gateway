@@ -15,6 +15,7 @@ const (
 	configPort                  = "port"
 	configUploadService         = "upload_service"
 	configDelegationService     = "delegation_service"
+	configDocsSecret			= "docs_secret"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
 	configUserService           = "user_service"
@@ -53,6 +54,7 @@ func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
 	viper.SetDefault(configDelegationService, "delegation-service:8080")
+	viper.SetDefault(configDocsSecret, "docs@drive")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")

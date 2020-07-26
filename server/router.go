@@ -167,7 +167,12 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 
-	authRequiredMiddleware := ar.Middleware(viper.GetString(configSecret), viper.GetString(configAuthURL))
+	secrets := auth.Secrets{
+		Drive: viper.GetString(configSecret),
+		Docs:  viper.GetString(configDocsSecret),
+	}
+
+	authRequiredMiddleware := ar.Middleware(secrets, viper.GetString(configAuthURL))
 	middlewares = append(middlewares, authRequiredMiddleware)
 
 	if metricsLogger := NewMetricsLogger(); metricsLogger != nil {
