@@ -76,7 +76,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
-	rg.GET("/users/:id/approverInfo", r.GetApproverInfo)
+	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -139,7 +139,7 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 	}
 	userID := c.Param(ParamUserID)
 	if userID == "" {
-		c.String(http.StatusBadRequest, "id is required")
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", ParamUserID))
 		return
 	}
 
