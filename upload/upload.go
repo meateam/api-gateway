@@ -345,7 +345,6 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
-		// ROLLBACK upload mongo
 		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
 		return
 	}
@@ -357,9 +356,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		// ROLLBACK upload mongo
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
 		return
 	}
 
