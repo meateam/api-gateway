@@ -139,7 +139,7 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 	}
 	userID := c.Param(ParamUserID)
 	if userID == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", ParamUserID))
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
 		return
 	}
 
