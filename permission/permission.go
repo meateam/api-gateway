@@ -13,7 +13,7 @@ import (
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
-	upb "github.com/meateam/user-service/proto"
+	upb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

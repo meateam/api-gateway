@@ -22,7 +22,7 @@ import (
 	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
-	usrpb "github.com/meateam/user-service/proto"
+	usrpb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -168,7 +169,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
-	fmt.Println(c)
 
 	if reqUser == nil {
 		loggermiddleware.LogError(
@@ -202,6 +202,13 @@ func (r *Router) Upload(c *gin.Context) {
 	}
 }
 
+// Format the name of the file to prevent elasticsearch errors.
+func formatFileName(name string) string {
+	fileName := strings.ReplaceAll(name, "_", " ")
+
+	return fileName
+}
+
 // Extracts the filename from the request header in context.
 func extractFileName(c *gin.Context) string {
 	fileName := ""
@@ -219,7 +226,9 @@ func extractFileName(c *gin.Context) string {
 		}
 	}
 
-	return fileName
+	fixedFileName := formatFileName(fileName)
+
+	return fixedFileName
 }
 
 // UploadFolder creates a folder in file service.
@@ -496,7 +505,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	fileFullName := uuid.NewV4().String()
 	if filename != "" {
-		fileFullName = filename
+		fileFullName = formatFileName(filename)
 	}
 
 	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
@@ -582,7 +591,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	createUploadResponse, err := r.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  reqUser.Bucket,
-		Name:    reqBody.Title,
+		Name:    formatFileName(reqBody.Title),
 		OwnerID: reqUser.ID,
 		Parent:  parent,
 		Size:    fileSize,
