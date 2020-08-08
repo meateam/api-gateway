@@ -12,6 +12,13 @@ import (
 
 // deleteUploadOnError remove the upload object in file service when have error, its returns the quota to origin size
 func (r *Router) deleteUploadOnError(c *gin.Context, err error, key string, bucket string) {
+	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+	r.deleteUploadOnErrorWithStatus(c, httpStatusCode, err, key, bucket)
+}
+
+// deleteUploadOnErrorWithStatus remove the upload object in file service when have error with http status,
+// its returns the quota to origin size
+func (r *Router) deleteUploadOnErrorWithStatus(c *gin.Context, status int, err error, key string, bucket string) {
 	reqUser := r.getUserFromContext(c)
 	if reqUser == nil {
 		return
@@ -22,11 +29,9 @@ func (r *Router) deleteUploadOnError(c *gin.Context, err error, key string, buck
 		Bucket: bucket,
 	})
 
-	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-
 	if deleteErr != nil {
 		err = fmt.Errorf("%v: %v", err, deleteErr)
 	}
 
-	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	loggermiddleware.LogError(r.logger, c.AbortWithError(status, err))
 }
