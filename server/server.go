@@ -30,6 +30,7 @@ const (
 	configExternalApmURL        = "external_apm_url"
 	configAllowOrigins          = "allow_origins"
 	configSupportLink           = "support_link"
+	configDropboxSupportLink    = "dropbox_support_link"
 	configDownloadChromeURL     = "chrome_download_url"
 	configElasticsearchURL      = "elasticsearch_url"
 	configElasticsearchUser     = "elasticsearch_user"
