@@ -264,4 +264,3 @@ func changeExtensionByMimeType(fileName string, mimeType string) string {
 	}
 	return strings.Join(splitName, ".")
 }
-change the extension  
