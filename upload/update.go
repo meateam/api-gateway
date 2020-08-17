@@ -31,6 +31,9 @@ const (
 
 	// MimeTypeXLSX Docs mime types
 	MimeTypeXLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+	// MimeTypeHeader file mime type.
+	MimeTypeHeader = "X-Mime-Type"
 )
 
 // UpdateSetup initializes its routes under rg.
@@ -173,12 +176,20 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
+	mimeType := c.GetHeader(MimeTypeHeader)
+	fileName := oldFile.Name
+	if mimeType == "" {
+		mimeType = resp.GetContentType()
+	} else {
+		fileName = changeExtensionByMimeType(oldFile.Name, mimeType)
+	}
+
 	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), &fpb.UpdateFilesRequest{
 		IdList: []string{fileID},
 		PartialFile: &fpb.File{
 			Key:  upload.GetKey(),
-			Type: resp.GetContentType(),
-			Name: changeExtensionByMimeType(oldFile.Name, resp.GetContentType()),
+			Type: mimeType,
+			Name: fileName,
 			Size: resp.GetContentLength(),
 		},
 	})
