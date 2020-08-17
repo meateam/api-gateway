@@ -177,7 +177,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		IdList: []string{fileID},
 		PartialFile: &fpb.File{
 			Key:  upload.GetKey(),
-			Type : resp.GetContentType(),
+			Type: resp.GetContentType(),
 			Name: changeExtensionByMimeType(oldFile.Name, resp.GetContentType()),
 			Size: resp.GetContentLength(),
 		},
@@ -188,7 +188,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	// Only refers to one, because it caniot update more than one
+	// Only refers to one, because it cannot update more than one
 	if len(updateFilesResponse.GetFailedFiles()) != 0 {
 		failedFileID := updateFilesResponse.GetFailedFiles()[0]
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while updating file %s", failedFileID))
@@ -247,7 +247,8 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, upload *fpb.GetU
 	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 }
 
-// changeExtensionByMimeType change the extension by mime type  
+// changeExtensionByMimeType return the same file name and change the extention by the mime type
+// It is only for docs
 func changeExtensionByMimeType(fileName string, mimeType string) string {
 	splitName := strings.Split(fileName, ".")
 	switch mimeType {
@@ -263,3 +264,4 @@ func changeExtensionByMimeType(fileName string, mimeType string) string {
 	}
 	return strings.Join(splitName, ".")
 }
+change the extension  
