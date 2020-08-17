@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -21,11 +22,20 @@ const (
 	// UpdateFileRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the UpdateFile action.
 	UpdateFileRole = ppb.Role_WRITE
+
+	// MimeTypePPTX Docs mime types
+	MimeTypePPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+	// MimeTypeDOCX Docs mime types
+	MimeTypeDOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+	// MimeTypeXLSX Docs mime types
+	MimeTypeXLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
 // UpdateSetup initializes its routes under rg.
 func (r *Router) UpdateSetup(rg *gin.RouterGroup) {
-	rg.PUT("/upload/:"+ParamFileID, r.Update)
+	rg.PUT("/upload/:" + ParamFileID, r.Update)
 }
 
 // Update is the request handler for /upload/:fileId request.
@@ -167,6 +177,8 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		IdList: []string{fileID},
 		PartialFile: &fpb.File{
 			Key:  upload.GetKey(),
+			Type : resp.GetContentType(),
+			Name: changeExtensionByMimeType(oldFile.Name, resp.GetContentType()),
 			Size: resp.GetContentLength(),
 		},
 	})
@@ -176,7 +188,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	// Only refers to one, because it cannot update more than one
+	// Only refers to one, because it caniot update more than one
 	if len(updateFilesResponse.GetFailedFiles()) != 0 {
 		failedFileID := updateFilesResponse.GetFailedFiles()[0]
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while updating file %s", failedFileID))
@@ -233,4 +245,21 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, upload *fpb.GetU
 
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+}
+
+// changeExtensionByMimeType change the extension by mime type  
+func changeExtensionByMimeType(fileName string, mimeType string) string {
+	splitName := strings.Split(fileName, ".")
+	switch mimeType {
+		case MimeTypeDOCX: {
+			splitName[len(splitName) - 1] = "docx"
+		}
+		case MimeTypePPTX: {
+			splitName[len(splitName) - 1] = "pptx"
+		}
+		case MimeTypeXLSX: {
+			splitName[len(splitName) - 1] = "xlsx"
+		}
+	}
+	return strings.Join(splitName, ".")
 }
