@@ -233,8 +233,14 @@ github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0/go.mod h1:Q
 github.com/meateam/spike-service v0.0.0-20191212084848-b7760c5526b3/go.mod h1:cg6abJq1OOTQqcoGkhjWztNGmLTzS4HGut3Djuww+mo=
 github.com/meateam/spike-service v0.0.0-20200519104126-02c883c3d7cf h1:TTbr3JeonwE1A3fJJ6K+CXRrZcLv4NC1vzrb9A9zbns=
 github.com/meateam/spike-service v0.0.0-20200519104126-02c883c3d7cf/go.mod h1:cg6abJq1OOTQqcoGkhjWztNGmLTzS4HGut3Djuww+mo=
+github.com/meateam/spike-service v0.0.0-20200609111150-8345db9984d3 h1:vuYK8SNUZ9Uv69aDwNuOZoKgE8/2Nb4tf/aWIPNN1KI=
+github.com/meateam/spike-service v0.0.0-20200609111150-8345db9984d3/go.mod h1:cg6abJq1OOTQqcoGkhjWztNGmLTzS4HGut3Djuww+mo=
+github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a h1:lvlgSq+vlroucjQB3gAxpwHaUTDmDbEKcSo2r++NL0I=
+github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a/go.mod h1:cg6abJq1OOTQqcoGkhjWztNGmLTzS4HGut3Djuww+mo=
 github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676 h1:iZEgLcC9WY/USnCn0jwbzW0C1U59WMZ+GlfmC4kQY/w=
 github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676/go.mod h1:h0Xn5OLsm238+7/GZKxktHIBGtKLfZFyvv91VX+H3lA=
+github.com/meateam/upload-service v0.0.0-20191216095848-6216c791f102 h1:V7/WwoeAtKznekmaCU+gRC1loj+nc5USpYhNed5aJQU=
+github.com/meateam/upload-service v0.0.0-20191216095848-6216c791f102/go.mod h1:Kew51+wC0wMvlzwcIVy6RGgQ8lN4su/VJoMHJRDxZ8I=
 github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83 h1:5hV+U4d9TVbalfPFvirSmYl3lGgG93nTcWSaSksIkXg=
 github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
