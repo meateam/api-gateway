@@ -11,14 +11,14 @@ require (
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
-	github.com/meateam/file-service/proto v0.0.0-20200601112023-5934267c2b41
+	github.com/meateam/file-service/proto v0.0.0-20200818095343-733a34e5cca8
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
-	github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83
+	github.com/meateam/user-service v0.0.0-20200727105634-935fd55aab5e
 	github.com/olivere/elastic/v7 v7.0.9
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
