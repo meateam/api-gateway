@@ -44,6 +44,9 @@ const (
 	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
 
+	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
+	ServiceAuthCodeTypeValue = "Service AuthCode"
+
 	// ConfigWebUI is the name of the environment variable containing the path to the ui.
 	ConfigWebUI = "web_ui"
 )
@@ -79,11 +82,14 @@ func NewRouter(
 func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		isService := c.GetHeader(AuthTypeHeader)
-		if isService != ServiceAuthTypeValue {
+		serviceName := c.GetHeader(AuthTypeHeader)
+
+		// TODO: in the future, should be only ServiceAuthCodeTypeValue
+		if serviceName != ServiceAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
+			// If not an external service, then it is a user.
 			secret := secrets.Drive
 
-			if isService == DocsAuthTypeValue {
+			if serviceName == DocsAuthTypeValue {
 				secret = secrets.Docs
 			}
 
