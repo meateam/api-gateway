@@ -7,6 +7,8 @@ GW_PORT: Port on which the server would listen.
 	default: 8080
 GW_AUTH_URL: The url of the authentication service to redirect the user to authenticate.
 	default: "http://localhost/auth/login"
+GW_DOCS_URL: The url of the edit docs.
+	default: "http://localhost/3000/api/files"
 GW_SECRET: The secret used to validate authorization jwt tokens.
 	default: "pandora@drive"
 GW_UPLOAD_SERVICE: The address of the upload-service.
