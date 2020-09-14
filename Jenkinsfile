@@ -17,7 +17,7 @@ pipeline {
         parallel {
           stage('build dockerfile of tests') {
             steps {
-              echo env.CHANGE_AUTHOR_DISPLAY_NAME
+              echo CHANGE_AUTHOR_DISPLAY_NAME
 
               sh "docker build -t unittest -f test.Dockerfile ." 
             }  
@@ -56,7 +56,7 @@ pipeline {
         }
         post {
           always {
-            discordSend description: '**service**: '+ env.GIT_REPO_NAME + '\n **Build**:' + " " + env.BUILD_NUMBER + '\n **Branch**:' + " " + env.GIT_BRANCH + '\n **Status**:' + " " +  currentBuild.result + '\n \n \n **Commit ID**:'+ " " + env.GIT_SHORT_COMMIT + '\n **commit massage**:' + " " + env.GIT_COMMIT_MSG + '\n **commit email**:' + " " + env.GIT_COMMITTER_EMAIL, footer: '', image: '', link: 'http://jnk-devops-ci-cd.northeurope.cloudapp.azure.com/blue/organizations/jenkins/'+env.JOB_NAME +'/detail/'+ env.GIT_BRANCH +'/'+env.BUILD_NUMBER+'/pipeline', result: currentBuild.result, thumbnail: '', title: ' link to result', webhookURL: 'https://discord.com/api/webhooks/735056754051645451/jYad6fXNkPMnD7mopiCJx2qLNoXZnvNUaYj5tYztcAIWQCoVl6m2tE2kmdhrFwoAASbv'   
+            discordSend description: '**service**: '+ env.GIT_REPO_NAME + '\n **Build**:' + " " + env.BUILD_NUMBER + '\n **Branch**:' + " " + env.GIT_BRANCH + '\n **Status**:' + " " +  currentBuild.result + '\n \n \n **Commit ID**:'+ " " + env.GIT_SHORT_COMMIT + '\n **commit massage**:' + " " + env.GIT_COMMIT_MSG + '\n **commit email**:' + " " + env.GIT_COMMITTER_EMAIL, footer: '', image: '', link: 'http://jnk-devops-ci-cd.northeurope.cloudapp.azure.com/blue/organizations/jenkins/drive/api-gateway/detail/'+ env.GIT_BRANCH +'/'+env.BUILD_NUMBER+'/pipeline', result: currentBuild.result, thumbnail: '', title: ' link to result', webhookURL: 'https://discord.com/api/webhooks/735056754051645451/jYad6fXNkPMnD7mopiCJx2qLNoXZnvNUaYj5tYztcAIWQCoVl6m2tE2kmdhrFwoAASbv'   
           }
         }
       }
