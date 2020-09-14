@@ -17,7 +17,7 @@ pipeline {
         parallel {
           stage('build dockerfile of tests') {
             steps {
-              echo env.JOB_NAME 
+              echo env.JOB_BASE_NAME 
               sh "docker build -t unittest -f test.Dockerfile ." 
             }  
           }
