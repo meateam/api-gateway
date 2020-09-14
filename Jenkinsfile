@@ -10,8 +10,6 @@ pipeline {
             env.GIT_COMMITTER_EMAIL = sh (script: "git --no-pager show -s --format='%ae'", returnStdout: true  ).trim()
             env.GIT_REPO_NAME = scm.getUserRemoteConfigs()[0].getUrl().tokenize('/')[3].split("\\.")[0]
             echo 'drivehub.azurecr.io/'+env.GIT_REPO_NAME+'/master:'+env.GIT_SHORT_COMMIT
-            env.isr = sh "sed -i 'drive%2Fapi-gateway/"${JOb_NAME}"/'"
-            echo env.isr
           }
         }
       }
