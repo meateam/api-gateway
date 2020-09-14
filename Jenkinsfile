@@ -11,6 +11,7 @@ pipeline {
             env.GIT_REPO_NAME = scm.getUserRemoteConfigs()[0].getUrl().tokenize('/')[3].split("\\.")[0]
             echo 'drivehub.azurecr.io/'+env.GIT_REPO_NAME+'/master:'+env.GIT_SHORT_COMMIT
             env.isr = sh sed 'drive/%2Fapi-gateway/'"${JOb_NAME}"'/'
+            echo env.isr
           }
         }
       }
