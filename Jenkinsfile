@@ -50,7 +50,7 @@ pipeline {
       }  
       stage('run unit tests') {   
         steps {
-          sh "docker run unittest/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT}"  
+          sh "docker run unittest"  
         }
         post {
           always {
