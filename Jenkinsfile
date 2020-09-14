@@ -17,8 +17,6 @@ pipeline {
         parallel {
           stage('build dockerfile of tests') {
             steps {
-              echo CHANGE_AUTHOR_DISPLAY_NAME
-
               sh "docker build -t unittest -f test.Dockerfile ." 
             }  
           }
