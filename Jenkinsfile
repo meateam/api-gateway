@@ -22,27 +22,27 @@ pipeline {
           }
           stage('login to azure container registry') {
             steps{  
-              withCredentials([usernamePassword(credentialsId:'Drive_ACR',usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+              withCredentials([usernamePassword(credentialsId:'ISRAEL_ACR',usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                 sh "docker login  drivehub.azurecr.io -u ${USER} -p ${PASS}"
               }
             }
           }  
           stage('build dockerfile of system only for master and develop') {
-            when {
-              anyOf {
-                 branch 'master'; branch 'develop'
-              }
-            }
+            // when {
+            //   anyOf {
+            //      branch 'master'; branch 'develop'
+            //   }
+            // }
             steps {
-              script{
-                if(env.GIT_BRANCH == 'master') {
+              //script{
+                //if(env.GIT_BRANCH == 'master') {
                   sh "docker build -t  drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT} ."
                   sh "docker push  drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT}"
-                }
-                else if(env.GIT_BRANCH == 'develop') {
+                //}
+                //else if(env.GIT_BRANCH == 'develop') {
                   sh "docker build -t  drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop ."
                   sh "docker push  drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop"  
-                }
+                //}
               } 
             }
           }     
