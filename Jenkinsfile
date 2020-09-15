@@ -21,6 +21,11 @@ pipeline {
             }  
           }
           stage('login to azure container registry') {
+            when {
+              anyOf {
+                 branch 'master'; branch 'develop'
+              }
+            }
             steps{  
               withCredentials([usernamePassword(credentialsId:'Drive_ACR',usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                 sh "docker login drivehub.azurecr.io -u ${USER} -p ${PASS}"
