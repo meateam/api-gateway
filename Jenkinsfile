@@ -36,13 +36,13 @@ pipeline {
             steps {
               //script{
                 //if(env.GIT_BRANCH == 'master') {
-                  sh "docker build -t  drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT} ."
-                  sh "docker push  drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT}"
+                  sh "docker build -t  israel.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT} ."
+                  sh "docker push  israel.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT}"
                 //}
                 //else if(env.GIT_BRANCH == 'develop') {
-                  sh "docker build -t  drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop ."
-                  sh "docker push  drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop"  
-                //}
+                //   sh "docker build -t  drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop ."
+                //   sh "docker push  drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop"  
+                // }
               } 
             }
           }     
