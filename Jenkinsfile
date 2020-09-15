@@ -46,8 +46,7 @@ pipeline {
               } 
             }
           }     
-        }
-      }  
+        }  
       stage('run unit tests') {   
         steps {
           sh "docker run unittest"  
@@ -58,5 +57,5 @@ pipeline {
           }
         }
       }
-    }   
-}
+    }
+  }   
