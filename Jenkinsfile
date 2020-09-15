@@ -23,7 +23,7 @@ pipeline {
           stage('login to azure container registry') {
             steps{  
               withCredentials([usernamePassword(credentialsId:'ISRAEL_ACR',usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                sh "docker login  drivehub.azurecr.io -u ${USER} -p ${PASS}"
+                sh "docker login israel.azurecr.io -u ${USER} -p ${PASS}"
               }
             }
           }  
