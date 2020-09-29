@@ -12,7 +12,7 @@ require (
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
 	github.com/meateam/file-service/proto v0.0.0-20200625093551-eff8e9440810
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
-	github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b
+	github.com/meateam/permission-service v0.0.0-20200923080608-d5578a3a8489
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20191218082801-258e86a00bce
@@ -22,6 +22,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.6.1
+	github.com/streadway/amqp v1.0.0
 	go.elastic.co/apm v1.6.0
 	go.elastic.co/apm/module/apmgin v1.6.0
 	go.elastic.co/apm/module/apmgrpc v1.6.0

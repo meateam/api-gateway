@@ -371,6 +371,11 @@ func CreatePermission(ctx context.Context,
 	return createdPermission, nil
 }
 
+func GetPermissionByMongoID(ctx context.Context, mongoID string,
+	permissionClient ppb.PermissionClient) (Permission, error) {
+
+}
+
 // GetFilePermissions returns all derived user permissions of a file.
 func GetFilePermissions(ctx context.Context,
 	fileID string,
