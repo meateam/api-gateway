@@ -60,7 +60,7 @@ const (
 
 	// QueryAppID is a constant for queryAppId parameter in a request.
 	// If exists, the files returned will only belong to the app of QueryAppID.
-	QueryAppID = "queryAppId"
+	QueryAppID = "appId"
 
 	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
