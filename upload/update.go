@@ -258,8 +258,8 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, upload *fpb.GetU
 	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 }
 
-// changeExtensionByMimeType return the same file name and change the extention by the mime type
-// It is only for docs
+// changeExtensionByMimeType returns the same file name and changes the extension by the mime type
+// This function is only used for the docs
 func changeExtensionByMimeType(fileName string, mimeType string) string {
 	splitName := strings.Split(fileName, ".")
 	switch mimeType {
