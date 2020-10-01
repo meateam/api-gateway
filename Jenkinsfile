@@ -1,10 +1,9 @@
 //api-getway
 pipeline {
-  agent {
-   kubernetes {
-      yamlFile './kube.yaml'
-    }
-  }    
+  agent {    
+      
+      label "test"
+  }   
   stages {
       stage('get_commit_msg') {
         steps {
