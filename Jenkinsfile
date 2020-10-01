@@ -1,8 +1,9 @@
 //api-getway
 pipeline {
   agent {
-    
-      label "test"
+   kubernetes {
+      yamlFile '/home/blue/yml/kubectl.yaml'
+    }
   }    
   stages {
       stage('get_commit_msg') {
