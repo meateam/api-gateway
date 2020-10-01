@@ -2,7 +2,7 @@
 pipeline {
   agent {
    kubernetes {
-      yamlFile '/var/lib/jenkins/workspace/drive_api-gateway_devopsQA_ci/kubectl.yaml'
+      yamlFile 'kube.yaml'
     }
   }    
   stages {
