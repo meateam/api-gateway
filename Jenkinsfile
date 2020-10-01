@@ -1,7 +1,22 @@
 //api-getway
 pipeline {
   agent {
-      label "jenkins-slave"
+    kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    slave:jenkins-agent
+spec:
+  containers:
+  - name: slave
+    image: jenkinsci/jnlp-slave
+    command:
+    - cat
+    tty: true
+"""
+    }
   }    
   stages {
       stage('get_commit_msg') {
