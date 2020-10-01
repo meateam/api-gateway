@@ -2,7 +2,7 @@
 pipeline {
   agent {    
       
-      label "test"
+      label 'test'
   }   
   stages {
       stage('get_commit_msg') {
