@@ -1,7 +1,9 @@
 //api-getway
 pipeline {
-  agent any
-    stages {
+  agent {
+      label "jenkins-slave"
+  }    
+  stages {
       stage('get_commit_msg') {
         steps {
           script {
