@@ -12,9 +12,6 @@ spec:
   containers:
   - name: slave
     image: jenkinsci/jnlp-slave
-    command:
-    - cat
-    tty: true
 """
     }
   }    
