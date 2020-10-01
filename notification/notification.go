@@ -1,9 +1,7 @@
 package notification
 
 import (
-	"bytes"
-	"log"
-	"time"
+	"fmt"
 
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
@@ -16,16 +14,52 @@ const (
 	permissionQueue              = "permissionsQueue"
 )
 
+type ObjectType = map[int32]string{
+	0: "FILE",
+	1: "PERMISSION",
+	2: "NONE",
+}
+
+type Operation = map[int32]string{
+	0: "ADD",
+	1: "UPDATE",
+	2: "DELETE",
+	3: "NONE"
+}
+
+type listenerObject struct {
+	objectID string
+	objectType ObjectType
+	operation OperationType
+}
+
 func handleError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
+		fmt.Printf("%s: %s", msg, err)
 	}
+}
+
+func connectRabbit() (conn *amqp.Connection) {
+	conn, err := amqp.Dial(viper.GetString(configRabbitConnectionString))
+	handleError(err, "Failed to connect to RabbitMQ")
+	return conn
+}
+
+func openChannel(conn *amqp.Connection) (ch *amqp.Channel) {
+	ch, err := conn.Channel()
+	handleError(err, "Failed to open a channel")
+	return ch
+}
+
+func declareExchange(ch *amqp.Channel) {
+	err := ch.ExchangeDeclare("events", "topic", true, false, false, false, nil)
+	handleError(err, "Failed to declare exchange")
 }
 
 func declareQueue(ch *amqp.Channel, name string) (q amqp.Queue) {
 	q, err := ch.QueueDeclare(
 		name,  // name
-		true,  // durable
+		false, // durable
 		false, // delete when unused
 		false, // exclusive
 		false, // no-wait
@@ -36,50 +70,37 @@ func declareQueue(ch *amqp.Channel, name string) (q amqp.Queue) {
 	return q
 }
 
-func SetUp() {
-	conn, err := amqp.Dial(viper.GetString(configRabbitConnectionString))
-	handleError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-
-	ch, err := conn.Channel()
-	handleError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	fileQ := declareQueue(ch, viper.GetString(filesQueue))           // listener-service file queue
-	// permssionQ := declareQueue(ch, viper.GetString(permissionQueue)) // listener-service file queue
-	// ssq:= declareQueue(ch, viper.GetString(configSocketQueue)) // socket-service queue
-
-	err = ch.Qos(
-		1,     // prefetch count
-		0,     // prefetch size
-		false, // global
-	)
-	handleError(err, "Failed to set QoS")
-
+func activateConsumer(ch *amqp.Channel, queueName string) <-chan amqp.Delivery {
 	msgs, err := ch.Consume(
-		fileQ.Name, // queue
-		"",         // consumer
-		false,      // auto-ack
-		false,      // exclusive
-		false,      // no-local
-		false,      // no-wait
-		nil,        // args
+		queueName, // queue
+		"",        // consumer
+		false,     // auto-ack
+		false,     // exclusive
+		false,     // no-local
+		false,     // no-wait
+		nil,       // args
 	)
 	handleError(err, "Failed to register a consumer")
+
+	return msgs
+}
+
+func SetUp() {
+	conn := connectRabbit()
+	defer conn.Close()
+
+	ch := openChannel(conn)
+	defer ch.Close()
+
+	msgs := activateConsumer(ch, filesQueue)
 
 	forever := make(chan bool)
 
 	go func() {
 		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
-			dot_count := bytes.Count(d.Body, []byte("."))
-			t := time.Duration(dot_count)
-			time.Sleep(t * time.Second)
-			log.Printf("Done")
+			fmt.Printf("Received a message: %s", d.Body)
 			d.Ack(false)
 		}
 	}()
-
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
