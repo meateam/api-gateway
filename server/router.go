@@ -73,13 +73,13 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 				"authUrl":              viper.GetString(configAuthURL),
 				"docsUrl":              viper.GetString(configDocsURL),
 				"supportLink":          viper.GetString(configSupportLink),
-				"dropboxSupportLink":  viper.GetString(configDropboxSupportLink),
+				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
 				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
 				"externalShareName":    viper.GetString(configExternalShareName),
 				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
 				"vipServiceUrl":        viper.GetString(configVipService),
 				"enableExternalShare":  viper.GetString(configEnableExternalShare),
-				"whiteListText":  viper.GetString(configWhiteListText),
+				"whiteListText":        viper.GetString(configWhiteListText),
 			},
 		)
 	})
@@ -134,7 +134,13 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// initiate middlewares
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
-	conns := []*grpc.ClientConn{
+
+	nonFatalConns := []*grpc.ClientConn{
+		permitConn,
+		delegateConn,
+	}
+
+	fatalConns := []*grpc.ClientConn{
 		fileConn,
 		uploadConn,
 		downloadConn,
@@ -142,15 +148,15 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		userConn,
 		searchConn,
 		spikeConn,
-		permitConn,
-		delegateConn,
 	}
+
+	conns := append(fatalConns, nonFatalConns...)
 
 	health := NewHealthChecker()
 	healthInterval := viper.GetInt(configHealthCheckInterval)
 	healthRPCTimeout := viper.GetInt(configHealthCheckRPCTimeout)
 
-	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, conns...)
+	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, nonFatalConns, fatalConns...)
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
