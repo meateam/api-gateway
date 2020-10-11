@@ -289,81 +289,6 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	c.String(http.StatusOK, createFolderResp.GetId())
 }
 
-// UploadInit initiates a resumable upload to upload a large file to.
-func (r *Router) UploadInit(c *gin.Context) {
-	reqUser := user.ExtractRequestUser(c)
-	parent := c.Query(ParentQueryKey)
-	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
-	if err != nil || !isPermitted {
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	var reqBody uploadInitBody
-	if err := c.BindJSON(&reqBody); err != nil {
-		c.String(http.StatusBadRequest, "invalid request body parameters")
-		return
-	}
-
-	if reqBody.Title == "" {
-		reqBody.Title = uuid.NewV4().String()
-	}
-
-	fileSize, err := strconv.ParseInt(c.Request.Header.Get(ContentLengthCustomHeader), 10, 64)
-	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s is invalid", ContentLengthCustomHeader))
-		return
-	}
-
-	if fileSize < 0 {
-		fileSize = 0
-	}
-
-	createUploadResponse, err := r.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
-		Bucket:  reqUser.Bucket,
-		Name:    reqBody.Title,
-		OwnerID: reqUser.ID,
-		Parent:  parent,
-		Size:    fileSize,
-	})
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	uploadInitReq := &upb.UploadInitRequest{
-		Key:    createUploadResponse.GetKey(),
-		Bucket: reqUser.Bucket,
-	}
-
-	uploadInitReq.ContentType = reqBody.MimeType
-	if reqBody.MimeType == "" {
-		uploadInitReq.ContentType = DefaultContentLength
-	}
-
-	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
-	if err != nil {
-		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
-		return
-	}
-
-	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
-		Key:      createUploadResponse.GetKey(),
-		Bucket:   reqUser.Bucket,
-		UploadID: resp.GetUploadId(),
-	})
-
-	if err != nil {
-		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
-		return
-	}
-
-	c.Header(UploadIDCustomHeader, resp.GetUploadId())
-	c.Status(http.StatusOK)
-}
-
 // UploadComplete completes a resumable file upload and creates the uploaded file.
 func (r *Router) UploadComplete(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -620,6 +545,81 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	}
 
 	c.String(http.StatusOK, createFileResp.GetId())
+}
+
+// UploadInit initiates a resumable upload to upload a large file to.
+func (r *Router) UploadInit(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	parent := c.Query(ParentQueryKey)
+	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	if err != nil || !isPermitted {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	var reqBody uploadInitBody
+	if err := c.BindJSON(&reqBody); err != nil {
+		c.String(http.StatusBadRequest, "invalid request body parameters")
+		return
+	}
+
+	if reqBody.Title == "" {
+		reqBody.Title = uuid.NewV4().String()
+	}
+
+	fileSize, err := strconv.ParseInt(c.Request.Header.Get(ContentLengthCustomHeader), 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is invalid", ContentLengthCustomHeader))
+		return
+	}
+
+	if fileSize < 0 {
+		fileSize = 0
+	}
+
+	createUploadResponse, err := r.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
+		Bucket:  reqUser.Bucket,
+		Name:    reqBody.Title,
+		OwnerID: reqUser.ID,
+		Parent:  parent,
+		Size:    fileSize,
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	uploadInitReq := &upb.UploadInitRequest{
+		Key:    createUploadResponse.GetKey(),
+		Bucket: reqUser.Bucket,
+	}
+
+	uploadInitReq.ContentType = reqBody.MimeType
+	if reqBody.MimeType == "" {
+		uploadInitReq.ContentType = DefaultContentLength
+	}
+
+	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
+	if err != nil {
+		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
+		return
+	}
+
+	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
+		Key:      createUploadResponse.GetKey(),
+		Bucket:   reqUser.Bucket,
+		UploadID: resp.GetUploadId(),
+	})
+
+	if err != nil {
+		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
+		return
+	}
+
+	c.Header(UploadIDCustomHeader, resp.GetUploadId())
+	c.Status(http.StatusOK)
 }
 
 // UploadPart uploads a multipart file to a resumable upload.
