@@ -18,7 +18,7 @@ func (r *Router) deleteUploadOnError(c *gin.Context, err error, key string, buck
 }
 
 // deleteUploadOnErrorWithStatus removes the upload object in file service when an error occurs with an http status,
-// its returns the quota to origin size
+// returns the quota to it's original size
 func (r *Router) deleteUploadOnErrorWithStatus(c *gin.Context, status int, err error, key string, bucket string) {
 	reqUser := r.getUserFromContext(c)
 	if reqUser == nil {
