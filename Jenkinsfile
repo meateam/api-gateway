@@ -2,7 +2,7 @@
 pipeline {
   agent {    
       
-      label 'slave'
+      label 'jenkins=slave'
   }   
   stages {
       stage('get_commit_msg') {
