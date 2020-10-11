@@ -36,6 +36,9 @@ const (
 	MimeTypeHeader = "X-Mime-Type"
 )
 
+
+var OldDocExtension = []string {"doc", "ppt", "xls"}
+
 // UpdateSetup initializes its routes under rg.
 func (r *Router) UpdateSetup(rg *gin.RouterGroup) {
 	rg.PUT("/upload/:" + ParamFileID, r.Update)
@@ -262,15 +265,27 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, upload *fpb.GetU
 // It is only for docs
 func changeExtensionByMimeType(fileName string, mimeType string) string {
 	splitName := strings.Split(fileName, ".")
+
+	lastIndex := len(splitName) - 1;
+	extension := splitName[lastIndex]
+
+	for _, s := range OldDocExtension {
+		if extension == s {
+			// Remove the last element
+			splitName = splitName[:lastIndex]
+			break
+		}
+	}
+
 	switch mimeType {
 		case MimeTypeDOCX: {
-			splitName[len(splitName) - 1] = "docx"
+			splitName = append(splitName, "docx")
 		}
 		case MimeTypePPTX: {
-			splitName[len(splitName) - 1] = "pptx"
+			splitName = append(splitName, "pptx")
 		}
 		case MimeTypeXLSX: {
-			splitName[len(splitName) - 1] = "xlsx"
+			splitName = append(splitName, "xlsx")
 		}
 	}
 	return strings.Join(splitName, ".")
