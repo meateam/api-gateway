@@ -1,22 +1,22 @@
 //api-getway
 pipeline {
   agent {    
-      kubernetes {
-      yaml """
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    jenkins: slave
-spec:
-  containers:
-  - name: jenkins-slave
-    image:  qayesodot/qayesodot:slave-jnk
-    command: ["/bin/sh"]
-    args: ["-c", "while true; do echo hello; sleep 80;done"]  
-"""
-    }
-     // label 'test'
+//       kubernetes {
+//       yaml """
+// apiVersion: v1
+// kind: Pod
+// metadata:
+//   labels:
+//     jenkins: slave
+// spec:
+//   containers:
+//   - name: jenkins-slave
+//     image:  qayesodot/qayesodot:slave-jnk
+//     command: ["/bin/sh"]
+//     args: ["-c", "while true; do echo hello; sleep 80;done"]  
+// """
+    //}
+     label 'test'
   }   
   stages {
       stage('get_commit_msg') {
@@ -36,7 +36,7 @@ spec:
             //  creating variable that contain the JOB_WITHOUT_BRANCH variable without the last 3 characters 
             env.JOB_FOR_URL = sh([script: "echo ${JOB_WITHOUT_BRANCH}|rev | cut -c 4- | rev", returnStdout: true]).trim()  
             echo "${env.JOB_FOR_URL}" 
-             sleep(1000)
+             //sleep(1000)
 	    echo "HOSTNAME gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
           }
         }
