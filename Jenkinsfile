@@ -11,7 +11,7 @@ metadata:
 spec:
   containers:
   - name: jenkins-slave
-    image: jenkins/slave
+    image:  jenkins/jnlp-slave:latest-jdk11
     command: ["/bin/sh"]
     args: ["-c", "while true; do echo hello; sleep 80;done"]  
 """
