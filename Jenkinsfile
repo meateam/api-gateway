@@ -11,7 +11,7 @@ metadata:
 spec:
   containers:
   - name: jenkins-slave
-    image:  qayesodot/qayesodot:slave
+    image:  qayesodot/qayesodot:slave-jnk
     command: ["/bin/sh"]
     args: ["-c", "while true; do echo hello; sleep 80;done"]  
 """
