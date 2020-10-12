@@ -13,7 +13,7 @@ spec:
   - name: jenkins-slave
     image: docker:latest
     command:
-    - kubectl get pods --watch
+    - watch kubectl get pods
 
 """
     }
