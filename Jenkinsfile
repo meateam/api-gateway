@@ -11,7 +11,7 @@ metadata:
 spec:
   containers:
   - name: jenkins-slave
-    image: ninech/jnlp-slave-with-docker
+    image: jenkins/inbound-agent:jdk8-nanoserver-1809
     command:
     - sleep 5m
 """
