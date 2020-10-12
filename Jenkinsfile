@@ -12,8 +12,8 @@ spec:
   containers:
   - name: jenkins-slave
     image: jenkins/jnlp-slave
-    command:
-    - sleep 5m
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do echo hello; sleep 80;done"]  
 """
     }
      // label 'test'
