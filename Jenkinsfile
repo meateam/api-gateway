@@ -44,7 +44,7 @@ spec:
         parallel {
           stage('build dockerfile of tests') {
             steps {
-              sh "docker build -t unittest -f test.Dockerfile ." 
+              sh "sudo docker build -t unittest -f test.Dockerfile ." 
             }  
           }
           stage('login to azure container registry') {
