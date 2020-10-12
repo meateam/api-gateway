@@ -11,7 +11,7 @@ metadata:
 spec:
   containers:
   - name: jenkins-slave
-    image:  jenkins/jenkins
+    image:  qayesodot/qayesodot:slave
     command: ["/bin/sh"]
     args: ["-c", "while true; do echo hello; sleep 80;done"]  
 """
@@ -44,7 +44,7 @@ spec:
         parallel {
           stage('build dockerfile of tests') {
             steps {
-              sh "sudo docker build -t unittest -f test.Dockerfile ." 
+              sh "docker build -t unittest -f test.Dockerfile ." 
             }  
           }
           stage('login to azure container registry') {
