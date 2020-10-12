@@ -7,7 +7,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   labels:
-    jenkins: slave
+    jenkins: slave1
 spec:
   containers:
   - name: jenkins-slave
