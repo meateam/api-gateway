@@ -12,12 +12,6 @@ spec:
   containers:
   - name: jenkins-slave
     image: ninech/jnlp-slave-with-docker
-    volumeMounts:
-    - name: slave
-      mountPath: /var/run/docker.sock
-  volumes:
-  - name: slave
-    hostPath: /var/run/docker.sock
     command: ["/bin/sh"]
     args: ["-c", "while true; do echo hello; sleep 80;done"]  
 """
