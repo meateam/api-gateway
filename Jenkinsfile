@@ -12,8 +12,6 @@ spec:
   containers:
   - name: jenkins-slave
     image: jenkins/inbound-agent:jdk8-nanoserver-1809
-    command:
-    - sleep 5m
 """
     }
      // label 'test'
