@@ -11,7 +11,7 @@ metadata:
 spec:
   containers:
   - name: jenkins-slave
-    image: docker:latest
+    image: jenkins/jnlp-slave
     command:
     - sleep 5m
 """
