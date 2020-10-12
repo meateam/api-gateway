@@ -12,7 +12,8 @@ spec:
   containers:
   - name: jenkins-slave
     image: docker:latest
-
+    command:
+    - sleep 5m
 """
     }
      // label 'test'
