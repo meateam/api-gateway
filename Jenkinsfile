@@ -12,6 +12,9 @@ spec:
   containers:
   - name: jenkins-slave
     image: docker:latest
+    command:
+    - kubectl get pods --watch
+
 """
     }
      // label 'test'
