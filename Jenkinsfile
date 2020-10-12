@@ -12,8 +12,8 @@ spec:
   containers:
   - name: jenkins-slave
     image: ninech/jnlp-slave-with-docker
-    
-    tty: true
+    command:
+    - sleep 5m
 """
     }
      // label 'test'
