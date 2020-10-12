@@ -11,7 +11,7 @@ metadata:
 spec:
   containers:
   - name: jenkins-slave
-    image: jenkins/inbound-agent:jdk8-nanoserver-1809
+    image: docker:latest
 """
     }
      // label 'test'
