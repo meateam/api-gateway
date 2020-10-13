@@ -28,6 +28,7 @@ services:
       ELASTICSEARCH_URL: 'http://localhost:9200'
       LOG_INDEX: 'kdrive'
       LOG_LEVEL: 'info'
+      GW_WHITE_LIST_TEXT: "או להיות מאושר באופן מיוחד"
       ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       ELASTIC_APM_SERVICE_NAME: 'api-gateway'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
@@ -183,10 +184,6 @@ services:
     depends_on:
       - mongo
       - redis
-  redis:
-    image: 'redis:alpine'
-    ports:
-      - '6379:6379'
   permission-service:
     image: 'bluehub.azurecr.io/meateam/permission-service:develop'
     ports:

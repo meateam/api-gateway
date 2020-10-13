@@ -228,6 +228,10 @@ github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676 h1:iZEgLcC9
 github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676/go.mod h1:h0Xn5OLsm238+7/GZKxktHIBGtKLfZFyvv91VX+H3lA=
 github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83 h1:5hV+U4d9TVbalfPFvirSmYl3lGgG93nTcWSaSksIkXg=
 github.com/meateam/user-service v0.0.0-20191023124015-0d5945941f83/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
+github.com/meateam/user-service v0.0.0-20200726054240-e3ba5c6900db h1:F19C84f9IO57UFMshFd2SZquW8LwDAzyV/Rvj98Yzx4=
+github.com/meateam/user-service v0.0.0-20200726054240-e3ba5c6900db/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
+github.com/meateam/user-service v0.0.0-20200727105634-935fd55aab5e h1:8aqA558fbGpsJvOgrjia1SDtKC9UNWAxpv//rnzRxjA=
+github.com/meateam/user-service v0.0.0-20200727105634-935fd55aab5e/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=

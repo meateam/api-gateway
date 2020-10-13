@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	uspb "github.com/meateam/user-service/proto"
+	uspb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -34,7 +34,7 @@ const (
 	// InternalUserSource is the value of the source field of user that indicated that the user is internal
 	InternalUserSource = "internal"
 
-	// configBucketPostfix is the name of the environment variable containing the postfix for the bucket.
+	// ConfigBucketPostfix is the name of the environment variable containing the postfix for the bucket.
 	ConfigBucketPostfix = "bucket_postfix"
 )
 
@@ -76,6 +76,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
+	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -127,6 +128,34 @@ func (r *Router) SearchByName(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
+}
+
+// GetApproverInfo is the request handler for GET /users/:id/approverInfo
+func (r *Router) GetApproverInfo(c *gin.Context) {
+	reqUser := ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	userID := c.Param(ParamUserID)
+	if userID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
+		return
+	}
+
+	getApproverInfoRequest := &uspb.GetApproverInfoRequest{
+		Id: userID,
+	}
+
+	info, err := r.userClient.GetApproverInfo(c.Request.Context(), getApproverInfoRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, info)
 }
 
 // ExtractRequestUser gets a context.Context and extracts the user's details from c.
