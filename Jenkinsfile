@@ -1,22 +1,22 @@
 //api-getway
 pipeline {
   agent {    
-//       kubernetes {
-//       yaml """
-// apiVersion: v1
-// kind: Pod
-// metadata:
-//   labels:
-//     jenkins: slave
-// spec:
-//   containers:
-//   - name: jenkins-slave
-//     image:  qayesodot/qayesodot:slave-jnk
-//     command: ["/bin/sh"]
-//     args: ["-c", "while true; do echo hello; sleep 80;done"]  
-// """
-    //}
-     label 'test'
+      kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: slave
+spec:
+  containers:
+  - name: jenkins-slave
+    image:  qayesodot/qayesodot:slave-jnk
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do echo hello; sleep 80;done"]  
+"""
+    }
+    // label 'test'
   }   
   stages {
       stage('get_commit_msg') {
