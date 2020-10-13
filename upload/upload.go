@@ -160,9 +160,12 @@ func NewRouter(uploadConn *grpc.ClientConn,
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
 	rg.POST("/upload", checkExternalAdminScope, r.Upload)
-	
+
 	// initializes UPDATE routes
 	r.UpdateSetup(rg)
+
+	// initializes copy routes
+	r.CopySetup(rg)
 }
 
 // Upload is the request handler for /upload request.
@@ -186,7 +189,7 @@ func (r *Router) Upload(c *gin.Context) {
 		r.UploadInit(c)
 		return
 	}
-	
+
 	switch uploadType {
 	case MediaUploadType:
 		r.UploadMedia(c)
