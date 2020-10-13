@@ -14,6 +14,12 @@ spec:
     image:  qayesodot/qayesodot:slave-jnk
     command: ["/bin/sh"]
     args: ["-c", "while true; do echo hello; sleep 80;done"]  
+    volumeMounts: 
+      - name: docker-graph-storage 
+        mountPath: /var/lib/docker 
+  volumes: 
+   - name: docker-graph-storage 
+     emptyDir: {}
 """
     }
     // label 'test'
