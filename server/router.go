@@ -138,16 +138,16 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	nonFatalConns := []*grpc.ClientConn{
 		permitConn,
 		delegateConn,
+		userConn,
+		spikeConn,
 	}
 
 	fatalConns := []*grpc.ClientConn{
 		fileConn,
-		uploadConn,
 		downloadConn,
 		permissionConn,
-		userConn,
+		uploadConn,
 		searchConn,
-		spikeConn,
 	}
 
 	conns := append(fatalConns, nonFatalConns...)
