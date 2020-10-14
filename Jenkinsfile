@@ -1,29 +1,30 @@
 //api-getway
 pipeline {
   agent {    
-      kubernetes {
-      yaml """
-      apiVersion: v1 
-      kind: Pod 
-      metadata: 
-          name: k8s-worker
-      spec: 
-          containers: 
-            - name: dind-slave
-              image: docker:1.12.6-dind 
-              resources: 
-                  requests: 
-                      cpu: 20m 
-                      memory: 512Mi 
-              securityContext: 
-                  privileged: true 
-              volumeMounts: 
-                - name: docker-graph-storage 
-                  mountPath: /var/lib/docker 
-          volumes: 
-            - name: docker-graph-storage 
-              emptyDir: {}
-"""
+//       kubernetes {
+//       yaml """
+//       apiVersion: v1 
+//       kind: Pod 
+//       metadata: 
+//           name: k8s-worker
+//       spec: 
+//           containers: 
+//             - name: dind-slave
+//               image: docker:1.12.6-dind 
+//               resources: 
+//                   requests: 
+//                       cpu: 20m 
+//                       memory: 512Mi 
+//               securityContext: 
+//                   privileged: true 
+//               volumeMounts: 
+//                 - name: docker-graph-storage 
+//                   mountPath: /var/lib/docker 
+//           volumes: 
+//             - name: docker-graph-storage 
+//               emptyDir: {}
+// """
+      yamlFile '/var/lib/jenkins/workspace/dind.yml'
     }
   }   
   stages {
