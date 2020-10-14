@@ -2,28 +2,7 @@
 pipeline {
   agent {    
       kubernetes {
-      yaml """
-      apiVersion: v1 
-      kind: Pod 
-      metadata: 
-          name: k8s-worker
-      spec: 
-          containers: 
-            - name: qa-slave
-              image: docker:1.12.6-dind 
-              resources: 
-                  requests: 
-                      cpu: 20m 
-                      memory: 512Mi 
-              securityContext: 
-                  privileged: true 
-              volumeMounts: 
-                - name: docker-graph-storage 
-                  mountPath: /var/lib/docker 
-          volumes: 
-            - name: docker-graph-storage 
-              emptyDir: {}
-"""
+        yamlFile '/home/blue/yml/dind.yml'
     }
   }   
   stages {
@@ -55,7 +34,7 @@ pipeline {
           // build image of unit test 
           stage('build dockerfile of tests') {
             steps {
-              container('qa-slave'){
+              container('dind-slave'){
               sh "docker build -t unittest -f test.Dockerfile ."
               } 
             }  
