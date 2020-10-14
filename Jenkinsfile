@@ -24,7 +24,7 @@ pipeline {
 //             - name: docker-graph-storage 
 //               emptyDir: {}
 // """
-      yamlFile '../dind.yml'
+      yamlFile 'test-path-to-dind.yml'
     }
   }   
   stages {
