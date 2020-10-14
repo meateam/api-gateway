@@ -11,7 +11,7 @@ pipeline {
           containers: 
             - name: docker-cmds 
               image: docker:1.12.6
-              defaultContainer: true 
+              defaultContainer: false 
               command: ['docker', 'run', '-p', '80:80', 'httpd:latest'] 
               resources: 
                   requests: 
