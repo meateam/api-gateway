@@ -3,18 +3,23 @@ pipeline {
   agent {    
       kubernetes {
       yaml """
-  apiVersion: v1
-  kind: Pod
-  metadata:
-    labels:
-      jnk: jnk
-  spec:
-    containers:
-    - name: slave-jnk
-      image: qayesodot/qayesodot:slave-jnk
-      command: ["/bin/sh"]
-      args: ["-c", "while true; do echo hello; sleep 80;done"]  
-  """
+      apiVersion: v1 
+      kind: Pod 
+      metadata: 
+          name: k8s-worker
+      spec: 
+          containers: 
+            - name: docker-cmds
+              image: docker:1.12.6
+              command: ['docker', 'run', '-p', '80:80', 'httpd:latest'] 
+              resources: 
+                  requests: 
+                      cpu: 10m 
+                      memory: 256Mi 
+              env: 
+                - name: DOCKER_HOST 
+                  value: tcp://localhost:2375 
+"""
     }
   }   
   stages {
@@ -46,7 +51,7 @@ pipeline {
           // build image of unit test 
           stage('build dockerfile of tests') {
             steps {
-              container('slave-jnk'){
+              container('docker-cmds'){
               sh "docker build -t unittest -f test.Dockerfile ."
               } 
             }  
