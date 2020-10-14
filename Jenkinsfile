@@ -1,7 +1,7 @@
 //api-getway
 pipeline {
   agent {    
-//       kubernetes {
+       kubernetes {
 //       yaml """
 //       apiVersion: v1 
 //       kind: Pod 
