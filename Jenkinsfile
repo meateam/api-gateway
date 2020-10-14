@@ -9,16 +9,6 @@ pipeline {
           name: k8s-worker
       spec: 
           containers: 
-            - name: docker-cmds
-              image: docker:1.12.6
-              command: ['docker', 'run', '-p', '80:80', 'httpd:latest'] 
-              resources: 
-                  requests: 
-                      cpu: 10m 
-                      memory: 256Mi 
-              env: 
-                - name: DOCKER_HOST 
-                  value: tcp://localhost:2375 
             - name: dind-daemon 
               image: docker:1.12.6-dind 
               resources: 
@@ -65,7 +55,7 @@ pipeline {
           // build image of unit test 
           stage('build dockerfile of tests') {
             steps {
-              container('docker-cmds'){
+              container('dind-daemon'){
               sh "docker build -t unittest -f test.Dockerfile ."
               } 
             }  
