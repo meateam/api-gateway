@@ -14,11 +14,22 @@ pipeline {
               command: ['docker', 'run', '-p', '80:80', 'httpd:latest'] 
               resources: 
                   requests: 
-                      cpu: 15m 
+                      cpu: 10m 
                       memory: 256Mi 
               env: 
                 - name: DOCKER_HOST 
                   value: tcp://localhost:2375 
+            - name: dind-daemon 
+              image: docker:1.12.6-dind 
+              resources: 
+                  requests: 
+                      cpu: 20m 
+                      memory: 512Mi 
+              securityContext: 
+                  privileged: true 
+              volumeMounts: 
+                - name: docker-graph-storage 
+                  mountPath: /var/lib/docker 
           volumes: 
             - name: docker-graph-storage 
               emptyDir: {}
@@ -44,7 +55,6 @@ pipeline {
             env.JOB_FOR_URL = sh([script: "echo ${JOB_WITHOUT_BRANCH}|rev | cut -c 4- | rev", returnStdout: true]).trim()  
             echo "${env.JOB_FOR_URL}" 
             // sleep(10000)
-	    echo "HOSTNAME gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
           }
         }
       }
