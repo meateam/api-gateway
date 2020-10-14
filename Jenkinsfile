@@ -9,7 +9,7 @@ pipeline {
           name: k8s-worker
       spec: 
           containers: 
-            - name: dind-daemon 
+            - name: qa-slave
               image: docker:1.12.6-dind 
               resources: 
                   requests: 
@@ -55,7 +55,7 @@ pipeline {
           // build image of unit test 
           stage('build dockerfile of tests') {
             steps {
-              container('dind-daemon'){
+              container('qa-slave'){
               sh "docker build -t unittest -f test.Dockerfile ."
               } 
             }  
