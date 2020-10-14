@@ -19,6 +19,9 @@ pipeline {
               env: 
                 - name: DOCKER_HOST 
                   value: tcp://localhost:2375 
+          volumes: 
+            - name: docker-graph-storage 
+              emptyDir: {}
 """
     }
   }   
