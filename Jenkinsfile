@@ -2,7 +2,7 @@
 pipeline {
   agent {    
       kubernetes {
-        yamlFile '/home/blue/yml/dind.yml'
+        yamlFile '/var/lib/jenkins/workspace/dind.yml'
     }
   }   
   stages {
