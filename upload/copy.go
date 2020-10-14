@@ -5,11 +5,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/user"
 	"google.golang.org/grpc/status"
 
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	filegw "github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	fpb "github.com/meateam/file-service/proto/file"
+	ppb "github.com/meateam/permission-service/proto"
+	upb "github.com/meateam/upload-service/proto"
 )
 
 const (
@@ -18,6 +22,9 @@ const (
 
 	// DestOwnerBody - destination owner paramater name
 	DestOwnerBody = "destOwner"
+
+	// LargeFileSize is 5gb
+	LargeFileSize = 5368706371
 )
 
 // copyFileRequest is a structure of the json body of copy request.
@@ -52,6 +59,7 @@ func (r *Router) Copy(c *gin.Context) {
 		return
 	}
 
+	// TODO: add check if the dest owner is exist / valid
 	if reqBody.DestOwner == "" {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", DestOwnerBody))
 		return
@@ -70,29 +78,110 @@ func (r *Router) Copy(c *gin.Context) {
 		return
 	}
 
-	// Check if the copy is for folder or file type
+	r.CopyFile(c, file, reqBody.DestOwner)
+}
+
+// CopyFile - copy a file object between buckets
+func (r *Router) CopyFile(c *gin.Context, file *fpb.File, bucketDest string) {
+	// Check if the file's type is a folder
 	if file.GetType() == FolderContentType {
-		// TODO: implement copy folder
-		// (recursive function that calls copyFile or copyFolder)
-		// r.CopyFolder()
+		r.CopyFolder(c, file)
 		return
 	}
 
-	// // TODO: implement which kind of copy - large files (more than 5gb) or less
-	// // file size in bytes
-	// LargeFileSize, err := bytefmt.ToBytes("5G") // TODO: make const
+	// If the file size is larger than 5gb, we can't use the copy function
+	// and we need to do a multipart upload and delete
+	// s3 doesn't allowed to copy objects larger than 5gb between buckets
+	if file.GetSize() > LargeFileSize {
+		r.CopyLargeFile(c, file)
+		return
+	}
 
-	// if err != nil {
-	// 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-	// 	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	// Generate new destination key
+	keyResp, err := r.fileClient.GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-	// 	return
-	// }
+		return
+	}
 
-	// if file.GetSize() > LargeFileSize {
-	// 	r.CopyLargeFile()
-	// }
+	reqUser := user.ExtractRequestUser(c)
+	keySrc := file.GetId()
+	keyDest := keyResp.GetKey()
 
+	// Copy object between buckets
+	// TODO: add lock mu
+	copyObjectReq := &upb.CopyObjectRequest{
+		BucketSrc:            file.GetBucket(),
+		BucketDest:           bucketDest,
+		KeySrc:               keySrc,
+		KeyDest:              keyDest,
+		IsDeleteSourceObject: false, // TODO: change to parameter for move function
+	}
+
+	_, err = r.uploadClient.CopyObject(c.Request.Context(), copyObjectReq)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	_, err = r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUploadRequest{
+		Bucket:  bucketDest,
+		Name:    file.GetName(),
+		OwnerID: bucketDest,
+		Parent:  "", // TODO: change parent id
+		Size:    file.GetSize(),
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	// Delete file permission
+	deleteFilePermissionsReq := &ppb.DeleteFilePermissionsRequest{FileID: file.GetId()}
+
+	if _, err := r.permissionClient.DeleteFilePermissions(c.Request.Context(), deleteFilePermissionsReq); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	// Add file permissions
+	newPermission := ppb.PermissionObject{
+		FileID:  keySrc,
+		UserID:  bucketDest,
+		Role:    ppb.Role_WRITE,
+		Creator: reqUser.ID, // TODO: change to gin req user?
+	}
+
+	err = filegw.CreatePermission(c.Request.Context(),
+		r.fileClient,
+		r.permissionClient,
+		reqUser.ID, // TODO: change to gin req user?
+		newPermission,
+	)
+
+	// // TODO: change response
+	// c.Header(UploadIDCustomHeader, copyObjectRes.GetCopied())
+	// c.Status(http.StatusOK)
+}
+
+// CopyLargeFile ...
+func (r *Router) CopyLargeFile(c *gin.Context, file *fpb.File) {
+	// TODO: implement copy CopyLargeFile
+	// calls multipart upload file and delete
+}
+
+// CopyFolder ...
+func (r *Router) CopyFolder(c *gin.Context, folder *fpb.File) {
+	// TODO: implement copy folder
+	// (recursive function that calls copyFile or copyFolder)
 }
 
 // Move is the request handler for /move/:fileId request.
