@@ -6,11 +6,12 @@ pipeline {
       apiVersion: v1 
       kind: Pod 
       metadata: 
-          name: jnlp
+          name: dind-2
       spec: 
           containers: 
-            - name: jnlp 
-              image: docker:1.12.6 
+            - name: docker-cmds 
+              image: docker:1.12.6
+              defaultContainer: true 
               command: ['docker', 'run', '-p', '80:80', 'httpd:latest'] 
               resources: 
                   requests: 
@@ -19,7 +20,7 @@ pipeline {
               env: 
                 - name: DOCKER_HOST 
                   value: tcp://localhost:2375 
-            - name: jnlp 
+            - name: dind-daemon 
               image: docker:1.12.6-dind 
               resources: 
                   requests: 
