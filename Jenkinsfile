@@ -9,7 +9,7 @@ pipeline {
           name: k8s-worker
       spec: 
           containers: 
-            - name: k8s-worker 
+            - name: docker-cmds
               image: docker:1.12.6
               command: ['docker', 'run', '-p', '80:80', 'httpd:latest'] 
               resources: 
@@ -62,7 +62,7 @@ pipeline {
         parallel {
           stage('build dockerfile of tests') {
             steps {
-              container('k8s-worker'){
+              container('docker-cmds'){
               sh "docker build -t unittest -f test.Dockerfile ."
               } 
             }  
@@ -107,7 +107,7 @@ pipeline {
       }  
       stage('run unit tests') {   
         steps {
-          container('k8s-worker'){
+          container('docker-cmds'){
           sh "docker run unittest"
           }  
         }
