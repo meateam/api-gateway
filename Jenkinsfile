@@ -27,6 +27,7 @@ pipeline {
     }
   }   
   stages {
+    container('dind-slave') {
       // this stage create enviroment variable from git for discored massage
       stage('get_commit_msg') {
         steps {
@@ -54,9 +55,9 @@ pipeline {
           // build image of unit test 
           stage('build dockerfile of tests') {
             steps {
-              container('dind-slave'){
+             
               sh "docker build -t unittest -f test.Dockerfile ."
-              } 
+              
             }  
           }
           // login to acr when pushed to branch master or develop 
@@ -102,9 +103,9 @@ pipeline {
       // run image of unit test
       stage('run unit tests') {   
         steps {
-          container('dind-slave'){
+       
           sh "docker run unittest"
-          }  
+            
         }
         post {
           always {
@@ -114,3 +115,4 @@ pipeline {
       }
     }
   }   
+}
