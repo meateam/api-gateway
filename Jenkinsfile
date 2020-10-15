@@ -2,7 +2,7 @@
 pipeline {
   agent {    
        kubernetes {
-//       yaml """
+//        yaml """
 //       apiVersion: v1 
 //       kind: Pod 
 //       metadata: 
@@ -23,8 +23,9 @@ pipeline {
 //           volumes: 
 //             - name: docker-graph-storage 
 //               emptyDir: {}
-// """
-      yamlFile 'test-path-to-dind.yml'
+//  """
+//       yamlFile 'test-path-to-dind.yml'
+        label 'test'
     }
   }   
   stages {
@@ -104,7 +105,7 @@ pipeline {
       // run image of unit test
       stage('run unit tests') {   
         steps {
-          container('docker-cmds'){
+          container('dind-slave'){
           sh "docker run unittest"
           }  
         }
