@@ -51,7 +51,7 @@ func (h *Health) Check(
 		}
 
 		if isHealthy {
-			h.Set()
+			h.SetHealthy()
 		}
 
 		time.Sleep(time.Second * time.Duration(interval))
@@ -69,6 +69,11 @@ func (h *Health) checkConnections(
 	rpcTimeout int,
 	rpcTimeoutDuration time.Duration) bool {
 
+	fatalString := "non-fatal"
+	if isFatal {
+		fatalString = "fatal"
+	}
+
 	isAllHealthy := true
 	for _, conn := range conns {
 		rpcCtx, rpcCancel := context.WithTimeout(context.Background(), rpcTimeoutDuration)
@@ -79,24 +84,24 @@ func (h *Health) checkConnections(
 		if err != nil {
 			if stat, ok := status.FromError(err); ok && stat.Code() == codes.Unimplemented {
 				logger.Printf(
-					"error: %s does not implement the grpc health protocol (grpc.health.v1.Health)",
-					targetMsg)
+					"error: %s does not implement the grpc health protocol (grpc.health.v1.Health) : %s",
+					targetMsg, fatalString)
 			} else if stat, ok := status.FromError(err); ok && stat.Code() == codes.DeadlineExceeded {
-				logger.Printf("timeout: %s health rpc did not complete within %v", targetMsg, rpcTimeout)
+				logger.Printf("timeout: %s health rpc did not complete within %v : %s", targetMsg, rpcTimeout, fatalString)
 			} else {
-				logger.Printf("error: %s health rpc failed: %+v", err, targetMsg)
+				logger.Printf("error: %s health rpc failed: %+v : %s", err, targetMsg, fatalString)
 			}
 			if isFatal {
-				h.UnSet()
+				h.SetUnhealthy()
 				isAllHealthy = false
 			}
 		}
 
 		if resp.GetStatus() != healthpb.HealthCheckResponse_SERVING {
-			logger.Printf("%s service unhealthy (responded with %q)",
-				targetMsg, resp.GetStatus().String())
+			logger.Printf("%s service unhealthy (responded with %q) : %s",
+				targetMsg, resp.GetStatus().String(), fatalString)
 			if isFatal {
-				h.UnSet()
+				h.SetUnhealthy()
 				isAllHealthy = false
 			}
 		}
@@ -105,13 +110,13 @@ func (h *Health) checkConnections(
 	return isAllHealthy
 }
 
-// Set sets the Boolean to true
-func (h *Health) Set() {
+// SetHealthy sets the Boolean to true
+func (h *Health) SetHealthy() {
 	atomic.StoreInt32((*int32)(h), 1)
 }
 
-// UnSet sets the Boolean to false
-func (h *Health) UnSet() {
+// SetUnhealthy sets the Boolean to false
+func (h *Health) SetUnhealthy() {
 	atomic.StoreInt32((*int32)(h), 0)
 }
 
