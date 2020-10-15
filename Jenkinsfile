@@ -31,9 +31,6 @@ pipeline {
       stage('get_commit_msg') {
         steps {
           script {
-
-            //env.DISCORD-WEBHOOK = "${discord}"
-
             env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
             env.GIT_SHORT_COMMIT = sh(returnStdout: true, script: "git log -n 1 --pretty=format:'%h'").trim()
             env.GIT_COMMITTER_EMAIL = sh (script: "git --no-pager show -s --format='%ae'", returnStdout: true  ).trim()
