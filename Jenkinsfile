@@ -31,6 +31,7 @@ pipeline {
       // this stage create enviroment variable from git for discored massage
       stage('get_commit_msg') {
         steps {
+          container('jnlp'){
           script {
             env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
             env.GIT_SHORT_COMMIT = sh(returnStdout: true, script: "git log -n 1 --pretty=format:'%h'").trim()
@@ -49,6 +50,7 @@ pipeline {
           }
         }
       }
+    } 
       // build images unit tests and system
       stage('build image of test and system') {
         parallel {
