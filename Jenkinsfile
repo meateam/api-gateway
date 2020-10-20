@@ -11,7 +11,7 @@ pipeline {
       spec: 
           containers: 
             - name: dind-slave
-              image: docker:1.12.6-dind 
+              image: docker:dind 
               resources: 
                   requests: 
                       cpu: 20m 
@@ -55,13 +55,13 @@ pipeline {
       stage('build image of test and system') {
         parallel {
           // build image of unit test 
-          stage('build dockerfile of tests') {
-            steps {
+          // stage('build dockerfile of tests') {
+          //   steps {
               
-              sh "docker build -t unittest -f test.Dockerfile ."
+          //     sh "docker build -t unittest -f test.Dockerfile ."
                
-            }  
-          }
+          //   }  
+          // }
           // login to acr when pushed to branch master or develop 
           stage('login to azure container registry') {
             when {
@@ -77,22 +77,22 @@ pipeline {
           }  
           // when pushed to master or develop build image and push to acr
           stage('build dockerfile of system only for master and develop') {
-            when {
-              anyOf {
-                 branch 'master'; branch 'develop'
-              }
-            }
+            // when {
+            //   anyOf {
+            //      branch 'master'; branch 'develop'
+            //   }
+            // }
             steps {
-              script {
-                if(env.GIT_BRANCH == 'master') {
-                  sh "docker build -t drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT} ."
-                  sh "docker push  drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT}"
-                }
-                else if(env.GIT_BRANCH == 'develop') {
-                   sh "docker build -t drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop ."
-                   sh "docker push drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop"  
-                }
-              }
+              // script {
+              //   if(env.GIT_BRANCH == 'master') {
+                   sh "docker build -t drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT} ."
+              //     sh "docker push  drivehub.azurecr.io/${env.GIT_REPO_NAME}/master:${env.GIT_SHORT_COMMIT}"
+              //   }
+              //   else if(env.GIT_BRANCH == 'develop') {
+              //      sh "docker build -t drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop ."
+              //      sh "docker push drivehub.azurecr.io/${env.GIT_REPO_NAME}/develop"  
+              //   }
+              // }
             }  
             post {
               always {
@@ -103,17 +103,17 @@ pipeline {
         }     
       }
       // run image of unit test
-      stage('run unit tests') {   
-        steps {
-          container('dind-slave'){
-          sh "docker run unittest"
-          }  
-        }
-        post {
-          always {
-            discordSend description: '**service**: '+ env.GIT_REPO_NAME + '\n **Build**:' + " " + env.BUILD_NUMBER + '\n **Branch**:' + " " + env.GIT_BRANCH + '\n **Status**:' + " " +  currentBuild.result + '\n \n \n **Commit ID**:'+ " " + env.GIT_SHORT_COMMIT + '\n **commit massage**:' + " " + env.GIT_COMMIT_MSG + '\n **commit email**:' + " " + env.GIT_COMMITTER_EMAIL, footer: '', image: '', link: 'http://jnk-devops-ci-cd.northeurope.cloudapp.azure.com/blue/organizations/jenkins/'+env.JOB_FOR_URL+'/detail/'+env.BRANCH_FOR_URL+'/'+env.BUILD_NUMBER+'/pipeline', result: currentBuild.result, thumbnail: '', title: ' link to logs of unit test', webhookURL: env.discord   
-          }
-        }
-      }
+      // stage('run unit tests') {   
+      //   steps {
+      //     container('dind-slave'){
+      //     sh "docker run unittest"
+      //     }  
+      //   }
+      //   post {
+      //     always {
+      //       discordSend description: '**service**: '+ env.GIT_REPO_NAME + '\n **Build**:' + " " + env.BUILD_NUMBER + '\n **Branch**:' + " " + env.GIT_BRANCH + '\n **Status**:' + " " +  currentBuild.result + '\n \n \n **Commit ID**:'+ " " + env.GIT_SHORT_COMMIT + '\n **commit massage**:' + " " + env.GIT_COMMIT_MSG + '\n **commit email**:' + " " + env.GIT_COMMITTER_EMAIL, footer: '', image: '', link: 'http://jnk-devops-ci-cd.northeurope.cloudapp.azure.com/blue/organizations/jenkins/'+env.JOB_FOR_URL+'/detail/'+env.BRANCH_FOR_URL+'/'+env.BUILD_NUMBER+'/pipeline', result: currentBuild.result, thumbnail: '', title: ' link to logs of unit test', webhookURL: env.discord   
+      //     }
+      //   }
+      // }
     }
   }   
