@@ -82,11 +82,67 @@ func (r *Router) Copy(c *gin.Context) {
 
 	isMoving := false
 
-	r.CopyFile(c, reqBody.FileID, reqBody.NewOwnerID, isMoving)
+	r.CopyInit(c, reqBody.FileID, reqBody.NewOwnerID, isMoving)
+}
+
+// CopyInit - ...
+func (r *Router) CopyInit(c *gin.Context, fileID string, newOwnerID string, isMoving bool) {
+	reqUser := user.ExtractRequestUser(c)
+
+	// Get the file by id
+	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	// // Check if the owner of the current file isn't the requesting user, if so then he's not permitted to change the ownership
+	// if file.GetOwnerID() != reqUser.ID {
+	// 	return // TODO: return an error?
+	// }
+
+	// Check if user remaining quota is less than the file size
+	getFileSizeReq := &fpb.GetFileSizeByIDRequest{Id: fileID, OwnerID: reqUser.ID}
+	getFileSizeRes, err := r.fileClient.GetFileSizeByID(c.Request.Context(), getFileSizeReq)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	var newParentID *string = nil
+
+	// Create update in db and allocate quota - with the new owner and parent of the file
+	updateObjectReq := &fpb.CreateUploadRequest{
+		Bucket:  newOwnerID,
+		Name:    file.GetName(),
+		OwnerID: newOwnerID,
+		Parent:  *newParentID,
+		Size:    file.GetSize(),
+	}
+
+	_, err = r.fileClient.CreateUpload(c.Request.Context(), updateObjectReq) // TODO: remove the upload later by id and decrease the quota
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	// Check if the file's type is a folder
+	if file.GetType() == FolderContentType {
+		r.CopyFolder(c, file, newOwnerID, isMoving, nil)
+		return
+	}
+
+	r.CopyFile(c, fileID, newOwnerID, isMoving, nil)
 }
 
 // CopyFile - copy a file object between buckets
-func (r *Router) CopyFile(c *gin.Context, fileID string, newOwnerID string, isMoving bool, parentID ...string) {
+func (r *Router) CopyFile(c *gin.Context, fileID string, newOwnerID string, isMoving bool, parentID *string) {
 	reqUser := user.ExtractRequestUser(c)
 
 	// Get the file by id
@@ -107,33 +163,9 @@ func (r *Router) CopyFile(c *gin.Context, fileID string, newOwnerID string, isMo
 		return // TODO: return an error?
 	}
 
-	// If the parentId argument isn't set, that means that this file is the root of the copy, so the parent must be null
-	var newParentID *string
-	if len(parentID) < 0 {
-		newParentID = nil
-	} else {
-		newParentID = &parentID[0]
-	}
-
 	// Check if the file's type is a folder
 	if file.GetType() == FolderContentType {
-		r.CopyFolder(c, file, newOwnerID, isMoving, *newParentID)
-		return
-	}
-
-	// Create update in db and allocate quota - with the new owner and parent of the file
-	updateObjectReq := &fpb.CreateUploadRequest{
-		Bucket:  newOwnerID,
-		Name:    file.GetName(),
-		OwnerID: newOwnerID,
-		Parent:  *newParentID,
-		Size:    file.GetSize(),
-	}
-
-	_, err = r.fileClient.CreateUpload(c.Request.Context(), updateObjectReq) // TODO: remove the upload later by id
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		r.CopyFolder(c, file, newOwnerID, isMoving, parentID)
 		return
 	}
 
@@ -175,19 +207,20 @@ func (r *Router) CopyFile(c *gin.Context, fileID string, newOwnerID string, isMo
 		return
 	}
 
-	deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
-		UploadID: copyObjectRes.GetCopied(),
-	}
+	// TODO: add delete upload
+	// deleteUploadRequest := &fpb.DeleteUploadByIDRequest{
+	// 	UploadID: copyObjectRes.GetCopied(),
+	// }
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	// r.mu.Lock()
+	// defer r.mu.Unlock()
+	// _, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
+	// if err != nil {
+	// 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+	// 	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-		return
-	}
+	// 	return
+	// }
 
 	// TODO: change the implmentaion in the file service to see if the owner id is different
 	updateFileRequest := &fpb.UpdateFilesRequest{IdList: []string{fileID},
@@ -195,7 +228,7 @@ func (r *Router) CopyFile(c *gin.Context, fileID string, newOwnerID string, isMo
 			Key:      keyDest,
 			Bucket:   newOwnerID,
 			OwnerID:  newOwnerID,
-			FileOrId: &fpb.File_Parent{*newParentID},
+			FileOrId: &fpb.File_Parent{*parentID},
 		}}
 	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), updateFileRequest)
 
@@ -230,19 +263,16 @@ func CopyLargeFile(c *gin.Context, file *fpb.File) {
 	// calls multipart upload file and delete
 }
 
-// CopyFolder ...
-func (r *Router) CopyFolder(c *gin.Context, folder *fpb.File, newOwnerID string, isMoving bool, parentID string) {
-	// TODO: implement copy folder
-	// (recursive function that calls copyFile or copyFolder)
-
+// CopyFolder - recursive function that calls copyFile or copyFolder
+// TODO: implement copy folder
+func (r *Router) CopyFolder(c *gin.Context, folder *fpb.File, newOwnerID string, isMoving bool, parentID *string) {
 	reqUser := user.ExtractRequestUser(c)
 
-	// TODO: implement a a folder move
+	// Get files by folder
 	filesResp, err := r.fileClient.GetFilesByFolder(
 		c.Request.Context(),
 		&fpb.GetFilesByFolderRequest{OwnerID: reqUser.ID, FolderID: folder.GetId()},
 	)
-
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -250,20 +280,20 @@ func (r *Router) CopyFolder(c *gin.Context, folder *fpb.File, newOwnerID string,
 		return
 	}
 
-	// TODO: check if user remaining quota is less than the folder size
-	// sizeFolder := GetFolderSize(folder.GetId())
-
 	// TODO: add lock for a list
+	// Copy each descendant file in the folder
+	folderID := folder.GetId()
 	files := filesResp.GetFiles()
 	for _, file := range files {
-		r.CopyFile(c, file.GetId(), newOwnerID, isMoving, folder.GetId())
+		r.CopyFile(c, file.GetId(), newOwnerID, isMoving, &folderID)
+
+		// TODO: if failed what to do ??
 	}
 
-	// TODO: change the implmentaion in the file service to see if the owner id is different
 	updateFileRequest := &fpb.UpdateFilesRequest{IdList: []string{folder.GetId()},
 		PartialFile: &fpb.File{
 			OwnerID:  newOwnerID,
-			FileOrId: &fpb.File_Parent{parentID},
+			FileOrId: &fpb.File_Parent{*parentID},
 		}}
 	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), updateFileRequest)
 
