@@ -86,8 +86,7 @@ func (r *Router) Update(c *gin.Context) {
 
 	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		r.deleteUploadOnError(c, err, createUpdateResponse.GetKey(), createUpdateResponse.GetBucket())
 		return
 	}
 
@@ -98,8 +97,7 @@ func (r *Router) Update(c *gin.Context) {
 	})
 
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		r.deleteUploadOnError(c, err, createUpdateResponse.GetKey(), createUpdateResponse.GetBucket())
 		return
 	}
 

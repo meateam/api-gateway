@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -161,7 +160,7 @@ func NewRouter(uploadConn *grpc.ClientConn,
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
 	rg.POST("/upload", checkExternalAdminScope, r.Upload)
-
+	
 	// initializes UPDATE routes
 	r.UpdateSetup(rg)
 }
@@ -169,7 +168,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
-
 	if reqUser == nil {
 		loggermiddleware.LogError(
 			r.logger,
@@ -188,7 +186,7 @@ func (r *Router) Upload(c *gin.Context) {
 		r.UploadInit(c)
 		return
 	}
-
+	
 	switch uploadType {
 	case MediaUploadType:
 		r.UploadMedia(c)
@@ -200,13 +198,6 @@ func (r *Router) Upload(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("unknown uploadType=%v", uploadType))
 		return
 	}
-}
-
-// Format the name of the file to prevent elasticsearch errors.
-func formatFileName(name string) string {
-	fileName := strings.ReplaceAll(name, "_", " ")
-
-	return fileName
 }
 
 // Extracts the filename from the request header in context.
@@ -226,9 +217,7 @@ func extractFileName(c *gin.Context) string {
 		}
 	}
 
-	fixedFileName := formatFileName(fileName)
-
-	return fixedFileName
+	return fileName
 }
 
 // UploadFolder creates a folder in file service.
@@ -315,7 +304,6 @@ func (r *Router) UploadComplete(c *gin.Context) {
 
 	if !isPermitted {
 		c.AbortWithStatus(http.StatusForbidden)
-
 		return
 	}
 
@@ -505,7 +493,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	fileFullName := uuid.NewV4().String()
 	if filename != "" {
-		fileFullName = formatFileName(filename)
+		fileFullName = filename
 	}
 
 	createFileResp, err := r.fileClient.CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
@@ -591,7 +579,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	createUploadResponse, err := r.fileClient.CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  reqUser.Bucket,
-		Name:    formatFileName(reqBody.Title),
+		Name:    reqBody.Title,
 		OwnerID: reqUser.ID,
 		Parent:  parent,
 		Size:    fileSize,
@@ -600,7 +588,6 @@ func (r *Router) UploadInit(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
 		return
 	}
 
@@ -616,9 +603,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
 		return
 	}
 
@@ -629,9 +614,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
 		return
 	}
 
@@ -664,13 +647,13 @@ func (r *Router) UploadPart(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
 		return
 	}
 
 	fileRange := c.GetHeader(ContentRangeHeader)
 	if fileRange == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", ContentRangeHeader))
+		ContentRangeHeaderErr := fmt.Errorf("%s is required", ContentRangeHeader)
+		r.deleteUploadOnErrorWithStatus(c, http.StatusBadRequest, ContentRangeHeaderErr, upload.GetKey(), upload.GetBucket());
 		return
 	}
 
@@ -680,8 +663,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	_, err = fmt.Sscanf(fileRange, "bytes %d-%d/%d", &rangeStart, &rangeEnd, &fileSize)
 	if err != nil {
 		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
-		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, contentRangeErr))
-
+		r.deleteUploadOnErrorWithStatus(c, http.StatusInternalServerError, contentRangeErr, upload.GetKey(), upload.GetBucket());
 		return
 	}
 
@@ -692,9 +674,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 
 	stream, err := r.uploadClient.UploadPart(spanCtx)
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteUploadOnError(c, err, upload.GetKey(), upload.GetBucket());
 		return
 	}
 
