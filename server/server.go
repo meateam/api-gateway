@@ -15,6 +15,7 @@ const (
 	configPort                  = "port"
 	configUploadService         = "upload_service"
 	configDelegationService     = "delegation_service"
+	configDocsSecret			= "docs_secret"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
 	configUserService           = "user_service"
@@ -25,9 +26,11 @@ const (
 	configGotenbergService      = "gotenberg_service"
 	configSecret                = "secret"
 	configAuthURL               = "auth_url"
+	configDocsURL               = "docs_url"
 	configExternalApmURL        = "external_apm_url"
 	configAllowOrigins          = "allow_origins"
 	configSupportLink           = "support_link"
+	configDropboxSupportLink    = "dropbox_support_link"
 	configDownloadChromeURL     = "chrome_download_url"
 	configElasticsearchURL      = "elasticsearch_url"
 	configElasticsearchUser     = "elasticsearch_user"
@@ -42,6 +45,7 @@ const (
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
 	configEnableExternalShare   = "enable_external_share"
+	configWhiteListText = "white_list_text"
 )
 
 var (
@@ -52,6 +56,7 @@ func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
 	viper.SetDefault(configDelegationService, "delegation-service:8080")
+	viper.SetDefault(configDocsSecret, "docs@drive")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
@@ -62,9 +67,11 @@ func init() {
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
+	viper.SetDefault(configDocsURL, "http://localhost:3000")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetDefault(configAllowOrigins, "http://localhost*")
 	viper.SetDefault(configSupportLink, "https://open.rocket.chat")
+	viper.SetDefault(configDropboxSupportLink, "https://open.rocket.chat")
 	viper.SetDefault(configElasticsearchURL, "http://localhost:9200")
 	viper.SetDefault(configElasticsearchUser, "")
 	viper.SetDefault(configElasticsearchPassword, "")
@@ -78,6 +85,7 @@ func init() {
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
 	viper.SetDefault(configEnableExternalShare, false)
+	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
 	viper.SetEnvPrefix(envPrefix)

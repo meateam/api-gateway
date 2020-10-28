@@ -11,6 +11,7 @@
       "mode": "debug",
       "env":{
         "GW_AUTH_URL": "http://localhost:8084/auth/login",
+        "GW_DOCS_URL": "http://localhost:3000/api/files",
         "GW_UPLOAD_SERVICE": ":8081",
         "GW_DOWNLOAD_SERVICE": ":8082",
         "GW_FILE_SERVICE": ":8083",
@@ -46,6 +47,7 @@
       "program": "${workspaceFolder}/upload",
       "env": {
         "GW_AUTH_URL": "http://localhost:8084/auth/login",
+        "GW_DOCS_URL": "http://localhost:3000/api/files",
         "GW_UPLOAD_SERVICE": ":8081",
         "GW_DOWNLOAD_SERVICE": ":8082",
         "GW_FILE_SERVICE": ":8083",
@@ -60,6 +62,7 @@
       "program": "${workspaceFolder}/file",
       "env": {
         "GW_AUTH_URL": "http://localhost:8084/auth/login",
+        "GW_DOCS_URL": "http://localhost:3000/api/files",
         "GW_UPLOAD_SERVICE": ":8081",
         "GW_DOWNLOAD_SERVICE": ":8082",
         "GW_FILE_SERVICE": ":8083",

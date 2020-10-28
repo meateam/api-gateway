@@ -37,6 +37,9 @@ const (
 	// AuthTypeHeader is the key of the servive-host header
 	AuthTypeHeader = "Auth-Type"
 
+	// DocsAuthTypeValue is the value of the docs-service for AuthTypeHeader key
+	DocsAuthTypeValue = "Docs"
+
 	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
 
@@ -47,6 +50,12 @@ const (
 // Router is a structure that handels the authentication middleware.
 type Router struct {
 	logger *logrus.Logger
+}
+
+// Secrets is a struct that holds the application secrets.
+type Secrets struct {
+	Drive string
+	Docs  string
 }
 
 // NewRouter creates a new Router. If logger is non-nil then it will be
@@ -66,12 +75,17 @@ func NewRouter(
 
 // Middleware check that the client has valid authentication to use the route
 // This function also set variables like user and service to the context.
-func (r *Router) Middleware(secret string, authURL string) gin.HandlerFunc {
+func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		isService := c.GetHeader(AuthTypeHeader)
-
 		if isService != ServiceAuthTypeValue {
+			secret := secrets.Drive
+
+			if isService == DocsAuthTypeValue {
+				secret = secrets.Docs
+			}
+
 			r.UserMiddleware(c, secret, authURL)
 		}
 		c.Next()
