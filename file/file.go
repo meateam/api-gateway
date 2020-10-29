@@ -234,6 +234,10 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
 
+	// swagger:route GET /files files listFile
+	// Returns a list of files
+	// responses: 
+	// 	200: filesResponse
 	rg.GET("/files", checkExternalAdminScope, r.GetFilesByFolder)
 	rg.GET("/files/:id", checkExternalAdminScope, r.GetFileByID)
 	rg.GET("/files/:id/ancestors", r.GetFileAncestors)

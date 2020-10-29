@@ -59,7 +59,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 			},
 		),
 	)
-
+	
 	apiRoutesGroup := r.Group("/api")
 
 	// Frontend configuration route.
@@ -73,13 +73,13 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 				"authUrl":              viper.GetString(configAuthURL),
 				"docsUrl":              viper.GetString(configDocsURL),
 				"supportLink":          viper.GetString(configSupportLink),
-				"dropboxSupportLink":  viper.GetString(configDropboxSupportLink),
+				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
 				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
 				"externalShareName":    viper.GetString(configExternalShareName),
 				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
 				"vipServiceUrl":        viper.GetString(configVipService),
 				"enableExternalShare":  viper.GetString(configEnableExternalShare),
-				"whiteListText":  viper.GetString(configWhiteListText),
+				"whiteListText":        viper.GetString(configWhiteListText),
 			},
 		)
 	})
@@ -154,6 +154,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
+
+	// handler for swagger documentation
+	apiRoutesGroup.StaticFile("/doc", "./src/swagger.json")
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)

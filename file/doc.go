@@ -4,3 +4,13 @@ Handling is implemented with a HTTP router returned from NewRouter and setup its
 using Setup.
 */
 package file
+
+import (
+	fpb "github.com/meateam/file-service/proto/file"
+)
+
+// swagger:response filesResponse
+type filesResponse struct {
+	// in:body
+	Body []fpb.File
+}

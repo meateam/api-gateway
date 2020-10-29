@@ -1,0 +1,98 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/files": {
+      "get": {
+        "description": "Returns a list of files",
+        "tags": [
+          "files"
+        ],
+        "operationId": "listFile",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/filesResponse"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "File": {
+      "type": "object",
+      "properties": {
+        "FileOrId": {
+          "$ref": "#/definitions/isFile_FileOrId"
+        },
+        "bucket": {
+          "type": "string",
+          "x-go-name": "Bucket"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/File"
+          },
+          "x-go-name": "Children"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CreatedAt"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "float": {
+          "type": "boolean",
+          "x-go-name": "Float"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "Id"
+        },
+        "key": {
+          "type": "string",
+          "x-go-name": "Key"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "ownerID": {
+          "type": "string",
+          "x-go-name": "OwnerID"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        },
+        "type": {
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "UpdatedAt"
+        }
+      },
+      "x-go-package": "github.com/meateam/file-service/proto/file"
+    },
+    "isFile_FileOrId": {
+      "type": "object",
+      "x-go-package": "github.com/meateam/file-service/proto/file"
+    }
+  },
+  "responses": {
+    "filesResponse": {
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/File"
+        }
+      }
+    }
+  }
+}
