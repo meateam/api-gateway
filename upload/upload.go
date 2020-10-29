@@ -308,7 +308,6 @@ func (r *Router) UploadComplete(c *gin.Context) {
 
 	if !isPermitted {
 		c.AbortWithStatus(http.StatusForbidden)
-
 		return
 	}
 
@@ -599,7 +598,6 @@ func (r *Router) UploadInit(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
 		return
 	}
 
@@ -615,9 +613,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
 		return
 	}
 
@@ -628,9 +624,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 	})
 
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteUploadOnError(c, err, createUploadResponse.GetKey(), createUploadResponse.GetBucket())
 		return
 	}
 
@@ -663,13 +657,13 @@ func (r *Router) UploadPart(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
 		return
 	}
 
 	fileRange := c.GetHeader(ContentRangeHeader)
 	if fileRange == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", ContentRangeHeader))
+		ContentRangeHeaderErr := fmt.Errorf("%s is required", ContentRangeHeader)
+		r.deleteUploadOnErrorWithStatus(c, http.StatusBadRequest, ContentRangeHeaderErr, upload.GetKey(), upload.GetBucket());
 		return
 	}
 
@@ -679,8 +673,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	_, err = fmt.Sscanf(fileRange, "bytes %d-%d/%d", &rangeStart, &rangeEnd, &fileSize)
 	if err != nil {
 		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
-		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, contentRangeErr))
-
+		r.deleteUploadOnErrorWithStatus(c, http.StatusInternalServerError, contentRangeErr, upload.GetKey(), upload.GetBucket());
 		return
 	}
 
@@ -691,9 +684,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 
 	stream, err := r.uploadClient.UploadPart(spanCtx)
 	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+		r.deleteUploadOnError(c, err, upload.GetKey(), upload.GetBucket());
 		return
 	}
 
