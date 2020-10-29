@@ -17,9 +17,13 @@ require (
 	github.com/go-openapi/strfmt v0.19.7 // indirect
 	github.com/go-openapi/swag v0.19.11 // indirect
 	github.com/go-openapi/validate v0.19.12 // indirect
+	github.com/go-swagger/go-swagger v0.25.0 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-dap v0.3.0 // indirect
+	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
+	github.com/kr/pretty v0.2.1 // indirect
+	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
@@ -36,13 +40,15 @@ require (
 	github.com/meateam/user-service v0.0.0-20200727105634-935fd55aab5e
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/olivere/elastic/v7 v7.0.9
+	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/peterh/liner v1.2.0 // indirect
 	github.com/rakyll/statik v0.1.7 // indirect
 	github.com/ribice/golang-swaggerui-example v0.0.0-20180611180427-1e7622a30e50
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.7.0
+	github.com/spf13/afero v1.4.1 // indirect
 	github.com/spf13/cobra v1.1.1 // indirect
-	github.com/spf13/viper v1.7.0
+	github.com/spf13/viper v1.7.1
 	github.com/swaggo/files v0.0.0-20190704085106-630677cd5c14
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.6.9
@@ -54,14 +60,15 @@ require (
 	go.mongodb.org/mongo-driver v1.4.2
 	go.starlark.net v0.0.0-20201014215153-dff0ae5b4820 // indirect
 	golang.org/x/arch v0.0.0-20201008161808-52c3e6f60cff // indirect
-	golang.org/x/net v0.0.0-20201027133719-8eef5233e2a1 // indirect
-	golang.org/x/sys v0.0.0-20201028094953-708e7fb298ac // indirect
+	golang.org/x/net v0.0.0-20201029055024-942e2f445f3c // indirect
+	golang.org/x/sys v0.0.0-20201029080932-201ba4db2418 // indirect
 	golang.org/x/text v0.3.4 // indirect
-	golang.org/x/tools v0.0.0-20201028182000-5bbba6644ef5 // indirect
+	golang.org/x/tools v0.0.0-20201028224754-2c115999a7f0 // indirect
 	google.golang.org/genproto v0.0.0-20201028140639-c77dae4b0522 // indirect
 	google.golang.org/grpc v1.33.1
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/go-playground/validator.v9 v9.29.1 // indirect
+	gopkg.in/ini.v1 v1.62.0 // indirect
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger

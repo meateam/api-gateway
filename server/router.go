@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/meateam/api-gateway/delegation"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
@@ -59,7 +60,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 			},
 		),
 	)
-	
+
 	apiRoutesGroup := r.Group("/api")
 
 	// Frontend configuration route.
@@ -156,7 +157,19 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
 
 	// handler for swagger documentation
-	apiRoutesGroup.StaticFile("/doc", "./src/swagger.json")
+	// handler for documentation
+	opts := middleware.RedocOpts{
+		SpecURL:  "/swagger.json",
+		BasePath: "/api",
+		RedocURL: "/redoc.standalone.js",
+	}
+	sh := middleware.Redoc(opts, nil)
+
+	apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+	r.GET("/swagger.json", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
+	r.GET("/redoc.standalone.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
+
+	// apiRoutesGroup.StaticFile("/doc", "./src/swagger.json")
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)

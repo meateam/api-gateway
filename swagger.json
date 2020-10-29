@@ -1,16 +1,65 @@
 {
   "swagger": "2.0",
   "paths": {
-    "/files": {
+    "/api/files": {
       "get": {
-        "description": "Returns a list of files",
+        "description": "This will return all files according to the requested folder",
+        "schemes": [
+          "http"
+        ],
         "tags": [
           "files"
         ],
-        "operationId": "listFile",
+        "summary": "List of files",
+        "operationId": "listFiles",
         "responses": {
           "200": {
             "$ref": "#/responses/filesResponse"
+          }
+        }
+      }
+    },
+    "/api/files/{id}": {
+      "get": {
+        "description": "This will return a single file by its id",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "File",
+        "operationId": "file",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/fileResponse"
+          }
+        }
+      },
+      "delete": {
+        "description": "This will remove file by its id",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Delete file ",
+        "operationId": "idParam",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The id of the file",
+            "name": "id",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/idResponse"
           }
         }
       }
@@ -80,17 +129,117 @@
       },
       "x-go-package": "github.com/meateam/file-service/proto/file"
     },
+    "GetFileByIDResponse": {
+      "type": "object",
+      "title": "GetFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.",
+      "properties": {
+        "createdAt": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CreatedAt"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "isExternal": {
+          "type": "boolean",
+          "x-go-name": "IsExternal"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "ownerId": {
+          "type": "string",
+          "x-go-name": "OwnerID"
+        },
+        "parent": {
+          "type": "string",
+          "x-go-name": "Parent"
+        },
+        "permission": {
+          "$ref": "#/definitions/Permission"
+        },
+        "role": {
+          "type": "string",
+          "x-go-name": "Role"
+        },
+        "shared": {
+          "type": "boolean",
+          "x-go-name": "Shared"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        },
+        "type": {
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "UpdatedAt"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/file"
+    },
+    "Permission": {
+      "type": "object",
+      "title": "Permission is a struct that describes a user's permission to a file.",
+      "properties": {
+        "creator": {
+          "type": "string",
+          "x-go-name": "Creator"
+        },
+        "fileID": {
+          "type": "string",
+          "x-go-name": "FileID"
+        },
+        "role": {
+          "type": "string",
+          "x-go-name": "Role"
+        },
+        "userID": {
+          "type": "string",
+          "x-go-name": "UserID"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/file"
+    },
     "isFile_FileOrId": {
       "type": "object",
       "x-go-package": "github.com/meateam/file-service/proto/file"
     }
   },
   "responses": {
+    "fileResponse": {
+      "schema": {
+        "$ref": "#/definitions/GetFileByIDResponse"
+      }
+    },
     "filesResponse": {
       "schema": {
         "type": "array",
         "items": {
           "$ref": "#/definitions/File"
+        }
+      }
+    },
+    "idResponse": {
+      "headers": {
+        "ID": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "array of ids"
         }
       }
     }
