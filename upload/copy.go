@@ -228,34 +228,12 @@ func (r *Router) CopyFile(c *gin.Context, copyFileRequest copyFileRequest) {
 	// 	return
 	// }
 
-	// TODO: change the implmentaion in the file service to see if the owner id is different
-	updateFileRequest := &fpb.UpdateFilesRequest{IdList: []string{file.GetId()},
-		PartialFile: &fpb.File{
-			Key:      keyDest,
-			Bucket:   copyFileRequest.newOwnerID,
-			OwnerID:  copyFileRequest.newOwnerID,
-			FileOrId: &fpb.File_Parent{*copyFileRequest.parentID},
-		}}
-	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), updateFileRequest)
-
-	if err != nil {
-		// TODO: implement delete copy on error
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-	}
-
-	// Only refers to one, because it cannot update more than one
-	if len(updateFilesResponse.GetFailedFiles()) != 0 {
-		failedFileID := updateFilesResponse.GetFailedFiles()[0]
-		c.String(http.StatusInternalServerError, fmt.Sprintf("Error while updating file %s", failedFileID))
-		return
-	}
-
-	// // TODO: change response
-	// c.Header(UploadIDCustomHeader, copyObjectRes.GetCopied())
-	// c.Status(http.StatusOK)
+	r.ChangeOwner(c, file.GetId(), &fpb.File{
+		Key:      keyDest,
+		Bucket:   copyFileRequest.newOwnerID,
+		OwnerID:  copyFileRequest.newOwnerID,
+		FileOrId: &fpb.File_Parent{*copyFileRequest.parentID},
+	})
 }
 
 // Move is the request handler for /move/:fileId request.
@@ -285,8 +263,9 @@ func (r *Router) CopyFolder(c *gin.Context, copyFolderRequest copyFileRequest) {
 	}
 
 	// TODO: add lock for a list
-	// Copy each descendant in the folder whose owner is the user that made the request
 	descendants := descendantsResp.GetDescendants()
+
+	// Copy each descendant in the folder whose owner is the user that made the request
 	for _, descendant := range descendants {
 		if descendant.GetFile().GetOwnerID() == reqUser.ID {
 			parent := descendant.GetParent().GetId()
@@ -301,24 +280,26 @@ func (r *Router) CopyFolder(c *gin.Context, copyFolderRequest copyFileRequest) {
 			if descendant.GetFile().GetType() != FolderContentType {
 				r.CopyFile(c, copyFile)
 			} else {
-				r.ChangeOwner(c, copyFile)
+				r.ChangeOwner(c, descendant.GetFile().GetId(), &fpb.File{
+					OwnerID:  copyFile.newOwnerID,
+					FileOrId: &fpb.File_Parent{*copyFile.parentID},
+				})
 			}
 
 			// TODO: if failed what to do ??
 		}
 	}
 
-	r.ChangeOwner(c, copyFolderRequest)
+	r.ChangeOwner(c, folderID, &fpb.File{
+		OwnerID:  copyFolderRequest.newOwnerID,
+		FileOrId: &fpb.File_Parent{*copyFolderRequest.parentID},
+	})
 }
 
 // ChangeOwner ...
 // TODO: change it to comatible for file and folder
-func (r *Router) ChangeOwner(c *gin.Context, copyFileRequest copyFileRequest) {
-	updateFileRequest := &fpb.UpdateFilesRequest{IdList: []string{copyFileRequest.file.GetId()},
-		PartialFile: &fpb.File{
-			OwnerID:  copyFileRequest.newOwnerID,
-			FileOrId: &fpb.File_Parent{*copyFileRequest.parentID},
-		}}
+func (r *Router) ChangeOwner(c *gin.Context, fileID string, partialFile *fpb.File) {
+	updateFileRequest := &fpb.UpdateFilesRequest{IdList: []string{fileID}, PartialFile: partialFile}
 	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), updateFileRequest)
 
 	if err != nil {
