@@ -26,10 +26,6 @@ const (
 	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
 	AuthUserHeader = "Auth-User"
 
-	// OutAdminScope is the scope name required for uploading,
-	// downloading, and sharing files for an out-source user
-	OutAdminScope = "externalAdmin"
-
 	// UpdatePermitStatusScope is the scope name required for updating a permit's scope
 	UpdatePermitStatusScope = "status"
 
