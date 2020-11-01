@@ -39,7 +39,7 @@ const (
 	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
 
-	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	// DropboxAuthTypeValue is the value of the AuthTypeHeader key for the Dropbox services
 	DropboxAuthTypeValue = "Dropbox"
 
 	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
@@ -118,6 +118,7 @@ func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.Hand
 		var err error
 
 		switch authType {
+              // DEPRECATED: this case should be delete in the next version 
 		case ServiceAuthTypeValue:
 			err = m.dropboxAuthorization(ctx, requiredScope)
 		case DropboxAuthTypeValue:
