@@ -41,7 +41,7 @@ const (
 	// DocsAuthTypeValue is the value of the docs-service for AuthTypeHeader key
 	DocsAuthTypeValue = "Docs"
 
-	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	// DEPRECATED: ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
 
 	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
