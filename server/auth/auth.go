@@ -9,6 +9,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -40,8 +41,11 @@ const (
 	// DocsAuthTypeValue is the value of the docs-service for AuthTypeHeader key
 	DocsAuthTypeValue = "Docs"
 
-	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	// DEPRECATED: ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
+
+	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
+	ServiceAuthCodeTypeValue = "Service AuthCode"
 
 	// ConfigWebUI is the name of the environment variable containing the path to the ui.
 	ConfigWebUI = "web_ui"
@@ -78,11 +82,14 @@ func NewRouter(
 func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		isService := c.GetHeader(AuthTypeHeader)
-		if isService != ServiceAuthTypeValue {
+		serviceName := c.GetHeader(AuthTypeHeader)
+
+		// TODO: in the future, should be only ServiceAuthCodeTypeValue
+		if serviceName != ServiceAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
+			// If not an external service, then it is a user.
 			secret := secrets.Drive
 
-			if isService == DocsAuthTypeValue {
+			if serviceName == DocsAuthTypeValue {
 				secret = secrets.Docs
 			}
 
@@ -150,6 +157,8 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 		LastName:  lastName,
 		Source:    user.InternalUserSource,
 	})
+
+	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
 
 	c.Next()
 }

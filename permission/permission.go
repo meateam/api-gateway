@@ -91,10 +91,10 @@ func NewRouter(
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+	checkShareScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.ShareScope)
 
 	rg.GET(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.GetFilePermissions)
-	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), checkExternalAdminScope, r.CreateFilePermission)
+	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), checkShareScope, r.CreateFilePermission)
 	rg.DELETE(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.DeleteFilePermission)
 }
 
@@ -192,6 +192,14 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	// An app cannot create a permission for a file that does not belong to it.
+	// Unless the app is Drive.
+	ctxAppID := c.Value(oauth.ContextAppKey).(string)
+	if (ctxAppID != file.GetAppID()) && (ctxAppID != oauth.DriveAppID) {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
 		return
 	}
 

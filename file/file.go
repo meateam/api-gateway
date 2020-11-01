@@ -11,7 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	"github.com/meateam/api-gateway/oauth"
+	auth "github.com/meateam/api-gateway/oauth"
+	oauth "github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	"github.com/meateam/download-service/download"
@@ -48,11 +49,18 @@ const (
 	// ParamFileCreatedAt is a constant for file created at parameter in a request.
 	ParamFileCreatedAt = "createdAt"
 
+	// ParamFileID is the name of the file id param in URL.
+	ParamFileID = "id"
+
 	// ParamFileUpdatedAt is a constant for file updated at parameter in a request.
 	ParamFileUpdatedAt = "updatedAt"
 
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
+
+	// QueryAppID is a constant for queryAppId parameter in a request.
+	// If exists, the files returned will only belong to the app of QueryAppID.
+	QueryAppID = "appId"
 
 	// QueryFileDownloadPreview is the querystring key for
 	// removing the content-disposition header from a file download.
@@ -117,6 +125,9 @@ const (
 
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
+
+	// fileIdIsRequiredMessage is the error message for missing fileID
+	fileIdIsRequiredMessage = "fileID is required"
 )
 
 var (
@@ -132,6 +143,14 @@ var (
 		OdtMimeType,
 		OdpMimeType,
 	}
+
+	// AllowedAllOperationsApps are the applications which are allowed to do any operation
+	// open to external apps on files which are not theirs
+	AllowedAllOperationsApps = []string{oauth.DriveAppID}
+
+	// AllowedDownloadApps are the applications which are only allowed to download
+	// files which are not theirs
+	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID}
 )
 
 // Router is a structure that handles upload requests.
@@ -172,6 +191,7 @@ type GetFileByIDResponse struct {
 	Shared      bool        `json:"shared"`
 	Permission  *Permission `json:"permission,omitempty"`
 	IsExternal  bool        `json:"isExternal"`
+	AppID       string      `json:"appID,omitempty"`
 }
 
 type partialFile struct {
@@ -232,26 +252,41 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(auth.GetFileScope)
+	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(auth.DeleteScope)
 
-	rg.GET("/files", checkExternalAdminScope, r.GetFilesByFolder)
-	rg.GET("/files/:id", checkExternalAdminScope, r.GetFileByID)
+	rg.GET("/files", checkGetFileScope, r.GetFilesByFolder)
+	rg.GET("/files/:id", checkGetFileScope, r.GetFileByID)
 	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
-	rg.DELETE("/files/:id", r.DeleteFileByID)
+	rg.DELETE("/files/:id", checkDeleteFileScope, r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
 }
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-	fileID := c.Param("id")
+	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		return
+	}
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedDownloadApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
 	alt := c.Query("alt")
 	if alt == "media" {
+		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
+		if !canDownload {
+			loggermiddleware.LogError(r.logger, c.AbortWithError(
+				http.StatusForbidden,
+				fmt.Errorf("required scope '%s' is not supplied", oauth.DownloadScope),
+			))
+			return
+		}
 		r.Download(c)
 
 		return
@@ -311,12 +346,40 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	if _, exists := c.GetQuery(QueryShareFiles); exists {
-		r.GetSharedFiles(c)
+	appID := c.Value(oauth.ContextAppKey).(string)
+	filesParent := c.Query(ParamFileParent)
+	err := validateAppID(c, filesParent, r.fileClient, AllowedAllOperationsApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
-	filesParent := c.Query(ParamFileParent)
+	queryAppID := appID
+
+	// indicates wheather files from a specific appID were requested.
+	isSpecificApp := false
+
+	// Check if a specific app was requested by the drive.
+	// Other apps are not permitted to do so.
+	if stringInSlice(appID, AllowedAllOperationsApps) {
+		requestedAppID := c.Query(QueryAppID)
+		if requestedAppID != "" {
+			isSpecificApp = true
+			queryAppID = requestedAppID
+		}
+	}
+
+	if _, exists := c.GetQuery(QueryShareFiles); exists {
+		// Only AllowedAllOperationsApps can access GetSharedFiles.
+		if !stringInSlice(appID, AllowedAllOperationsApps) {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		r.GetSharedFiles(c, isSpecificApp, queryAppID)
+		return
+	}
+
 	userFilePermission, _ := r.HandleUserFilePermission(
 		c,
 		filesParent,
@@ -340,6 +403,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
 		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
 		Float:       false,
+		AppID:       queryAppID,
 	}
 
 	fileOwner := reqUser.ID
@@ -383,8 +447,11 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	c.JSON(http.StatusOK, responseFiles)
 }
 
-// GetSharedFiles is the request handler for GET /files?shares
-func (r *Router) GetSharedFiles(c *gin.Context) {
+// GetSharedFiles is the request handler for GET /files?shares.
+// Can only be requested by AllowedAllOperationsApps.
+// queryAppID is the specific app requested by the application.
+// isSpecificApp indicates wheather files from a specific appID were requested.
+func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID string) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -414,6 +481,17 @@ func (r *Router) GetSharedFiles(c *gin.Context) {
 			return
 		}
 
+		// If a specific appID was requested, return only its files.
+		// Otherwise, return shared files of dropbox and drive.
+		if isSpecificApp && file.GetAppID() != queryAppID {
+			continue
+		} else {
+			// Show only drive and dropbox shared files
+			if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
+				continue
+			}
+		}
+
 		if file.GetOwnerID() != reqUser.ID {
 			userPermission := &ppb.PermissionObject{
 				FileID:  permission.GetFileID(),
@@ -439,9 +517,15 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	fileID := c.Param("id")
+	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		return
+	}
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -471,11 +555,8 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 // Download is the request handler for /files/:id?alt=media request.
 func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
-	fileID := c.Param("id")
-	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
-		return
-	}
+	fileID := c.Param(ParamFileID)
+
 	role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 	if role == "" {
 		if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
@@ -532,9 +613,15 @@ func (r *Router) Download(c *gin.Context) {
 // The function gets an id as a parameter and the partial file to update.
 // It returns the updated file id.
 func (r *Router) UpdateFile(c *gin.Context) {
-	fileID := c.Param("id")
+	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		return
+	}
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -571,9 +658,15 @@ func (r *Router) UpdateFile(c *gin.Context) {
 // The function gets an id.
 // It returns the updated file id's.
 func (r *Router) GetFileAncestors(c *gin.Context) {
-	fileID := c.Param("id")
+	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, "file id is required")
+		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		return
+	}
+
+	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
 		return
 	}
 
@@ -1049,6 +1142,7 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 		Role:        role,
 		Shared:      false,
 		IsExternal:  isExternal,
+		AppID:       file.GetAppID(),
 	}
 
 	if permission != nil {
@@ -1138,5 +1232,42 @@ func IsFileConvertableToPdf(contentType string) bool {
 		}
 	}
 
+	return false
+}
+
+// validateAppID returns an error if the app cannot do an operation on the file, otherwise, nil.
+// The allowedApps are permitted to do any operation.
+func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient, allowedApps []string) error {
+	appID := ctx.Value(oauth.ContextAppKey).(string)
+
+	// Check if the appID is in the allowed appIDs.
+	if stringInSlice(appID, allowedApps) {
+		return nil
+	}
+
+	// Root folder belongs to all apps.
+	if fileID == "" {
+		return nil
+	}
+
+	// Get the file's metadata.
+	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		return ctx.AbortWithError(http.StatusForbidden, err)
+	}
+	if file.GetAppID() != appID {
+		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("application not permitted"))
+	}
+
+	return nil
+}
+
+// stringInSlice checks if a given string is in a given slice of strings
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
 	return false
 }
