@@ -158,12 +158,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// handler for swagger documentation
 	// handler for documentation
-	opts := middleware.RedocOpts{
+	opts := middleware.SwaggerUIOpts{
 		SpecURL:  "/swagger.json",
 		BasePath: "/api",
-		RedocURL: "/redoc.standalone.js",
 	}
-	sh := middleware.Redoc(opts, nil)
+	sh := middleware.SwaggerUI(opts, nil)
 
 	apiRoutesGroup.GET("/docs", gin.WrapH(sh))
 	r.GET("/swagger.json", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
