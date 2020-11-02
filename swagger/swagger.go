@@ -266,7 +266,7 @@ type uploadFolderRequest struct {
 	Authorization string
 }
 
-// swagger:route POST /upload/ upload uploadmultipart
+// swagger:route POST /upload?UploadType=multipart upload uploadmultipart
 //
 // Upload multipart
 //

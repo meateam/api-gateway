@@ -304,7 +304,7 @@
         }
       }
     },
-    "/upload/": {
+    "/upload?UploadType=multipart": {
       "post": {
         "description": "Upload a small file under 5MB .",
         "schemes": [
