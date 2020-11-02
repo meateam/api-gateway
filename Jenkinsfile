@@ -27,7 +27,7 @@ pipeline {
             }  
         }
         parallel {
-          // when pushed to master or develop build image and push to acr 
+          // when pushed to master or develop build image and push to acr  
           stage('build dockerfile of system only for master and develop and push them to acr') {
            steps {
               script{
