@@ -8,9 +8,6 @@ import (
 	"github.com/meateam/api-gateway/server"
 )
 
-// @securityDefinitions.apikey ApiKeyAuth
-// @in header
-// @name Authorization
 func main() {
 	server.NewServer().Listen()
 }
