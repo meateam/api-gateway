@@ -161,14 +161,18 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	opts := middleware.SwaggerUIOpts{
 		SpecURL:  "/swagger.json",
 		BasePath: "/api",
+		SwaggerURL: "/swagger-ui-bundle.js",
+		SwaggerPresetURL: "/swagger-ui-standalone-preset.js",
+		SwaggerStylesURL: "/swagger-ui.css",
 	}
+	
 	sh := middleware.SwaggerUI(opts, nil)
 
 	apiRoutesGroup.GET("/docs", gin.WrapH(sh))
 	r.GET("/swagger.json", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
-	r.GET("/redoc.standalone.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
-
-	// apiRoutesGroup.StaticFile("/doc", "./src/swagger.json")
+	r.GET("/swagger-ui-bundle.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
+	r.GET("/swagger-ui-standalone-preset.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
+	r.GET("/swagger-ui.css", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)

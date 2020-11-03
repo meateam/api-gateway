@@ -1,0 +1,129 @@
+package swagger
+
+import (
+	ppb "github.com/meateam/permit-service/proto"
+)
+
+// swagger:route GET /files/{id}/permits files getpermits
+//
+// File permits
+//
+// This will returns the permits to the file
+//
+// Schemes: http
+// Responses:
+// 	200: permitsResponse
+
+// swagger:parameters getpermits
+type permitsRequest struct {
+
+	// The file id
+	// required:true
+	// in:query
+	ID string `json:"id"`
+
+	// The jwt key
+	// example:Bearer &{jwt}
+	// in:header
+	// required:true
+	// default: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjVlNTY4ODMyNDIwM2ZjNDAwNDM1OTFhYSIsImFkZnNJZCI6InQyMzQ1ODc4OUBqZWxsby5jb20iLCJnZW5lc2lzSWQiOiI1ZTU2ODgzMjQyMDNmYzQwMDQzNTkxYWEiLCJuYW1lIjp7ImZpcnN0TmFtZSI6Iteg15nXmden15kiLCJsYXN0TmFtZSI6IteQ15PXmdeT16EifSwiZGlzcGxheU5hbWUiOiJ0MjM0NTg3ODlAamVsbG8uY29tIiwicHJvdmlkZXIiOiJHZW5lc2lzIiwiZW50aXR5VHlwZSI6ImRpZ2ltb24iLCJjdXJyZW50VW5pdCI6Im5pdHJvIHVuaXQiLCJkaXNjaGFyZ2VEYXkiOiIyMDIyLTExLTMwVDIyOjAwOjAwLjAwMFoiLCJyYW5rIjoibWVnYSIsImpvYiI6Iteo15XXpteXIiwicGhvbmVOdW1iZXJzIjpbIjAyNjY2Njk5OCIsIjA1Mi0xMjM0NTY3Il0sImFkZHJlc3MiOiLXqNeX15XXkSDXlNee157Xqten15nXnSAzNCIsInBob3RvIjpudWxsLCJqdGkiOiIyM2ZmYjFkOS1lYWMxLTRhNTItYWQyMC1jMTNmYzEyODM1MmMiLCJpYXQiOjE2MDQzNDgwNjIsImV4cCI6MTYwNjk0MDA2MiwiZmlyc3ROYW1lIjoi16DXmdeZ16fXmSIsImxhc3ROYW1lIjoi15DXk9eZ15PXoSJ9.bXSpUXJeKzCWwzOsDDVS0a8vjYAtQ406OogOxAmn8mM
+	Authorization string
+}
+
+// An array of files
+// swagger:response permitsResponse
+type permitsResponse struct {
+
+	// in:body
+	Permits []ppb.UserStatus
+}
+
+// swagger:route PUT /files/{id}/permits files putpermits
+//
+// Create file permits
+//
+// This will create the permits to the file
+//
+// Schemes: http
+// Responses:
+// 	200: permitResponse
+
+// swagger:parameters putpermits
+type putPremitRequest struct {
+
+	// The file id
+	// required:true
+	// in:query
+	ID string `json:"id"`
+
+	// The jwt key
+	// example:Bearer &{jwt}
+	// in:header
+	// required:true
+	// default: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjVlNTY4ODMyNDIwM2ZjNDAwNDM1OTFhYSIsImFkZnNJZCI6InQyMzQ1ODc4OUBqZWxsby5jb20iLCJnZW5lc2lzSWQiOiI1ZTU2ODgzMjQyMDNmYzQwMDQzNTkxYWEiLCJuYW1lIjp7ImZpcnN0TmFtZSI6Iteg15nXmden15kiLCJsYXN0TmFtZSI6IteQ15PXmdeT16EifSwiZGlzcGxheU5hbWUiOiJ0MjM0NTg3ODlAamVsbG8uY29tIiwicHJvdmlkZXIiOiJHZW5lc2lzIiwiZW50aXR5VHlwZSI6ImRpZ2ltb24iLCJjdXJyZW50VW5pdCI6Im5pdHJvIHVuaXQiLCJkaXNjaGFyZ2VEYXkiOiIyMDIyLTExLTMwVDIyOjAwOjAwLjAwMFoiLCJyYW5rIjoibWVnYSIsImpvYiI6Iteo15XXpteXIiwicGhvbmVOdW1iZXJzIjpbIjAyNjY2Njk5OCIsIjA1Mi0xMjM0NTY3Il0sImFkZHJlc3MiOiLXqNeX15XXkSDXlNee157Xqten15nXnSAzNCIsInBob3RvIjpudWxsLCJqdGkiOiIyM2ZmYjFkOS1lYWMxLTRhNTItYWQyMC1jMTNmYzEyODM1MmMiLCJpYXQiOjE2MDQzNDgwNjIsImV4cCI6MTYwNjk0MDA2MiwiZmlyc3ROYW1lIjoi16DXmdeZ16fXmSIsImxhc3ROYW1lIjoi15DXk9eZ15PXoSJ9.bXSpUXJeKzCWwzOsDDVS0a8vjYAtQ406OogOxAmn8mM
+	Authorization string
+
+	// The request body for create permit
+	// in:body
+	Details PermitDetails
+}
+
+// PermitDetails request body for create permit
+type PermitDetails struct {
+	FileName       string   `json:"fileName"`
+	Users          []User   `json:"users,omitempty"`
+	Classification string   `json:"classification,omitempty"`
+	Info           string   `json:"info,omitempty"`
+	Approvers      []string `json:"approvers,omitempty"`
+}
+
+// User details
+type User struct {
+	ID       string `json:"id,omitempty"`
+	FullName string `json:"full_name,omitempty"`
+}
+
+// An array of files
+// swagger:response permitResponse
+type permitResponse struct {
+
+	// in:body
+	Permits ppb.CreatePermitResponse
+}
+
+// rg.PATCH(fmt.Sprintf("/permits/:%s", ParamReqID), checkStatusScope, r.UpdateStatus)
+
+// swagger:route PATCH /files/{id}/permits files patchpermits
+//
+// Update file permits
+//
+// This will update the permits to the file
+//
+// Schemes: http
+// Responses:
+// 	200:
+
+// swagger:parameters patchpermits
+type patchPremitRequest struct {
+
+	// The file id
+	// required:true
+	// in:query
+	ID string `json:"id"`
+
+	// The jwt key
+	// example:Bearer &{jwt}
+	// in:header
+	// required:true
+	// default: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjVlNTY4ODMyNDIwM2ZjNDAwNDM1OTFhYSIsImFkZnNJZCI6InQyMzQ1ODc4OUBqZWxsby5jb20iLCJnZW5lc2lzSWQiOiI1ZTU2ODgzMjQyMDNmYzQwMDQzNTkxYWEiLCJuYW1lIjp7ImZpcnN0TmFtZSI6Iteg15nXmden15kiLCJsYXN0TmFtZSI6IteQ15PXmdeT16EifSwiZGlzcGxheU5hbWUiOiJ0MjM0NTg3ODlAamVsbG8uY29tIiwicHJvdmlkZXIiOiJHZW5lc2lzIiwiZW50aXR5VHlwZSI6ImRpZ2ltb24iLCJjdXJyZW50VW5pdCI6Im5pdHJvIHVuaXQiLCJkaXNjaGFyZ2VEYXkiOiIyMDIyLTExLTMwVDIyOjAwOjAwLjAwMFoiLCJyYW5rIjoibWVnYSIsImpvYiI6Iteo15XXpteXIiwicGhvbmVOdW1iZXJzIjpbIjAyNjY2Njk5OCIsIjA1Mi0xMjM0NTY3Il0sImFkZHJlc3MiOiLXqNeX15XXkSDXlNee157Xqten15nXnSAzNCIsInBob3RvIjpudWxsLCJqdGkiOiIyM2ZmYjFkOS1lYWMxLTRhNTItYWQyMC1jMTNmYzEyODM1MmMiLCJpYXQiOjE2MDQzNDgwNjIsImV4cCI6MTYwNjk0MDA2MiwiZmlyc3ROYW1lIjoi16DXmdeZ16fXmSIsImxhc3ROYW1lIjoi15DXk9eZ15PXoSJ9.bXSpUXJeKzCWwzOsDDVS0a8vjYAtQ406OogOxAmn8mM
+	Authorization string
+
+	// The request body for update permit
+	// in:body
+	Details UpdatePermitDetails
+}
+
+// UpdatePermitDetails request body for update permit
+type UpdatePermitDetails struct {
+	Status string `json:"status,omitempty"`
+}
