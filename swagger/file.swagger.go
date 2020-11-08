@@ -26,7 +26,7 @@ import (
 
 // swagger:parameters listFiles
 type filesRequest struct {
-	// The file parent
+	// The parent of the files
 	// unique:true
 	// in:url
 	Parent string
@@ -41,7 +41,7 @@ type filesRequest struct {
 //
 // Single file
 //
-// This will returns a single file by its id
+// This returns a single file according to the requested folder
 //
 // Schemes: http
 // Responses:
@@ -78,9 +78,9 @@ type fileResponse struct {
 
 // swagger:route GET /files/{id}/ancestors files fileAncestors
 //
-// Returns a file ancestors
+// Returns the file's ancestors
 //
-// This will returns all file ancestors
+// This returns all of the ancestors of a given file
 //
 // Schemes: http
 // Responses:
@@ -88,7 +88,7 @@ type fileResponse struct {
 
 // swagger:parameters fileAncestors
 type fileAncestorsRequest struct {
-	// The file id to get is ancestors
+	// The file id
 	// unique:true
 	// in:path
 	// required:true
@@ -112,7 +112,7 @@ type fileAncestorsResponse struct {
 //
 // Delete file
 //
-// This will deletes the file according to its ID
+// This deletes the file according to its id
 //
 // Schemes: http
 // responses:
@@ -144,7 +144,7 @@ type DeleteResponse struct {
 //
 // Update file
 //
-// This will update the file according to its ID
+// This updates the file according to its id
 //
 // Schemes: http
 // responses:
@@ -158,7 +158,7 @@ type updateRequest struct {
 	// required:true
 	ID string `json:"id"`
 
-	// The partial file to update
+	// The update info
 	// in:body
 	PartialFile file.GetFileByIDResponse
 
@@ -186,7 +186,7 @@ type updateFileRequest struct {
 	// required:true
 	IDs []string
 
-	// The partial file to update
+	// The update info
 	// in:body
 	// required:true
 	PartialFile file.GetFileByIDResponse

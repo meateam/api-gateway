@@ -1,12 +1,12 @@
 /***
- *          _          _                          _     _                 
- *         | |        | |                        | |   (_)                
- *       __| |   ___  | |   ___    __ _    __ _  | |_   _    ___    _ __  
- *      / _` |  / _ \ | |  / _ \  / _` |  / _` | | __| | |  / _ \  | '_ \ 
+ *          _          _                          _     _
+ *         | |        | |                        | |   (_)
+ *       __| |   ___  | |   ___    __ _    __ _  | |_   _    ___    _ __
+ *      / _` |  / _ \ | |  / _ \  / _` |  / _` | | __| | |  / _ \  | '_ \
  *     | (_| | |  __/ | | |  __/ | (_| | | (_| | | |_  | | | (_) | | | | |
  *      \__,_|  \___| |_|  \___|  \__, |  \__,_|  \__| |_|  \___/  |_| |_|
- *                                 __/ |                                  
- *                                |___/                                   
+ *                                 __/ |
+ *                                |___/
  */
 package swagger
 
@@ -18,7 +18,7 @@ import (
 //
 // User
 //
-// This will returns a single user by its id
+// This will return a single external user by its id from the phonebook
 //
 // Schemes: http
 // Responses:
@@ -27,7 +27,7 @@ import (
 // swagger:parameters delegator
 type delegatorRequest struct {
 
-	// The user id
+	// The delegator id
 	// unique:true
 	// required:true
 	// in:path
@@ -41,9 +41,9 @@ type delegatorRequest struct {
 
 // swagger:route GET /delegators delegation searchdelegator
 //
-// Search user
+// Search delegator
 //
-// This will returns a single user by its name
+// This will return a single delegator by its partial name
 //
 // Schemes: http
 // Responses:
@@ -63,7 +63,7 @@ type searchRequest struct {
 	Authorization string
 }
 
-// An array of files
+// An array of delegators returned
 // swagger:response delegatorResponse
 type delegatorResponse struct {
 	// in:body

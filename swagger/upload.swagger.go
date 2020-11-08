@@ -19,7 +19,7 @@ import (
 //
 // Upload folder
 //
-// Upload a folder.
+// Uploads a folder.
 //
 // Schemes: http
 // responses:
@@ -27,7 +27,7 @@ import (
 
 // swagger:parameters uploadfolder
 type uploadFolderRequest struct {
-	// The parent folder to upload
+	// The parent of the new folder
 	// in:query
 	Parent string
 
@@ -64,11 +64,11 @@ type uploadMultipartRequest struct {
 	// in:query
 	UploadType string
 
-	// The parent folder to upload
+	// The parent of the new file
 	// in:query
 	Parent string
 
-	// The new file
+	// The new file metadata
 	// in:formData
 	// swagger:file
 	File *bytes.Buffer `json:"file"`
@@ -92,7 +92,7 @@ type uploadMultipartRequest struct {
 
 // swagger:parameters initresumable
 type InitResumableRequest struct {
-	// The parent folder to upload
+	// The parent of the new file
 	// in:query
 	Parent string
 
@@ -128,7 +128,8 @@ type InitResumableResponse struct {
 //
 // Upload resumable
 //
-// Upload a big file over 5MB to 5GB .
+// Upload a big file over 5MB and up to 5TB .
+// Runs after the init resumable upload
 //
 // Schemes: http
 // responses:
@@ -146,7 +147,7 @@ type uploadResumableRequest struct {
 	// in:query
 	UploadID string `json:"uploadId"`
 
-	// The parent folder to upload
+	// The parent of the new file
 	// in:query
 	Parent string
 
@@ -166,7 +167,7 @@ type uploadResumableRequest struct {
 //
 // Update file content
 //
-// This will Updates the contents of the file according to its ID
+// This will Update the contents of the file according to its ID
 //
 // Schemes: http
 // responses:
@@ -187,7 +188,6 @@ type updateContentRequest struct {
 	// The jwt key
 	// example:Bearer &{jwt}
 	// in:header
-
 	Authorization string
 }
 

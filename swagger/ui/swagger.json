@@ -16,21 +16,21 @@
       "url": "http://www.google.com",
       "email": "drive.team@example.com"
     },
-    "version": "v1.3"
+    "version": "v2.0.0"
   },
   "host": "pandora.northeurope.cloudapp.azure.com",
   "basePath": "/api",
   "paths": {
     "/delegators": {
       "get": {
-        "description": "This will returns a single user by its name",
+        "description": "This will return a single delegator by its partial name",
         "schemes": [
           "http"
         ],
         "tags": [
           "delegation"
         ],
-        "summary": "Search user",
+        "summary": "Search delegator",
         "operationId": "searchdelegator",
         "parameters": [
           {
@@ -58,7 +58,7 @@
     },
     "/delegators/{id}": {
       "get": {
-        "description": "This will returns a single user by its id",
+        "description": "This will return a single external user by its id from the phonebook",
         "schemes": [
           "http"
         ],
@@ -72,7 +72,7 @@
             "uniqueItems": true,
             "type": "string",
             "x-go-name": "ID",
-            "description": "The user id",
+            "description": "The delegator id",
             "name": "id",
             "in": "path",
             "required": true
@@ -107,7 +107,7 @@
           {
             "uniqueItems": true,
             "type": "string",
-            "description": "The file parent",
+            "description": "The parent of the files",
             "name": "Parent",
             "in": "query"
           },
@@ -149,7 +149,7 @@
             }
           },
           {
-            "description": "The partial file to update",
+            "description": "The update info",
             "name": "PartialFile",
             "in": "body",
             "required": true,
@@ -175,7 +175,7 @@
     },
     "/files/{id}": {
       "get": {
-        "description": "This will returns a single file by its id",
+        "description": "This returns a single file according to the requested folder",
         "schemes": [
           "http"
         ],
@@ -210,7 +210,7 @@
         }
       },
       "put": {
-        "description": "This will update the file according to its ID",
+        "description": "This updates the file according to its id",
         "schemes": [
           "http"
         ],
@@ -230,7 +230,7 @@
             "required": true
           },
           {
-            "description": "The partial file to update",
+            "description": "The update info",
             "name": "PartialFile",
             "in": "body",
             "schema": {
@@ -253,7 +253,7 @@
         }
       },
       "delete": {
-        "description": "This will deletes the file according to its ID",
+        "description": "This deletes the file according to its id",
         "schemes": [
           "http"
         ],
@@ -290,21 +290,21 @@
     },
     "/files/{id}/ancestors": {
       "get": {
-        "description": "This will returns all file ancestors",
+        "description": "This returns all of the ancestors of a given file",
         "schemes": [
           "http"
         ],
         "tags": [
           "files"
         ],
-        "summary": "Returns a file ancestors",
+        "summary": "Returns the file's ancestors",
         "operationId": "fileAncestors",
         "parameters": [
           {
             "uniqueItems": true,
             "type": "string",
             "x-go-name": "ID",
-            "description": "The file id to get is ancestors",
+            "description": "The file id",
             "name": "id",
             "in": "path",
             "required": true
@@ -327,7 +327,7 @@
     },
     "/files/{id}/permissions": {
       "get": {
-        "description": "This will returns the permissions to the file",
+        "description": "This returns the permissions of a given file",
         "schemes": [
           "http"
         ],
@@ -361,7 +361,7 @@
         }
       },
       "put": {
-        "description": "This will create the permissions to the file",
+        "description": "This creates a permissions to a given file",
         "schemes": [
           "http"
         ],
@@ -403,7 +403,7 @@
         }
       },
       "delete": {
-        "description": "This will delete the permissions from the file",
+        "description": "This deletes the permission of a file by its id and user",
         "schemes": [
           "http"
         ],
@@ -446,7 +446,7 @@
     },
     "/files/{id}/permits": {
       "get": {
-        "description": "This will returns the permits to the file",
+        "description": "This returns the permits of a given file",
         "schemes": [
           "http"
         ],
@@ -480,7 +480,7 @@
         }
       },
       "put": {
-        "description": "This will create the permits to the file",
+        "description": "This creates the permits of a given file",
         "schemes": [
           "http"
         ],
@@ -507,7 +507,7 @@
             "required": true
           },
           {
-            "description": "The request body for create permit",
+            "description": "The request body for creating a permit",
             "name": "Details",
             "in": "body",
             "schema": {
@@ -564,7 +564,7 @@
     },
     "/search": {
       "get": {
-        "description": "This will returns the quota of the user by its id",
+        "description": "This returns the file by search query",
         "schemes": [
           "http"
         ],
@@ -600,7 +600,7 @@
     },
     "/upload": {
       "post": {
-        "description": "Upload a folder.",
+        "description": "Uploads a folder.",
         "schemes": [
           "http"
         ],
@@ -612,7 +612,7 @@
         "parameters": [
           {
             "type": "string",
-            "description": "The parent folder to upload",
+            "description": "The parent of the new folder",
             "name": "Parent",
             "in": "query"
           },
@@ -649,7 +649,7 @@
     },
     "/upload/{id}": {
       "put": {
-        "description": "This will Updates the contents of the file according to its ID",
+        "description": "This will Update the contents of the file according to its ID",
         "schemes": [
           "http"
         ],
@@ -677,8 +677,10 @@
           },
           {
             "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
             "name": "Authorization",
-            "in": "query"
+            "in": "header"
           }
         ],
         "responses": {
@@ -702,7 +704,7 @@
         "parameters": [
           {
             "type": "string",
-            "description": "The parent folder to upload",
+            "description": "The parent of the new file",
             "name": "Parent",
             "in": "query"
           },
@@ -755,14 +757,14 @@
           },
           {
             "type": "string",
-            "description": "The parent folder to upload",
+            "description": "The parent of the new file",
             "name": "Parent",
             "in": "query"
           },
           {
             "type": "file",
             "x-go-name": "File",
-            "description": "The new file",
+            "description": "The new file metadata",
             "name": "file",
             "in": "formData"
           },
@@ -781,7 +783,7 @@
     },
     "/upload?UploadType=resumable": {
       "post": {
-        "description": "Upload a big file over 5MB to 5GB .",
+        "description": "Upload a big file over 5MB and up to 5TB .\nRuns after the init resumable upload",
         "schemes": [
           "http"
         ],
@@ -808,7 +810,7 @@
           },
           {
             "type": "string",
-            "description": "The parent folder to upload",
+            "description": "The parent of the new file",
             "name": "Parent",
             "in": "query"
           },
@@ -834,7 +836,7 @@
     },
     "/user/quota": {
       "get": {
-        "description": "This will returns my current quota",
+        "description": "This returns the current quota of a user by its jwt token",
         "schemes": [
           "http"
         ],
@@ -862,7 +864,7 @@
     },
     "/users": {
       "get": {
-        "description": "This will search user by its name",
+        "description": "This searches a user by its partial name",
         "schemes": [
           "http"
         ],
@@ -898,7 +900,7 @@
     },
     "/users/{id}": {
       "get": {
-        "description": "This will returns a single user by its id",
+        "description": "This return a single user by its id",
         "schemes": [
           "http"
         ],
@@ -916,7 +918,7 @@
     },
     "/users/{id}/approverInfo": {
       "get": {
-        "description": "This will returns the approver info of user",
+        "description": "This returns the approver info of a user by its id",
         "schemes": [
           "http"
         ],
@@ -952,7 +954,7 @@
     },
     "/users/{id}/quota": {
       "get": {
-        "description": "This will returns the quota of the user by its id",
+        "description": "This return the quota of the user by its id",
         "schemes": [
           "http"
         ],
@@ -1146,7 +1148,7 @@
       "x-go-package": "github.com/meateam/api-gateway/permission"
     },
     "PermissionDetails": {
-      "description": "PermissionDetails request body for create permission",
+      "description": "PermissionDetails request body for creating permission",
       "type": "object",
       "properties": {
         "override": {
@@ -1165,7 +1167,7 @@
       "x-go-package": "github.com/meateam/api-gateway/swagger"
     },
     "PermitDetails": {
-      "description": "PermitDetails request body for create permit",
+      "description": "PermitDetails request body for creating a permit",
       "type": "object",
       "properties": {
         "approvers": {
@@ -1198,7 +1200,7 @@
       "x-go-package": "github.com/meateam/api-gateway/swagger"
     },
     "UpdatePermitDetails": {
-      "description": "UpdatePermitDetails request body for update permit",
+      "description": "UpdatePermitDetails request body for updating a permit",
       "type": "object",
       "properties": {
         "status": {
@@ -1290,7 +1292,7 @@
       }
     },
     "delegatorResponse": {
-      "description": "An array of files",
+      "description": "An array of delegators returned",
       "schema": {
         "$ref": "#/definitions/GetUserResponse"
       }
@@ -1338,7 +1340,7 @@
       }
     },
     "permissionResponse": {
-      "description": "An array of files",
+      "description": "An array of permissions",
       "schema": {
         "$ref": "#/definitions/Permission"
       }
@@ -1353,13 +1355,13 @@
       }
     },
     "permitResponse": {
-      "description": "An array of files",
+      "description": "An array of permits",
       "schema": {
         "$ref": "#/definitions/CreatePermitResponse"
       }
     },
     "permitsResponse": {
-      "description": "An array of files",
+      "description": "An array of permits",
       "schema": {
         "type": "array",
         "items": {

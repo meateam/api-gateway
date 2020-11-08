@@ -1,6 +1,6 @@
 package swagger
 
-import(
+import (
 	file "github.com/meateam/api-gateway/file"
 )
 
@@ -8,7 +8,7 @@ import(
 //
 // User quota by id
 //
-// This will returns the quota of the user by its id
+// This returns the file by search query
 //
 // Schemes: http
 // Responses:

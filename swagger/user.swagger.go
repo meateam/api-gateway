@@ -8,7 +8,7 @@ import (
 //
 // Get user
 //
-// This will returns a single user by its id
+// This return a single user by its id
 //
 // Schemes: http
 // Responses:
@@ -33,7 +33,7 @@ type getUserRequest struct {
 //
 // Search user
 //
-// This will search user by its name
+// This searches a user by its partial name
 //
 // Schemes: http
 // Responses:
@@ -68,7 +68,7 @@ type getUserResponse struct {
 //
 // User approver info
 //
-// This will returns the approver info of user
+// This returns the approver info of a user by its id
 //
 // Schemes: http
 // Responses:

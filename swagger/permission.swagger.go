@@ -8,7 +8,7 @@ import (
 //
 // File permissions
 //
-// This will returns the permissions to the file
+// This returns the permissions of a given file
 //
 // Schemes: http
 // Responses:
@@ -41,7 +41,7 @@ type permissionsResponse struct {
 //
 // Create permissions
 //
-// This will create the permissions to the file
+// This creates a permissions to a given file
 //
 // Schemes: http
 // Responses:
@@ -66,7 +66,7 @@ type putRequest struct {
 	Details PermissionDetails
 }
 
-// PermissionDetails request body for create permission
+// PermissionDetails request body for creating permission
 type PermissionDetails struct {
 	UserID   string `json:"userID"`
 	Role     string `json:"role"`
@@ -77,7 +77,7 @@ type PermissionDetails struct {
 //
 // Delete permissions
 //
-// This will delete the permissions from the file
+// This deletes the permission of a file by its id and user
 //
 // Schemes: http
 // Responses:
@@ -102,7 +102,7 @@ type deleteRequest struct {
 	Authorization string
 }
 
-// An array of files
+// An array of permissions
 // swagger:response permissionResponse
 type permissionResponse struct {
 

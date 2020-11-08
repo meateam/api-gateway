@@ -157,19 +157,30 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
 
 	// handler for swagger documentation
-	// handler for documentation
-	opts := middleware.SwaggerUIOpts{
-		SpecURL:  "/api/swagger",
-		BasePath: "/api",
-	}
-
-	sh := middleware.SwaggerUI(opts, nil)
-
-	apiRoutesGroup.GET("/docs", gin.WrapH(sh))
 	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile) + "/swagger.json")
+
+	if viper.GetString(configDeployment) == "prodaction" {
+		opts := middleware.RedocOpts{
+			SpecURL:  "/api/swagger",
+			BasePath: "/api",
+			RedocURL:  "/api/redoc",
+		}
+
+		// redoc UI
+		apiRoutesGroup.StaticFile("/redoc", viper.GetString(configSwaggerPathFile) + "/redoc.standalone.js")
 	
-	//r.GET("/swagger.json", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
-	//r.GET("/redoc.standalone.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
+		sh := middleware.Redoc(opts, nil)
+		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+
+	} else if viper.GetString(configDeployment) == "integration" {
+		opts := middleware.SwaggerUIOpts{
+			SpecURL:  "/api/swagger",
+			BasePath: "/api",
+		}
+	
+		sh := middleware.SwaggerUI(opts, nil)
+		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+	}
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)

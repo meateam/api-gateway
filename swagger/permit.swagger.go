@@ -8,7 +8,7 @@ import (
 //
 // File permits
 //
-// This will returns the permits to the file
+// This returns the permits of a given file
 //
 // Schemes: http
 // Responses:
@@ -29,7 +29,7 @@ type permitsRequest struct {
 	Authorization string
 }
 
-// An array of files
+// An array of permits
 // swagger:response permitsResponse
 type permitsResponse struct {
 
@@ -41,7 +41,7 @@ type permitsResponse struct {
 //
 // Create file permits
 //
-// This will create the permits to the file
+// This creates the permits of a given file
 //
 // Schemes: http
 // Responses:
@@ -61,12 +61,12 @@ type putPremitRequest struct {
 	// required:true
 	Authorization string
 
-	// The request body for create permit
+	// The request body for creating a permit
 	// in:body
 	Details PermitDetails
 }
 
-// PermitDetails request body for create permit
+// PermitDetails request body for creating a permit
 type PermitDetails struct {
 	FileName       string   `json:"fileName"`
 	Users          []User   `json:"users,omitempty"`
@@ -81,7 +81,7 @@ type User struct {
 	FullName string `json:"full_name,omitempty"`
 }
 
-// An array of files
+// An array of permits
 // swagger:response permitResponse
 type permitResponse struct {
 
@@ -120,7 +120,7 @@ type patchPremitRequest struct {
 	Details UpdatePermitDetails
 }
 
-// UpdatePermitDetails request body for update permit
+// UpdatePermitDetails request body for updating a permit
 type UpdatePermitDetails struct {
 	Status string `json:"status,omitempty"`
 }

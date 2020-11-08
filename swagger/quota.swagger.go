@@ -8,7 +8,7 @@ import(
 //
 // My quota
 //
-// This will returns my current quota
+// This returns the current quota of a user by its jwt token
 //
 // Schemes: http
 // Responses:
@@ -28,7 +28,7 @@ type quotaRequest struct {
 //
 // User quota
 //
-// This will returns the quota of the user by its id
+// This return the quota of the user by its id
 //
 // Schemes: http
 // Responses:
