@@ -159,20 +159,17 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// handler for swagger documentation
 	// handler for documentation
 	opts := middleware.SwaggerUIOpts{
-		SpecURL:  "/swagger.json",
+		SpecURL:  "/api/swagger",
 		BasePath: "/api",
-		SwaggerURL: "/swagger-ui-bundle.js",
-		SwaggerPresetURL: "/swagger-ui-standalone-preset.js",
-		SwaggerStylesURL: "/swagger-ui.css",
 	}
-	
+
 	sh := middleware.SwaggerUI(opts, nil)
 
 	apiRoutesGroup.GET("/docs", gin.WrapH(sh))
-	r.GET("/swagger.json", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
-	r.GET("/swagger-ui-bundle.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
-	r.GET("/swagger-ui-standalone-preset.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
-	r.GET("/swagger-ui.css", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
+	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile) + "/swagger.json")
+	
+	//r.GET("/swagger.json", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
+	//r.GET("/redoc.standalone.js", gin.WrapH(http.FileServer(http.Dir(viper.GetString(configSwaggerPathFile)))))
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
@@ -262,6 +259,5 @@ func initServiceConn(url string) (*grpc.ClientConn, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return conn, nil
 }

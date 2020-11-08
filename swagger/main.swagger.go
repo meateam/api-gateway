@@ -4,7 +4,7 @@
 //
 //
 //     Schemes: http
-//     Host: localhost:8080
+//     Host: pandora.northeurope.cloudapp.azure.com
 //     BasePath: /api
 //     Version: v1.3
 //     Contact: Drive team<drive.team@example.com> http://www.google.com

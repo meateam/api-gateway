@@ -87,7 +87,7 @@ func init() {
 	viper.SetDefault(configVipService, "http://localhost:8094")
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
-	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")
+	viper.SetDefault(configSwaggerPathFile, "./swagger")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
 	viper.SetEnvPrefix(envPrefix)

@@ -6,6 +6,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.3.0
 	github.com/gin-gonic/gin v1.5.0
+	github.com/go-openapi/runtime v0.19.23
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
@@ -26,7 +27,7 @@ require (
 	go.elastic.co/apm/module/apmgin v1.6.0
 	go.elastic.co/apm/module/apmgrpc v1.6.0
 	go.elastic.co/apm/module/apmhttp v1.6.0
-	go.mongodb.org/mongo-driver v1.3.0
+	go.mongodb.org/mongo-driver v1.3.4
 	google.golang.org/grpc v1.27.0
 )
 
