@@ -18,7 +18,7 @@ import (
 //
 // User
 //
-// This will return a single external user by its id from the phonebook
+// This returns a single external user by its id from the phonebook
 //
 // Schemes: http
 // Responses:
@@ -43,7 +43,7 @@ type delegatorRequest struct {
 //
 // Search delegator
 //
-// This will return a single delegator by its partial name
+// This returns a single delegator by its partial name
 //
 // Schemes: http
 // Responses:

@@ -32,6 +32,8 @@ import (
 const (
 	healthcheckRoute  = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
+	deploymentProduction = "production"
+	deploymentIntegration = "integration"
 )
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
@@ -159,7 +161,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// handler for swagger documentation
 	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile) + "/swagger.json")
 
-	if viper.GetString(configDeployment) == "prodaction" {
+	if viper.GetString(configDeployment) == deploymentProduction {
 		opts := middleware.RedocOpts{
 			SpecURL:  "/api/swagger",
 			BasePath: "/api",
@@ -172,7 +174,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		sh := middleware.Redoc(opts, nil)
 		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
 
-	} else if viper.GetString(configDeployment) == "integration" {
+	} else if viper.GetString(configDeployment) == deploymentIntegration {
 		opts := middleware.SwaggerUIOpts{
 			SpecURL:  "/api/swagger",
 			BasePath: "/api",

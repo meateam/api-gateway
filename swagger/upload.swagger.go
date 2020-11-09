@@ -167,7 +167,7 @@ type uploadResumableRequest struct {
 //
 // Update file content
 //
-// This will Update the contents of the file according to its ID
+// This Updates the contents of the file according to its ID
 //
 // Schemes: http
 // responses:

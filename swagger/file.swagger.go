@@ -18,7 +18,7 @@ import (
 //
 // List of files
 //
-// This will return all files according to the requested folder
+// This returns all files according to the requested folder
 //
 // Schemes: http
 // Responses:
