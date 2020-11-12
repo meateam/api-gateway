@@ -84,8 +84,7 @@ func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 
 		serviceName := c.GetHeader(AuthTypeHeader)
 
-		// TODO: in the future, should be only ServiceAuthCodeTypeValue
-		if serviceName != ServiceAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
+		if serviceName != oauth.DropboxAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
 			// If not an external service, then it is a user.
 			secret := secrets.Drive
 
