@@ -95,7 +95,7 @@ type permitResponse struct {
 //
 // Update file permits
 //
-// This will update the permits to the file
+// This updates the permits to the file
 //
 // Schemes: http
 // Responses:
