@@ -10,7 +10,7 @@ require (
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
-	github.com/meateam/file-service/proto v0.0.0-20200625093551-eff8e9440810
+	github.com/meateam/file-service/proto v0.0.0-20200722185234-352c9fa45640
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
@@ -28,6 +28,7 @@ require (
 	go.elastic.co/apm/module/apmhttp v1.6.0
 	go.mongodb.org/mongo-driver v1.3.0
 	google.golang.org/grpc v1.27.0
+	google.golang.org/protobuf v1.25.0 // indirect
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger
