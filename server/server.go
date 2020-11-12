@@ -86,7 +86,7 @@ func init() {
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
-	viper.SetDefault(configDeployment, "integration")
+	viper.SetDefault(configDeployment, "production")
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
 	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")

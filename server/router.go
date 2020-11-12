@@ -32,7 +32,7 @@ import (
 const (
 	healthcheckRoute  = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
-	deploymentProduction = "production"
+	deploymentProduction = "production" 
 	deploymentIntegration = "integration"
 )
 
