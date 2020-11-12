@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Swagger documentation 
-  - Naw can go to /api/docs and see the documentation 
+  - Now you can go to /api/docs and see the documentation 
 
 ## [v2.1.0] - 2020-11-1
 
