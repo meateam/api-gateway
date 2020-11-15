@@ -47,7 +47,7 @@ const (
 	configEnableExternalShare   = "enable_external_share"
 	configWhiteListText         = "white_list_text"
 	configSwaggerPathFile       = "swagger_path_file"
-	configShowShaggerUI         = "show_shagger_ui"
+	configShowSwaggerUI         = "show_swagger_ui"
 )
 
 var (
@@ -86,7 +86,7 @@ func init() {
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
-	viper.SetDefault(configShowShaggerUI, false)
+	viper.SetDefault(configShowSwaggerUI, false)
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
 	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")

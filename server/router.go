@@ -159,7 +159,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// handler for swagger documentation
 	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile)+"/swagger.json")
 
-	if viper.GetBool(configShowShaggerUI) {
+	if viper.GetBool(configShowSwaggerUI) {
 		opts := middleware.SwaggerUIOpts{
 			SpecURL:  "/api/swagger",
 			BasePath: "/api",
