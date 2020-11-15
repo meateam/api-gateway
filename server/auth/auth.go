@@ -26,11 +26,23 @@ const (
 	// AuthHeaderBearer is the prefix for the authorization token in AuthHeader.
 	AuthHeaderBearer = "Bearer"
 
-	// FirstNameClaim is the claim name for the firstname of the user
-	FirstNameClaim = "firstName"
+	// FirstNameLabel is the claim name for the firstname of the user
+	FirstNameLabel = "firstName"
 
-	// LastNameClaim is the claim name for the lastname of the user
-	LastNameClaim = "lastName"
+	// LastNameLabel is the claim name for the lastname of the user
+	LastNameLabel = "lastName"
+
+	// DisplayNameLabel is the claim name of the display name of the user
+	DisplayNameLabel = "displayName"
+
+	// CurrentUnitLabel is the claim name of the current unit of the user
+	CurrentUnitLabel = "currentUnit"
+
+	// RankLabel is the claim name of the rank of the user
+	RankLabel = "rank"
+
+	// JobLabel is the claim name of the job of the user
+	JobLabel = "job"
 
 	// UserNameLabel is the label for the full user name.
 	UserNameLabel = "username"
@@ -49,6 +61,15 @@ const (
 
 	// ConfigWebUI is the name of the environment variable containing the path to the ui.
 	ConfigWebUI = "web_ui"
+
+	// TransactionClientLabel is the label of the custom transaction field of client-name.
+	TransactionClientLabel = "client"
+
+	// TransactionClientLabel is the label of the custom transaction field : user.
+	TransactionUserLabel = "user"
+
+	// DriveClientName is the client name of the Drive UI client.
+	DriveClientName = "DriveUI"
 )
 
 // Router is a structure that handels the authentication middleware.
@@ -84,11 +105,16 @@ func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 
 		serviceName := c.GetHeader(AuthTypeHeader)
 
+		// The current transaction of the apm.
+		currentTransaction := apm.TransactionFromContext(c.Request.Context())
+
 		if serviceName != oauth.DropboxAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
-			// If not an external service, then it is a user.
+			// If not an external service, then it is a user (from the main Drive UI client).
+			currentTransaction.Context.SetCustom(TransactionClientLabel, DriveClientName)
 			secret := secrets.Drive
 
 			if serviceName == DocsAuthTypeValue {
+				currentTransaction.Context.SetCustom(TransactionClientLabel, DocsAuthTypeValue)
 				secret = secrets.Docs
 			}
 
@@ -119,8 +145,12 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 
 	// Check type assertion
 	id, idOk := claims["id"].(string)
-	firstName, firstNameOk := claims[FirstNameClaim].(string)
-	lastName, lastNameOk := claims[LastNameClaim].(string)
+	firstName, firstNameOk := claims[FirstNameLabel].(string)
+	lastName, lastNameOk := claims[LastNameLabel].(string)
+	displayName := claims[DisplayNameLabel].(string)
+	currentUnit := claims[CurrentUnitLabel].(string)
+	rank := claims[RankLabel].(string)
+	job := claims[JobLabel].(string)
 
 	// If any of the claims are invalid then redirect to authentication
 	if !idOk || !firstNameOk || !lastNameOk {
@@ -129,9 +159,9 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 	}
 
 	// The current transaction of the apm, adding the user id to the context.
-	currentTarnasction := apm.TransactionFromContext(c.Request.Context())
-	currentTarnasction.Context.SetUserID(id)
-	currentTarnasction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
+	currentTransaction := apm.TransactionFromContext(c.Request.Context())
+	currentTransaction.Context.SetUserID(id)
+	currentTransaction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
 
 	// Check type assertion.
 	// For some reason can't convert directly to int64
@@ -150,12 +180,20 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 		return
 	}
 
-	c.Set(user.ContextUserKey, user.User{
-		ID:        id,
-		FirstName: firstName,
-		LastName:  lastName,
-		Source:    user.InternalUserSource,
-	})
+	authenticatedUser := user.User{
+		ID:          id,
+		FirstName:   firstName,
+		LastName:    lastName,
+		Source:      user.InternalUserSource,
+		DisplayName: displayName,
+		CurrentUnit: currentUnit,
+		Rank:        rank,
+		Job:         job,
+	}
+
+	c.Set(user.ContextUserKey, authenticatedUser)
+
+	currentTransaction.Context.SetCustom(TransactionUserLabel, authenticatedUser)
 
 	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
 
