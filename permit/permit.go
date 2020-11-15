@@ -90,7 +90,7 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkStatusScope := r.oAuthMiddleware.ScopeMiddleware(oauth.UpdatePermitStatusScope)
+	checkStatusScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.UpdatePermitStatusScope)
 
 	rg.GET(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.GetFilePermits)
 	rg.PUT(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.CreateFilePermits)
