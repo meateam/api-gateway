@@ -32,8 +32,6 @@ import (
 const (
 	healthcheckRoute  = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
-	deploymentProduction = "production" 
-	deploymentIntegration = "integration"
 )
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
@@ -159,28 +157,27 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
 
 	// handler for swagger documentation
-	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile) + "/swagger.json")
+	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile)+"/swagger.json")
 
-	if viper.GetString(configDeployment) == deploymentProduction {
-		opts := middleware.RedocOpts{
-			SpecURL:  "/api/swagger",
-			BasePath: "/api",
-			RedocURL:  "/api/redoc",
-		}
-
-		// redoc UI
-		apiRoutesGroup.StaticFile("/redoc", viper.GetString(configSwaggerPathFile) + "/redoc.standalone.js")
-	
-		sh := middleware.Redoc(opts, nil)
-		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
-
-	} else if viper.GetString(configDeployment) == deploymentIntegration {
+	if viper.GetBool(configShowShaggerUI) {
 		opts := middleware.SwaggerUIOpts{
 			SpecURL:  "/api/swagger",
 			BasePath: "/api",
 		}
-	
+
 		sh := middleware.SwaggerUI(opts, nil)
+		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+	} else {
+		opts := middleware.RedocOpts{
+			SpecURL:  "/api/swagger",
+			BasePath: "/api",
+			RedocURL: "/api/redoc",
+		}
+
+		// redoc UI
+		apiRoutesGroup.StaticFile("/redoc", viper.GetString(configSwaggerPathFile)+"/redoc.standalone.js")
+
+		sh := middleware.Redoc(opts, nil)
 		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
 	}
 
