@@ -38,7 +38,7 @@ const (
 
 // UpdateSetup initializes its routes under rg.
 func (r *Router) UpdateSetup(rg *gin.RouterGroup) {
-	rg.PUT("/upload/:" + ParamFileID, r.Update)
+	rg.PUT("/upload/:"+ParamFileID, r.Update)
 }
 
 // Update is the request handler for /upload/:fileId request.
@@ -260,15 +260,33 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, upload *fpb.GetU
 // This function is only used for the docs
 func changeExtensionByMimeType(fileName string, mimeType string) string {
 	splitName := strings.Split(fileName, ".")
+	lastIndex := len(splitName) - 1
+	oldExtantion := splitName[lastIndex]
+
 	switch mimeType {
-		case MimeTypeDOCX: {
-			splitName[len(splitName) - 1] = "docx"
+	case MimeTypeDOCX:
+		{
+			if oldExtantion == "doc" {
+				splitName[lastIndex] = "docx"
+			} else {
+				splitName = append(splitName, "docx")
+			}
 		}
-		case MimeTypePPTX: {
-			splitName[len(splitName) - 1] = "pptx"
+	case MimeTypePPTX:
+		{
+			if oldExtantion == "ppt" {
+				splitName[lastIndex] = "pptx"
+			} else {
+				splitName = append(splitName, "pptx")
+			}
 		}
-		case MimeTypeXLSX: {
-			splitName[len(splitName) - 1] = "xlsx"
+	case MimeTypeXLSX:
+		{
+			if oldExtantion == "xls" {
+				splitName[lastIndex] = "xlsx"
+			} else {
+				splitName = append(splitName, "xlsx")
+			}
 		}
 	}
 	return strings.Join(splitName, ".")
