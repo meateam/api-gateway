@@ -55,6 +55,12 @@ const (
 	// ParamFileUpdatedAt is a constant for file updated at parameter in a request.
 	ParamFileUpdatedAt = "updatedAt"
 
+	// ParamPageNum is a constant for the requested page num in the pagination.
+	ParamPageNum = "pageNum"
+
+	// ParamPageSize is a constant for the requested page size in the pagination.
+	ParamPageSize = "pageSize"
+
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
@@ -458,9 +464,14 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		return
 	}
 
+	pageNum := stringToInt64(c.Query(ParamPageNum))
+	pageSize := stringToInt64(c.Query(ParamPageSize))
 	permissions, err := r.permissionClient.GetUserPermissions(
 		c.Request.Context(),
-		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID},
+		&ppb.GetUserPermissionsRequest{
+			UserID:   reqUser.ID,
+			PageNum:  pageNum,
+			PageSize: pageSize},
 	)
 
 	if err != nil {
