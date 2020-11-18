@@ -13,6 +13,7 @@ import (
 	uspb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.elastic.co/apm"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -36,6 +37,9 @@ const (
 
 	// ConfigBucketPostfix is the name of the environment variable containing the postfix for the bucket.
 	ConfigBucketPostfix = "bucket_postfix"
+
+	// TransactionUserLabel is the label of the custom transaction field : user.
+	TransactionUserLabel = "user"
 )
 
 //Router is a structure that handles users requests.
@@ -198,4 +202,16 @@ func normalizeCephBucketName(bucketName string) string {
 func IsExternalUser(userID string) bool {
 	_, err := primitive.ObjectIDFromHex(userID)
 	return err != nil
+}
+
+// SetApmUser adds a user to the current apm transaction.
+func SetApmUser(ctx *gin.Context, user User) {
+	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
+
+	currentTransaction.Context.SetCustom(TransactionUserLabel, user)
+	currentTransaction.Context.SetUserID(user.ID)
+
+	if user.DisplayName != "" {
+		currentTransaction.Context.SetUserEmail(user.DisplayName)
+	}
 }

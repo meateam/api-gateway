@@ -71,9 +71,6 @@ const (
 
 	// TransactionClientLabel is the label of the custom transaction field : client-name.
 	TransactionClientLabel = "client"
-
-	// TransactionClientLabel is the label of the custom transaction field : user.
-	TransactionUserLabel = "user"
 )
 
 // Middleware is a structure that handles the authentication middleware.
@@ -147,11 +144,7 @@ func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string
 	scopes := spikeToken.GetScopes()
 
 	ctx.Set(ContextScopesKey, scopes)
-	ctx.Set(ContextAppKey, DropboxAppID)
-
-	// The current transaction of the apm.
-	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
-	currentTransaction.Context.SetCustom(TransactionClientLabel, DropboxAuthTypeValue)
+	appID := DropboxAppID
 
 	// Checks the scopes, and if correct, store the user in the context.
 	for _, scope := range scopes {
@@ -161,8 +154,8 @@ func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string
 				return err
 			}
 
-			// adding the user (delegator) to the apm transaction.
-			currentTransaction.Context.SetCustom(TransactionUserLabel, user.ExtractRequestUser(ctx))
+			ctx.Set(ContextAppKey, appID)
+			SetApmClient(ctx, appID)
 
 			ctx.Next()
 			return nil
@@ -194,7 +187,11 @@ func (m *Middleware) authCodeAuthorization(ctx *gin.Context, requiredScope strin
 	// Checks the scopes, and if correct, register the user and the client ID.
 	for _, scope := range scopes {
 		if scope == requiredScope {
-			m.register(ctx, user, appID)
+			m.register(ctx, user)
+
+			ctx.Set(ContextAppKey, appID)
+			SetApmClient(ctx, appID)
+
 			ctx.Next()
 			return nil
 		}
@@ -284,33 +281,33 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 
 		delegator := delegatorObj.GetUser()
 
-		ctx.Set(user.ContextUserKey, user.User{
+		authenticatedUser := user.User{
 			ID:          delegator.GetId(),
 			FirstName:   delegator.GetFirstName(),
 			LastName:    delegator.GetLastName(),
 			Source:      user.ExternalUserSource,
 			DisplayName: delegator.GetHierarchy(),
-		})
+		}
+
+		user.SetApmUser(ctx, authenticatedUser)
+		ctx.Set(user.ContextUserKey, authenticatedUser)
 	}
 
 	return nil
 }
 
 // register saves the user and client ID into the context
-func (m *Middleware) register(ctx *gin.Context, delegator *spb.User, clientID string) {
+func (m *Middleware) register(ctx *gin.Context, delegator *spb.User) {
 
-	ctx.Set(user.ContextUserKey, user.User{
-		ID:          delegator.GetId(),
-		FirstName:   delegator.GetFirstName(),
-		LastName:    delegator.GetLastName(),
-		Source:      user.InternalUserSource,
-		DisplayName: "", // TODO: should return the user's displayName from the spike token.
-	})
+	authenticatedUser := user.User{
+		ID:        delegator.GetId(),
+		FirstName: delegator.GetFirstName(),
+		LastName:  delegator.GetLastName(),
+		Source:    user.InternalUserSource,
+	}
 
-	ctx.Set(ContextAppKey, clientID)
-
-	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
-	currentTransaction.Context.SetCustom(TransactionClientLabel, clientID)
+	user.SetApmUser(ctx, authenticatedUser)
+	ctx.Set(user.ContextUserKey, authenticatedUser)
 }
 
 func (m *Middleware) extractTokenFromHeader(ctx *gin.Context) (string, error) {
@@ -361,4 +358,10 @@ func (m *Middleware) ValidateRequiredScope(ctx *gin.Context, requiredScope strin
 	}
 
 	return false
+}
+
+// SetApmUser adds a clientID to the current apm transaction.
+func SetApmClient(ctx *gin.Context, clientID string) {
+	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
+	currentTransaction.Context.SetCustom(TransactionClientLabel, clientID)
 }

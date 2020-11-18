@@ -13,7 +13,6 @@ import (
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"go.elastic.co/apm"
 )
 
 const (
@@ -62,12 +61,6 @@ const (
 	// ConfigWebUI is the name of the environment variable containing the path to the ui.
 	ConfigWebUI = "web_ui"
 
-	// TransactionClientLabel is the label of the custom transaction field of client-name.
-	TransactionClientLabel = "client"
-
-	// TransactionClientLabel is the label of the custom transaction field : user.
-	TransactionUserLabel = "user"
-
 	// DriveClientName is the client name of the Drive UI client.
 	DriveClientName = "DriveUI"
 )
@@ -106,15 +99,14 @@ func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 		serviceName := c.GetHeader(AuthTypeHeader)
 
 		// The current transaction of the apm.
-		currentTransaction := apm.TransactionFromContext(c.Request.Context())
 
 		if serviceName != oauth.DropboxAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
 			// If not an external service, then it is a user (from the main Drive UI client).
-			currentTransaction.Context.SetCustom(TransactionClientLabel, DriveClientName)
+			oauth.SetApmClient(c, DriveClientName)
 			secret := secrets.Drive
 
 			if serviceName == DocsAuthTypeValue {
-				currentTransaction.Context.SetCustom(TransactionClientLabel, DocsAuthTypeValue)
+				oauth.SetApmClient(c, DocsAuthTypeValue)
 				secret = secrets.Docs
 			}
 
@@ -158,11 +150,6 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 		return
 	}
 
-	// The current transaction of the apm, adding the user id to the context.
-	currentTransaction := apm.TransactionFromContext(c.Request.Context())
-	currentTransaction.Context.SetUserID(id)
-	currentTransaction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
-
 	// Check type assertion.
 	// For some reason can't convert directly to int64
 	exp, ok := claims["exp"].(float64)
@@ -193,7 +180,7 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 
 	c.Set(user.ContextUserKey, authenticatedUser)
 
-	currentTransaction.Context.SetCustom(TransactionUserLabel, authenticatedUser)
+	user.SetApmUser(c, authenticatedUser)
 
 	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
 
