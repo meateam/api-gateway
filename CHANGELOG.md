@@ -5,12 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v2.2.0] - 2020-11-9
+## [v2.3.0] - 2020-11-9
 
 ### Added
 
 - Swagger documentation 
   - Now you can go to /api/docs and see the documentation 
+
+## [v2.2.0] - 2020-11-18
+
+## Added
+
+- FEAT([89](https://github.com/meateam/authentication-service/pull/89)): add curl on docker image
+
+## [v2.1.1] - 2020-11-11
+
+### Fixed
+
+- BUG([190](https://github.com/meateam/api-gateway/pull/190)): Dropbox Auth-Type fix.
 
 ## [v2.1.0] - 2020-11-1
 
@@ -39,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
-[v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.2.0
+
+[v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.2.0
+[v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0
+[v2.1.1]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/meateam/api-gateway/compare/v2.0.0...v2.1.0
 [v2.0.0]: https://github.com/meateam/api-gateway/compare/v1.3...v2.0.0
