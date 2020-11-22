@@ -51,7 +51,7 @@ pipeline {
           }
         }
       }
-    } 
+     
       // build images unit tests and system
       stage('build image of test and system') {
         parallel {
