@@ -13,8 +13,8 @@ services:
       - upload-service
       - download-service
       - file-service
-      # - authentication-service
-      # - permission-service
+      - authentication-service
+      - permission-service
       - search-service
       # - gotenberg-service
   minio:
@@ -59,38 +59,38 @@ services:
       - './data/db:/data/db'
     depends_on:
       - minio
-  # authentication-service:
-  #   image: 'drivehub.azurecr.io/meateam/authentication-service:v2.0.0'
-  #   ports:
-  #     - '8084:8080'
-  #   env_file:
-  #     - ../kdrive.env
-  #   depends_on:
-  #     - saml-idp
-  #     - user-service
+  authentication-service:
+    image: 'drivehub.azurecr.io/meateam/authentication-service:v2.0.0'
+    ports:
+      - '8084:8080'
+    env_file:
+      - ../kdrive.env
+    depends_on:
+      - saml-idp
+      - user-service
   saml-idp:
     image: 'drivehub.azurecr.io/meateam/test-saml-idp:latest'
     ports:
       - '8085:8080'
     env_file:
       - ../kdrive.env
-  # user-service:
-  #   image: 'drivehub.azurecr.io/meateam/user-service:v2.0.0'
-  #   ports:
-  #     - '8086:8080'
-  #   env_file:
-  #     - ../kdrive.env
-  #   depends_on:
-  #     - mongo
-  #     - redis
-  # permission-service:
-  #   image: 'drivehub.azurecr.io/meateam/permission-service:v2.0.0'
-  #   ports:
-  #     - '8087:8080'
-  #   env_file:
-  #     - ../kdrive.env
-  #   depends_on:
-  #     - mongo
+  user-service:
+    image: 'drivehub.azurecr.io/meateam/user-service:v2.0.0'
+    ports:
+      - '8086:8080'
+    env_file:
+      - ../kdrive.env
+    depends_on:
+      - mongo
+      - redis
+  permission-service:
+    image: 'drivehub.azurecr.io/meateam/permission-service:v2.0.0'
+    ports:
+      - '8087:8080'
+    env_file:
+      - ../kdrive.env
+    depends_on:
+      - mongo
   search-service:
     image: drivehub.azurecr.io/meateam/search-service:v2.0.0
     env_file:
