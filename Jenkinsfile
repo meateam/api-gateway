@@ -55,7 +55,7 @@ pipeline {
       stage('build image of test and system') {
         parallel {
           // build image of unit test 
-          stage('build dockerfile of tests') {
+          stage('run unit tests') {
             steps {
               
               sh " docker-compose -f docker-compose.test.yml up"
