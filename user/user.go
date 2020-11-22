@@ -79,8 +79,8 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
+	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
 	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
-	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:%s", ParamApproverID, ParamUserID), r.CanApproveToUser)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -162,7 +162,7 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, info)
 }
 
-// GetApproverInfo is the request handler for GET /users/:approverID/canApproveToUser/:id
+// GetApproverInfo is the request handler for GET /users/:id/canApproveToUser/:approverID
 func (r *Router) CanApproveToUser(c *gin.Context) {
 	reqUser := ExtractRequestUser(c)
 	if reqUser == nil {
