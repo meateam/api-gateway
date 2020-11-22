@@ -7,28 +7,36 @@ services:
       dockerfile: test.Dockerfile
     environment:
       GW_AUTH_URL: 'http://localhost:8084/auth/login'
-      GW_DOCS_URL: 'http://localhost:3000/api/files'
       GW_PORT: 8080
       GW_UPLOAD_SERVICE: 'upload-service:8080'
       GW_DOWNLOAD_SERVICE: 'download-service:8080'
       GW_FILE_SERVICE: 'file-service:8080'
       GW_PERMISSION_SERVICE: 'permission-service:8080'
-      GW_EXTERNAL_APM_URL: http://localhost:8200
-      GW_ALLOW_ORIGINS: http://localhost*
-      GW_SUPPORT_LINK: "https://open.rocket.chat"
-      GW_CHROME_DOWNLOAD_URL: "https://google.com/chrome/"
-      ELASTICSEARCH_URL: http://localhost:9200
-      LOG_INDEX: kdrive
-      LOG_LEVEL: info
-      ELASTIC_APM_SERVER_URL: http://localhost:8200
-      ELASTIC_APM_SERVICE_NAME: api-gateway
-      ELASTIC_APM_SERVICE_VERSION: 0.1
-      ELASTIC_APM_ENVIRONMENT: development
+      GW_USER_SERVICE: 'user-service:8080'
+      GW_SEARCH_SERVICE: 'search-service:8080'
+      GW_PERMIT_SERVICE: 'permit-service:8080'
+      GW_DELEGATION_SERVICE: 'delegation-service:8080'
+      GW_WEB_UI: 'web-ui:8080'
+      GW_GOTENBERG_SERVICE: 'http://gotenberg-service:8080'
+      GW_ALLOW_ORIGINS: 'http://localhost*'
+      GW_SUPPORT_LINK: 'https://open.rocket.chat/home'
+      GW_CHROME_DOWNLOAD_URL: 'https://google.com/chrome/'
+      GW_APPROVAL_URL: http://localhost/api/v1/request
+      GW_VIP_SERVICE: "http://localhost:8094"
+      GW_BUCKET_POSTFIX: "kdrive"
+      ELASTICSEARCH_URL: 'http://localhost:9200'
+      LOG_INDEX: 'kdrive'
+      LOG_LEVEL: 'info'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVICE_NAME: 'api-gateway'
+      ELASTIC_APM_SERVICE_VERSION: '0.1'
+      ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_IGNORE_URLS: /api/healthcheck
-      ELASTIC_APM_CAPTURE_BODY: 'off'
-      ELASTIC_APM_METRICS_INTERVAL: 10s
-      GW_SECRET: pandora@drive
+      ELASTIC_APM_IGNORE_URLS: '/api/healthcheck'
+      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_METRICS_INTERVAL: '10s'
+      GW_EXTERNAL_APM_URL: 'http://localhost:8200'
+      GW_SECRET: 'pandora@drive'
     ports:
       - '8080:8080'
     depends_on:
@@ -51,21 +59,22 @@ services:
   upload-service:
     image: 'drivehub.azurecr.io/meateam/upload-service:v2.0.0'
     environment:
-      S3_ACCESS_KEY: F6WUUG27HBUFSIXVZL59
-      S3_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
+      S3_ACCESS_KEY: 'F6WUUG27HBUFSIXVZL59'
+      S3_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
       S3_ENDPOINT: 'http://minio:9000'
-      TCP_PORT: 8080
-      HOST_NAME: upload-service
-      ELASTICSEARCH_URL: http://localhost:9200
-      LOG_INDEX: kdrive
-      LOG_LEVEL: debug
+      TCP_PORT: '8080'
+      HOST_NAME: 'upload-service'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
+      LOG_INDEX: 'kdrive'
+      LOG_LEVEL: 'debug'
       ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       ELASTIC_APM_SERVICE_NAME: 'upload-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_CAPTURE_BODY: 'off'
+      ELASTIC_APM_CAPTURE_BODY: 'all'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
+      US_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     depends_on:
       - minio
     ports:
@@ -73,21 +82,22 @@ services:
   download-service:
     image: 'drivehub.azurecr.io/meateam/download-service:v2.0.0'
     environment:
-      S3_ACCESS_KEY: F6WUUG27HBUFSIXVZL59
-      S3_SECRET_KEY: BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR
+      S3_ACCESS_KEY: 'F6WUUG27HBUFSIXVZL59'
+      S3_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
       S3_ENDPOINT: 'http://minio:9000'
-      TCP_PORT: 8080
-      HOST_NAME: download-service
-      ELASTICSEARCH_URL: http://localhost:9200
-      LOG_INDEX: kdrive
-      LOG_LEVEL: debug
+      TCP_PORT: '8080'
+      HOST_NAME: 'download-service'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
+      LOG_INDEX: 'kdrive'
+      LOG_LEVEL: 'debug'
       ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
       ELASTIC_APM_SERVICE_NAME: 'download-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_CAPTURE_BODY: 'off'
+      ELASTIC_APM_CAPTURE_BODY: 'all'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
+      DS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     ports:
       - '8082:8080'
     depends_on:
@@ -95,7 +105,21 @@ services:
   file-service:
     image: 'drivehub.azurecr.io/meateam/file-service:v2.0.0'
     environment: 
-      MONGO_HOST: mongodb://mongo:27017/devDB
+      BIND_ADDRESS: '0.0.0.0:8080'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
+      ELASTICSEARCH_USER: ''
+      ELASTICSEARCH_PASSWORD: ''
+      LOG_INDEX: 'kdrive'
+      APM_SECRET_TOKEN: ''
+      FS_APM_SERVICE_NAME: 'file-service'
+      ELASTIC_APM_VERIFY_SERVER_CERT: 'false'
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      USER_QUOTA_LIMIT: '10'
+      NODE_ENV: 'dev'
+      DEBUG_MODE: 'false'
+      RECONNECT_ATTEMPTS: '5'
+      RECONNECT_TIMEOUT: '2000'
+      MONGO_HOST: 'mongodb://mongo:27017/devDB'
     ports:
       - '8083:8080'
     depends_on:
@@ -117,9 +141,10 @@ services:
       SAML_ISSUER: 'http://localhost:8084/auth/metadata.xml'
       SAML_CALLBACK_URL: 'http://localhost:8084/auth/metadata.xml/callback'
       USERS_RPC_ENDPOINT: 'user-service:8080'
-      SECRET_KEY: pandora@drive
-      CLIENT_ENDPOINT: 'http://localhost:8080/api/config'
-      STRATEGY: 'saml'
+      SECRET_KEY: 'pandora@drive'
+      CLIENT_ENDPOINT: 'http://localhost'
+      SHRAGA_URL: 'web-ui:8080'
+      STRATEGY: 'shraga'
     depends_on:
       - user-service
   user-service:
@@ -127,8 +152,23 @@ services:
     ports:
       - '8086:8080'
     environment:
-      KARTOFFEL_URL: http://localhost:8080
-      RPC_PORT: 8080
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
+      KARTOFFEL_URL: 'http://kartoffel-master.eastus.cloudapp.azure.com:3000'
+      RPC_PORT: '8080'
+      REDIS_PORT: '6379'
+      REDIS_HOST: 'redis'
+      LOG_INDEX: 'kdrive'
+      SPIKE_CLIENT_ID: EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub
+      SPIKE_CLIENT_SECRET: u5qxEK0sy17ReZ7t8aVeN1gCcdI9hRiM78i9J_9Z6jA2YWcvbgczcchKqZ4WnXOsdT6jxmuVCLC3~RXuVcE5EsOG4JJi~B8AJQSB
+      SPIKE_REQUIRED: 'true'
+      SPIKE_URL: 'https://spike.westeurope.cloudapp.azure.com'
+      SPIKE_AUTH_SERVER_PORT: '1337'
+      SPIKE_TOKEN_URL: 'https://spike.westeurope.cloudapp.azure.com:1337/oauth2/token'
+      TOKEN: >-
+        eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJrYXJ0b2ZmZWwiLCJzdWIiOiI1ZDc2NTA2NTBmYWY2ODIwOTQ4YzMzZGQiLCJzY29wZSI6W10sImNsaWVudElkIjoiRVBCcGpDaWN6dXBDWFpnQkVxM0FSWkNpblV0NExTWHRPc1ZySTFVYiIsImlhdCI6MTU2ODIxMDM1NSwiZXhwIjoxNTY4MjEwNTM1LCJpc3MiOiJodHRwczovLzUxLjE0NC4xNzguMTIxIn0.bSALlqft4U_FiiPr8gtYxx1AOVmnwMxN9-ardt5FhaY_UhKc18PIq5dBSMCMp34sfZnwsBh7uxL3wxDjPxZzYb_RMyLc_wonUurdDjI9zBq5fkyhwdNdBxIirBooVMwjt3mqxVtvVSsWvip3Lfj0zW-qb7n_n5LDRI4YG36cfUc_FCA60keccyHGMJJ1jd8trTvx1XQT8-PTlOlIQifws42Hpc3KIAUM0a2K-VuhK8bdQgcnvkB9Ca55OstOFi27cFf1jV9VO1as5yA6WabDTxht5KxfVN-nMpHhQN0CFw-kngIX2P8F0rlmA2JwmSPVcnDF3OweMAs5CBHQzkdomA
+      DEBUG_MODE: 'false'
+      USR_MONGO_HOST: 'mongodb://mongo:27017/devDB'
     depends_on:
       - mongo
       - redis
@@ -137,38 +177,38 @@ services:
     ports:
       - '8087:8080'
     environment:
-      PORT: 8080
-      HOST_NAME: permission-service
-      MONGO_HOST: mongodb://mongo:27017/permission
-      ELASTICSEARCH_URL: http://localhost:9200
-      LOG_INDEX: kdrive
-      LOG_LEVEL: debug
-      HEALTH_CHECK_INTERVAL: 5
+      PS_PORT: '8080'
+      PS_MONGO_HOST: 'mongodb://mongo:27017/permission'
+      PS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
+      PS_MONGO_CLIENT_CONNECTION_TIMEOUT: '10'
+      PS_MONGO_CLIENT_PING_TIMEOUT: '10'
+      PS_HEALTH_CHECK_INTERVAL: '3'
+      ELASTICSEARCH_URL: 'http://localhost:9200'
       ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
-      ELASTIC_APM_SERVICE_NAME: 'permission-service'
-      ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
       ELASTIC_APM_CAPTURE_BODY: 'all'
       ELASTIC_APM_METRICS_INTERVAL: '10s'
-      ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     depends_on:
       - mongo
   search-service:
     image: drivehub.azurecr.io/meateam/search-service:v2.0.0
     environment:
-      ELASTICSEARCH_URL: http://localhost:9200
+      SS_PORT: 8080
+      SS_HOST_NAME: search-service
+      SS_ELASTICSEARCH_URL: http://localhost:9200
+      SS_ELASTICSEARCH_INDEX: files
       LOG_INDEX: kdrive
-      LOG_LEVEL: info
-      ELASTIC_APM_SERVER_URL: http://localhost:8200
-      ELASTIC_APM_SERVICE_NAME: api-gateway
-      ELASTIC_APM_SERVICE_VERSION: 0.1
-      ELASTIC_APM_ENVIRONMENT: development
+      LOG_LEVEL: debug
+      SS_HEALTH_CHECK_INTERVAL: 5
+      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVICE_NAME: 'search-service'
+      ELASTIC_APM_SERVICE_VERSION: '0.1'
+      ELASTIC_APM_ENVIRONMENT: 'development'
       ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_IGNORE_URLS: /api/healthcheck
-      ELASTIC_APM_CAPTURE_BODY: 'off'
-      ELASTIC_APM_METRICS_INTERVAL: 10s
-      GW_SECRET: pandora@drive
+      ELASTIC_APM_CAPTURE_BODY: 'all'
+      ELASTIC_APM_METRICS_INTERVAL: '10s'
+      SS_ELASTIC_APM_IGNORE_URLS: '/grpc.health.v1.Health/Check'
     ports:
       - 8088:8080
     depends_on: 
@@ -177,18 +217,14 @@ services:
   spike-service:
     image: drivehub.azurecr.io/meateam/spike-service:v2.0.0
     environment:
-        ELASTICSEARCH_URL: http://localhost:9200
-        LOG_INDEX: kdrive
-        LOG_LEVEL: info
-        ELASTIC_APM_SERVER_URL: http://localhost:8200
-        ELASTIC_APM_SERVICE_NAME: api-gateway
-        ELASTIC_APM_SERVICE_VERSION: 0.1
-        ELASTIC_APM_ENVIRONMENT: development
-        ELASTIC_APM_ACTIVE: 'true'
-        ELASTIC_APM_IGNORE_URLS: /api/healthcheck
-        ELASTIC_APM_CAPTURE_BODY: 'off'
-        ELASTIC_APM_METRICS_INTERVAL: 10s
-        GW_SECRET: pandora@drive
+      AUDIENCE: "0mBMe5vYJyuFtvHpEWVDPumqaVl~xr"
+      SPIKE_CLIENT_ID: "EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub"
+      SPIKE_CLIENT_SECRET: "u5qxEK0sy17ReZ7t8aVeN1gCcdI9hRiM78i9J_9Z6jA2YWcvbgczcchKqZ4WnXOsdT6jxmuVCLC3~RXuVcE5EsOG4JJi~B8AJQSB"
+      REDIS_URL: 'redis://redis:6379'
+      SPIKE_TOKEN_URL: "https://spike.westeurope.cloudapp.azure.com:1337/oauth2/token"
+      SPIKE_PUBLIC_KEY_FULL_PATH: "/usr/src/app/utils/publickey.pem"
+      SPIKE_PUBKEY_PATH: 'https://spike.westeurope.cloudapp.azure.com:1337/.well-known/publickey.pem'
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
     depends_on:
       - redis
     ports:
@@ -198,18 +234,10 @@ services:
     ports:
       - '8091:8080'
     environment:
-      ELASTICSEARCH_URL: http://localhost:9200
-      LOG_INDEX: kdrive
-      LOG_LEVEL: info
-      ELASTIC_APM_SERVER_URL: http://localhost:8200
-      ELASTIC_APM_SERVICE_NAME: api-gateway
-      ELASTIC_APM_SERVICE_VERSION: 0.1
-      ELASTIC_APM_ENVIRONMENT: development
-      ELASTIC_APM_ACTIVE: 'true'
-      ELASTIC_APM_IGNORE_URLS: /api/healthcheck
-      ELASTIC_APM_CAPTURE_BODY: 'off'
-      ELASTIC_APM_METRICS_INTERVAL: 10s
-      GW_SECRET: pandora@drive
+      DEL_PROT: 8080
+      DEL_SPIKE_REQUIRED: 'false'
+      PHONE_BOOK_URL: 'http://localhost'
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
   redis:
     image: 'redis:alpine'
     ports:
