@@ -57,7 +57,7 @@ pipeline {
           // build image of unit test 
           stage('run unit tests') {
             steps {
-              sh " docker-compose -f docker-compose.test.yml up -d"
+              sh " docker-compose -f docker-compose.test.yml up --exit-code-from api-gateway                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              "
             }  
           }
           // login to acr when pushed to branch master or develop 
