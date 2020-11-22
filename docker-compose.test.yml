@@ -13,10 +13,10 @@ services:
       - upload-service
       - download-service
       - file-service
-      - authentication-service
-      - permission-service
+      # - authentication-service
+      # - permission-service
       - search-service
-      - gotenberg-service
+      # - gotenberg-service
   minio:
     image: minio/minio
     volumes:
@@ -59,38 +59,38 @@ services:
       - './data/db:/data/db'
     depends_on:
       - minio
-  authentication-service:
-    image: 'drivehub.azurecr.io/meateam/authentication-service:v2.0.0'
-    ports:
-      - '8084:8080'
-    env_file:
-      - ../kdrive.env
-    depends_on:
-      - saml-idp
-      - user-service
+  # authentication-service:
+  #   image: 'drivehub.azurecr.io/meateam/authentication-service:v2.0.0'
+  #   ports:
+  #     - '8084:8080'
+  #   env_file:
+  #     - ../kdrive.env
+  #   depends_on:
+  #     - saml-idp
+  #     - user-service
   saml-idp:
     image: 'drivehub.azurecr.io/meateam/test-saml-idp:latest'
     ports:
       - '8085:8080'
     env_file:
       - ../kdrive.env
-  user-service:
-    image: 'drivehub.azurecr.io/meateam/user-service:v2.0.0'
-    ports:
-      - '8086:8080'
-    env_file:
-      - ../kdrive.env
-    depends_on:
-      - mongo
-      - redis
-  permission-service:
-    image: 'drivehub.azurecr.io/meateam/permission-service:v2.0.0'
-    ports:
-      - '8087:8080'
-    env_file:
-      - ../kdrive.env
-    depends_on:
-      - mongo
+  # user-service:
+  #   image: 'drivehub.azurecr.io/meateam/user-service:v2.0.0'
+  #   ports:
+  #     - '8086:8080'
+  #   env_file:
+  #     - ../kdrive.env
+  #   depends_on:
+  #     - mongo
+  #     - redis
+  # permission-service:
+  #   image: 'drivehub.azurecr.io/meateam/permission-service:v2.0.0'
+  #   ports:
+  #     - '8087:8080'
+  #   env_file:
+  #     - ../kdrive.env
+  #   depends_on:
+  #     - mongo
   search-service:
     image: drivehub.azurecr.io/meateam/search-service:v2.0.0
     env_file:
@@ -100,38 +100,38 @@ services:
     depends_on: 
       elasticsearch:
         condition: service_healthy
-  gotenberg-service:
-    image: drivehub.azurecr.io/meateam/gotenberg:6
-    env_file:
-      - ../kdrive.env
-    tmpfs:
-      - /tmp
-      - /gotenberg/tmp
-    ports:
-      - 8089:8080
-  spike-service:
-    image: drivehub.azurecr.io/meateam/spike-service:v2.0.0
-    env_file:
-      - ../kdrive.env
-    depends_on:
-      - redis
-    ports:
-      - '8090:8080'
-  delegation-service:
-    image: drivehub.azurecr.io/meateam/delegation-service:v2.0.0
-    ports:
-      - '8091:8080'
-    env_file:
-      - ../kdrive.env
-  permit-service:
-    image: drivehub.azurecr.io/meateam/permit-service:v2.0.0
-    env_file:
-      - ../kdrive.env
-    ports:
-      - 8092:8080
-    depends_on:
-      - mongo
-      - spike-service
+  # gotenberg-service:
+  #   image: drivehub.azurecr.io/meateam/gotenberg:6
+  #   env_file:
+  #     - ../kdrive.env
+  #   tmpfs:
+  #     - /tmp
+  #     - /gotenberg/tmp
+  #   ports:
+  #     - 8089:8080
+  # spike-service:
+  #   image: drivehub.azurecr.io/meateam/spike-service:v2.0.0
+  #   env_file:
+  #     - ../kdrive.env
+  #   depends_on:
+  #     - redis
+  #   ports:
+  #     - '8090:8080'
+  # delegation-service:
+  #   image: drivehub.azurecr.io/meateam/delegation-service:v2.0.0
+  #   ports:
+  #     - '8091:8080'
+  #   env_file:
+  #     - ../kdrive.env
+  # permit-service:
+  #   image: drivehub.azurecr.io/meateam/permit-service:v2.0.0
+  #   env_file:
+  #     - ../kdrive.env
+  #   ports:
+  #     - 8092:8080
+  #   depends_on:
+  #     - mongo
+  #     - spike-service
   redis:
     image: 'redis:alpine'
     ports:
@@ -147,8 +147,8 @@ services:
       interval: 5s
       timeout: 10s
       retries: 5
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.5.0
-    container_name: kibana
-    ports: ['5601:5601']
-    depends_on: ['elasticsearch']
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:7.5.0
+  #   container_name: kibana
+  #   ports: ['5601:5601']
+  #   depends_on: ['elasticsearch']
