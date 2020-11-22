@@ -16,7 +16,7 @@ services:
       - authentication-service
       - permission-service
       - search-service
-      # - gotenberg-service
+      - gotenberg-service
   minio:
     image: minio/minio
     volumes:
@@ -100,38 +100,38 @@ services:
     depends_on: 
       elasticsearch:
         condition: service_healthy
-  # gotenberg-service:
-  #   image: drivehub.azurecr.io/meateam/gotenberg:6
-  #   env_file:
-  #     - ../kdrive.env
-  #   tmpfs:
-  #     - /tmp
-  #     - /gotenberg/tmp
-  #   ports:
-  #     - 8089:8080
-  # spike-service:
-  #   image: drivehub.azurecr.io/meateam/spike-service:v2.0.0
-  #   env_file:
-  #     - ../kdrive.env
-  #   depends_on:
-  #     - redis
-  #   ports:
-  #     - '8090:8080'
-  # delegation-service:
-  #   image: drivehub.azurecr.io/meateam/delegation-service:v2.0.0
-  #   ports:
-  #     - '8091:8080'
-  #   env_file:
-  #     - ../kdrive.env
-  # permit-service:
-  #   image: drivehub.azurecr.io/meateam/permit-service:v2.0.0
-  #   env_file:
-  #     - ../kdrive.env
-  #   ports:
-  #     - 8092:8080
-  #   depends_on:
-  #     - mongo
-  #     - spike-service
+  gotenberg-service:
+    image: drivehub.azurecr.io/meateam/gotenberg:6
+    env_file:
+      - ../kdrive.env
+    tmpfs:
+      - /tmp
+      - /gotenberg/tmp
+    ports:
+      - 8089:8080
+  spike-service:
+    image: drivehub.azurecr.io/meateam/spike-service:v2.0.0
+    env_file:
+      - ../kdrive.env
+    depends_on:
+      - redis
+    ports:
+      - '8090:8080'
+  delegation-service:
+    image: drivehub.azurecr.io/meateam/delegation-service:v2.0.0
+    ports:
+      - '8091:8080'
+    env_file:
+      - ../kdrive.env
+  permit-service:
+    image: drivehub.azurecr.io/meateam/permit-service:v2.0.0
+    env_file:
+      - ../kdrive.env
+    ports:
+      - 8092:8080
+    depends_on:
+      - mongo
+      - spike-service
   redis:
     image: 'redis:alpine'
     ports:
@@ -147,8 +147,8 @@ services:
       interval: 5s
       timeout: 10s
       retries: 5
-  # kibana:
-  #   image: docker.elastic.co/kibana/kibana:7.5.0
-  #   container_name: kibana
-  #   ports: ['5601:5601']
-  #   depends_on: ['elasticsearch']
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.5.0
+    container_name: kibana
+    ports: ['5601:5601']
+    depends_on: ['elasticsearch']
