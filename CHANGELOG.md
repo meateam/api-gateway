@@ -15,9 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
-
-## Added
- 
 - FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
 
 ## [v2.2.0] - 2020-11-18
