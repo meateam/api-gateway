@@ -663,7 +663,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	fileRange := c.GetHeader(ContentRangeHeader)
 	if fileRange == "" {
 		ContentRangeHeaderErr := fmt.Errorf("%s is required", ContentRangeHeader)
-		r.deleteUploadOnErrorWithStatus(c, http.StatusBadRequest, ContentRangeHeaderErr, upload.GetKey(), upload.GetBucket());
+		r.deleteUploadOnErrorWithStatus(c, http.StatusBadRequest, ContentRangeHeaderErr, upload.GetKey(), upload.GetBucket())
 		return
 	}
 
@@ -673,7 +673,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 	_, err = fmt.Sscanf(fileRange, "bytes %d-%d/%d", &rangeStart, &rangeEnd, &fileSize)
 	if err != nil {
 		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
-		r.deleteUploadOnErrorWithStatus(c, http.StatusInternalServerError, contentRangeErr, upload.GetKey(), upload.GetBucket());
+		r.deleteUploadOnErrorWithStatus(c, http.StatusInternalServerError, contentRangeErr, upload.GetKey(), upload.GetBucket())
 		return
 	}
 
@@ -684,7 +684,7 @@ func (r *Router) UploadPart(c *gin.Context) {
 
 	stream, err := r.uploadClient.UploadPart(spanCtx)
 	if err != nil {
-		r.deleteUploadOnError(c, err, upload.GetKey(), upload.GetBucket());
+		r.deleteUploadOnError(c, err, upload.GetKey(), upload.GetBucket())
 		return
 	}
 
