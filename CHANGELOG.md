@@ -11,18 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The user in context is now more enriched (with fields like job, rank, current unit...)
 - The metrics metric now contains a timestamp and more information about the user.
-- Add a mime type update option.
 
-## [v2.2.1] - 2020-11-23
+### Added
 
-## Added
-
-- 
+- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
 - FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
 
 ## [v2.2.0] - 2020-11-18
 
-## Added
+### Added
 
 - FEAT([89](https://github.com/meateam/authentication-service/pull/89)): add curl on docker image
 
@@ -59,7 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
-[v2.2.1]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.2.1
 [v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0
 [v2.1.1]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/meateam/api-gateway/compare/v2.0.0...v2.1.0

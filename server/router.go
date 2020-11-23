@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/meateam/api-gateway/delegation"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
@@ -73,13 +74,13 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 				"authUrl":              viper.GetString(configAuthURL),
 				"docsUrl":              viper.GetString(configDocsURL),
 				"supportLink":          viper.GetString(configSupportLink),
-				"dropboxSupportLink":  viper.GetString(configDropboxSupportLink),
+				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
 				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
 				"externalShareName":    viper.GetString(configExternalShareName),
 				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
 				"vipServiceUrl":        viper.GetString(configVipService),
 				"enableExternalShare":  viper.GetString(configEnableExternalShare),
-				"whiteListText":  viper.GetString(configWhiteListText),
+				"whiteListText":        viper.GetString(configWhiteListText),
 			},
 		)
 	})
@@ -154,6 +155,31 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
+
+	// handler for swagger documentation
+	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile)+"/swagger.json")
+
+	if viper.GetBool(configShowSwaggerUI) {
+		opts := middleware.SwaggerUIOpts{
+			SpecURL:  "/api/swagger",
+			BasePath: "/api",
+		}
+
+		sh := middleware.SwaggerUI(opts, nil)
+		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+	} else {
+		opts := middleware.RedocOpts{
+			SpecURL:  "/api/swagger",
+			BasePath: "/api",
+			RedocURL: "/api/redoc",
+		}
+
+		// redoc UI
+		apiRoutesGroup.StaticFile("/redoc", viper.GetString(configSwaggerPathFile)+"/redoc.standalone.js")
+
+		sh := middleware.Redoc(opts, nil)
+		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+	}
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
@@ -243,6 +269,5 @@ func initServiceConn(url string) (*grpc.ClientConn, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return conn, nil
 }
