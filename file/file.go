@@ -200,6 +200,12 @@ type GetFileByIDResponse struct {
 	AppID       string      `json:"appID,omitempty"`
 }
 
+type GetSharedFilesResponse struct {
+	Files     []*GetFileByIDResponse `json:"files,omitempty"`
+	PageNum   int64                  `json:"pageNum"`
+	ItemCount int64                  `json:"itemCount"`
+}
+
 type partialFile struct {
 	ID          string  `json:"id,omitempty"`
 	Name        string  `json:"name,omitempty"`
@@ -517,7 +523,13 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		}
 	}
 
-	c.JSON(http.StatusOK, files)
+	sharedFilesResponse := &GetSharedFilesResponse{
+		Files:     files,
+		PageNum:   permissions.PageNum,
+		ItemCount: permissions.ItemCount,
+	}
+
+	c.JSON(http.StatusOK, sharedFilesResponse)
 }
 
 // DeleteFileByID is the request handler for DELETE /files/:id request.

@@ -60,7 +60,7 @@ services:
       MINIO_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
     command: server /data
   upload-service:
-    image: 'bluehub.azurecr.io/meateam/upload-service:develop'
+    image: 'drivehub.azurecr.io/meateam/upload-service:develop'
     environment:
       S3_ACCESS_KEY: 'F6WUUG27HBUFSIXVZL59'
       S3_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
@@ -83,7 +83,7 @@ services:
     ports:
       - '8081:8080'
   download-service:
-    image: 'bluehub.azurecr.io/meateam/download-service:develop'
+    image: 'drivehub.azurecr.io/meateam/download-service:develop'
     environment:
       S3_ACCESS_KEY: 'F6WUUG27HBUFSIXVZL59'
       S3_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
@@ -106,7 +106,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'bluehub.azurecr.io/meateam/file-service:develop'
+    image: 'drivehub.azurecr.io/meateam/file-service:develop'
     environment:
       BIND_ADDRESS: '0.0.0.0:8080'
       ELASTICSEARCH_URL: 'http://localhost:9200'
@@ -136,7 +136,7 @@ services:
     depends_on:
       - minio
   authentication-service:
-    image: 'bluehub.azurecr.io/meateam/authentication-service:develop'
+    image: 'drivehub.azurecr.io/meateam/authentication-service:develop'
     ports:
       - '8084:8080'
     environment:
@@ -152,7 +152,7 @@ services:
       - saml-idp
       - user-service
   saml-idp:
-    image: 'bluehub.azurecr.io/meateam/test-saml-idp:latest'
+    image: 'drivehub.azurecr.io/meateam/test-saml-idp:latest'
     ports:
       - '8085:8080'
     environment:
@@ -160,7 +160,7 @@ services:
       SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: 'http://localhost:8084/auth/metadata.xml/callback'
       SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: 'http://localhost:8084/auth/logout'
   user-service:
-    image: 'bluehub.azurecr.io/meateam/user-service:develop'
+    image: 'drivehub.azurecr.io/meateam/user-service:develop'
     ports:
       - '8086:8080'
     environment:
@@ -185,7 +185,7 @@ services:
       - mongo
       - redis
   permission-service:
-    image: 'bluehub.azurecr.io/meateam/permission-service:develop'
+    image: 'drivehub.azurecr.io/meateam/permission-service:develop'
     ports:
       - '8087:8080'
     environment:
@@ -204,16 +204,16 @@ services:
     depends_on:
       - mongo
   search-service:
-    image: bluehub.azurecr.io/meateam/search-service:develop
+    image: drivehub.azurecr.io/meateam/search-service:develop
     environment:
       SS_PORT: 8080
       SS_HOST_NAME: search-service
-      SS_ELASTICSEARCH_URL: http://localhost:9200
+      SS_ELASTICSEARCH_URL: http://elasticsearch:9200
       SS_ELASTICSEARCH_INDEX: files
       LOG_INDEX: kdrive
       LOG_LEVEL: debug
       SS_HEALTH_CHECK_INTERVAL: 5
-      ELASTIC_APM_SERVER_URL: 'http://localhost:8200'
+      ELASTIC_APM_SERVER_URL: 'http://elasticsearch:8200'
       ELASTIC_APM_SERVICE_NAME: 'search-service'
       ELASTIC_APM_SERVICE_VERSION: '0.1'
       ELASTIC_APM_ENVIRONMENT: 'development'
@@ -227,7 +227,7 @@ services:
       elasticsearch:
         condition: service_healthy
   gotenberg-service:
-    image: bluehub.azurecr.io/meateam/gotenberg:6
+    image: drivehub.azurecr.io/meateam/gotenberg:6
     environment:
       DEFAULT_LISTEN_PORT: 8080
       DISABLE_GOOGLE_CHROME: 1
@@ -237,7 +237,7 @@ services:
     ports:
       - 8089:8080
   spike-service:
-    image: bluehub.azurecr.io/meateam/spike-service:latest
+    image: drivehub.azurecr.io/meateam/spike-service:develop
     environment:
       AUDIENCE: "0mBMe5vYJyuFtvHpEWVDPumqaVl~xr"
       SPIKE_CLIENT_ID: "EPBpjCiczupCXZgBEq3ARZCinUt4LSXtOsVrI1Ub"
@@ -252,16 +252,16 @@ services:
     ports:
       - '8090:8080'
   delegation-service:
-    image: bluehub.azurecr.io/meateam/delegation-service:develop
+    image: drivehub.azurecr.io/meateam/delegation-service:develop
     ports:
       - '8091:8080'
     environment:
       DEL_PROT: 8080
       DEL_SPIKE_REQUIRED: 'false'
-      PHONE_BOOK_URL: 'http://localhost'
+      PHONE_BOOK_URL: 'http://phonebook-red.rabaz.org'
       NODE_TLS_REJECT_UNAUTHORIZED: 0
   permit-service:
-    image: bluehub.azurecr.io/meateam/permit-service:develop
+    image: drivehub.azurecr.io/meateam/permit-service:develop
     environment:
       PMTS_PORT: 8080
       HOST_NAME: permit-service
