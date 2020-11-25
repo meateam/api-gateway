@@ -15,7 +15,7 @@ const (
 	configPort                  = "port"
 	configUploadService         = "upload_service"
 	configDelegationService     = "delegation_service"
-	configDocsSecret			= "docs_secret"
+	configDocsSecret            = "docs_secret"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
 	configUserService           = "user_service"
@@ -45,7 +45,9 @@ const (
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
 	configEnableExternalShare   = "enable_external_share"
-	configWhiteListText = "white_list_text"
+	configWhiteListText         = "white_list_text"
+	configSwaggerPathFile       = "swagger_path_file"
+	configShowSwaggerUI         = "show_swagger_ui"
 )
 
 var (
@@ -84,8 +86,10 @@ func init() {
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
+	viper.SetDefault(configShowSwaggerUI, false)
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
+	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
 	viper.SetEnvPrefix(envPrefix)

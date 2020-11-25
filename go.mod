@@ -6,6 +6,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.3.0
 	github.com/gin-gonic/gin v1.5.0
+	github.com/go-openapi/runtime v0.19.23
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
@@ -31,8 +32,6 @@ require (
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger
-
-replace github.com/meateam/api-gateway/user => ./user
 
 replace github.com/meateam/api-gateway/upload => ./upload
 
