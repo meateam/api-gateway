@@ -201,7 +201,7 @@ type GetFileByIDResponse struct {
 }
 
 type GetSharedFilesResponse struct {
-	Files     []*GetFileByIDResponse `json:"files,omitempty"`
+	Files     []*GetFileByIDResponse `json:"files"`
 	PageNum   int64                  `json:"pageNum"`
 	ItemCount int64                  `json:"itemCount"`
 }
@@ -477,7 +477,8 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		&ppb.GetUserPermissionsRequest{
 			UserID:   reqUser.ID,
 			PageNum:  pageNum,
-			PageSize: pageSize},
+			PageSize: pageSize,
+			IsShared: true},
 	)
 
 	if err != nil {
