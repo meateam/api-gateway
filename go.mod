@@ -6,8 +6,13 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.3.0
 	github.com/gin-gonic/gin v1.5.0
-	github.com/go-openapi/runtime v0.19.23
+	github.com/go-openapi/runtime v0.19.24
+	github.com/go-openapi/validate v0.19.15 // indirect
+	github.com/go-swagger/go-swagger v0.25.0 // indirect
+	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
+	github.com/kr/pretty v0.2.1 // indirect
+	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
@@ -20,15 +25,22 @@ require (
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
 	github.com/meateam/user-service v0.0.0-20200727105634-935fd55aab5e
 	github.com/olivere/elastic/v7 v7.0.9
+	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
-	github.com/spf13/viper v1.6.1
+	github.com/spf13/afero v1.4.1 // indirect
+	github.com/spf13/viper v1.7.1
 	go.elastic.co/apm v1.6.0
 	go.elastic.co/apm/module/apmgin v1.6.0
 	go.elastic.co/apm/module/apmgrpc v1.6.0
 	go.elastic.co/apm/module/apmhttp v1.6.0
-	go.mongodb.org/mongo-driver v1.3.4
+	go.mongodb.org/mongo-driver v1.4.4
+	golang.org/x/mod v0.4.0 // indirect
+	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb // indirect
+	golang.org/x/sys v0.0.0-20201202213521-69691e467435 // indirect
+	golang.org/x/tools v0.0.0-20201202200335-bef1c476418a // indirect
 	google.golang.org/grpc v1.27.0
+	gopkg.in/ini.v1 v1.62.0 // indirect
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger

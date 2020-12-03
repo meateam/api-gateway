@@ -23,7 +23,7 @@
   "paths": {
     "/delegators": {
       "get": {
-        "description": "This will return a single delegator by its partial name",
+        "description": "This returns a single delegator by its partial name",
         "schemes": [
           "http"
         ],
@@ -58,7 +58,7 @@
     },
     "/delegators/{id}": {
       "get": {
-        "description": "This will return a single external user by its id from the phonebook",
+        "description": "This returns a single external user by its id from the phonebook",
         "schemes": [
           "http"
         ],
@@ -94,7 +94,7 @@
     },
     "/files": {
       "get": {
-        "description": "This will return all files according to the requested folder",
+        "description": "This returns all files according to the requested folder",
         "schemes": [
           "http"
         ],
@@ -522,7 +522,7 @@
         }
       },
       "patch": {
-        "description": "This will update the permits to the file",
+        "description": "This updates the permits to the file",
         "schemes": [
           "http"
         ],
@@ -559,6 +559,43 @@
         ],
         "responses": {
           "200": {}
+        }
+      }
+    },
+    "/files/{id}?alt=media": {
+      "get": {
+        "description": "This download a single file according to the requested folder",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Single file content",
+        "operationId": "downloadFile",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/downloadFileResponse"
+          }
         }
       }
     },
@@ -649,7 +686,7 @@
     },
     "/upload/{id}": {
       "put": {
-        "description": "This will Update the contents of the file according to its ID",
+        "description": "This Updates the contents of the file according to its ID",
         "schemes": [
           "http"
         ],
@@ -1296,6 +1333,9 @@
       "schema": {
         "$ref": "#/definitions/GetUserResponse"
       }
+    },
+    "downloadFileResponse": {
+      "description": "Single file content"
     },
     "fileAncestorsResponse": {
       "description": "File ancestors",

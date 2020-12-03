@@ -62,6 +62,31 @@ type fileRequest struct {
 	Authorization string
 }
 
+// swagger:route GET /files/{id}?alt=media files downloadFile
+//
+// Single file content
+//
+// This download a single file according to the requested folder
+//
+// Schemes: http
+// Responses:
+// 	200: downloadFileResponse
+
+// swagger:parameters downloadFile
+type downloadFileRequest struct {
+	// The file id
+	// unique:true
+	// required:true
+	// in:path
+	ID string `json:"id"`
+
+	// The jwt key
+	// example:Bearer &{jwt}
+	// in:header
+	// required:true
+	Authorization string
+}
+
 // An array of files
 // swagger:response filesResponse
 type filesResponse struct {
@@ -74,6 +99,12 @@ type filesResponse struct {
 type fileResponse struct {
 	// in:body
 	Body file.GetFileByIDResponse
+}
+
+// Single file content
+// swagger:response downloadFileResponse
+type downloadFileResponse struct {
+	
 }
 
 // swagger:route GET /files/{id}/ancestors files fileAncestors
