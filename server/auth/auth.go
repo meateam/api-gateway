@@ -136,13 +136,13 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 	}
 
 	// Check type assertion
-	id, idOk := claims["id"].(string)
-	firstName, firstNameOk := claims[FirstNameLabel].(string)
-	lastName, lastNameOk := claims[LastNameLabel].(string)
-	displayName := claims[DisplayNameLabel].(string)
-	currentUnit := claims[CurrentUnitLabel].(string)
-	rank := claims[RankLabel].(string)
-	job := claims[JobLabel].(string)
+	id, idOk := claims["id"]
+	firstName, firstNameOk := claims[FirstNameLabel]
+	lastName, lastNameOk := claims[LastNameLabel]
+	displayName := claims[DisplayNameLabel]
+	job := claims[JobLabel]
+	currentUnit := claims[CurrentUnitLabel]
+	rank := claims[RankLabel]
 
 	// If any of the claims are invalid then redirect to authentication
 	if !idOk || !firstNameOk || !lastNameOk {
@@ -168,14 +168,14 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 	}
 
 	authenticatedUser := user.User{
-		ID:          id,
-		FirstName:   firstName,
-		LastName:    lastName,
+		ID:          fmt.Sprintf("%s", id),
+		FirstName:   fmt.Sprintf("%s", firstName),
+		LastName:    fmt.Sprintf("%s", lastName),
 		Source:      user.InternalUserSource,
-		DisplayName: displayName,
-		CurrentUnit: currentUnit,
-		Rank:        rank,
-		Job:         job,
+		DisplayName: fmt.Sprintf("%s", displayName),
+		CurrentUnit: fmt.Sprintf("%s", currentUnit),
+		Rank:        fmt.Sprintf("%s", rank),
+		Job:         fmt.Sprintf("%s", job),
 	}
 
 	c.Set(user.ContextUserKey, authenticatedUser)
