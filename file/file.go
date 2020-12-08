@@ -458,11 +458,11 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		return
 	}
 
+	// Get user permissions (shared and owner)
 	permissions, err := r.permissionClient.GetUserPermissions(
 		c.Request.Context(),
 		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID},
 	)
-
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -470,10 +470,13 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		return
 	}
 
+	// Make an empty slice of files
 	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
+
 	for _, permission := range permissions.GetPermissions() {
 		file, err := r.fileClient.GetFileByID(c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
+
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -486,12 +489,13 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		if isSpecificApp && file.GetAppID() != queryAppID {
 			continue
 		} else {
-			// Show only drive and dropbox shared files
+			// Show only drive and dropbox shared files - exclude different apps.
 			if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
 				continue
 			}
 		}
 
+		// If the user isn't the owner of the file, it means that the file is shared with him
 		if file.GetOwnerID() != reqUser.ID {
 			userPermission := &ppb.PermissionObject{
 				FileID:  permission.GetFileID(),
