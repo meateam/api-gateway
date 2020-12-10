@@ -212,6 +212,11 @@ type updateFilesRequest struct {
 	PartialFile partialFile `json:"partialFile"`
 }
 
+type getSharedFilesResponse struct {
+	Successful []*GetFileByIDResponse `json:"successful"`
+	Failed     []string               `json:"failed"`
+}
+
 // NewRouter creates a new Router, and initializes clients of File Service
 // and Download Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
@@ -471,17 +476,18 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 	}
 
 	// Make an empty slice of files
-	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
+	filesSuccesful := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
+	filesFailed := make([]string, 0, len(permissions.GetPermissions()))
 
 	for _, permission := range permissions.GetPermissions() {
 		file, err := r.fileClient.GetFileByID(c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 
 		if err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			loggermiddleware.LogError(r.logger, fmt.Errorf("failed fetching file %v: %v", permission.GetFileID(), err))
 
-			return
+			filesFailed = append(filesFailed, permission.GetFileID())
+			continue
 		}
 
 		// If a specific appID was requested, return only its files.
@@ -503,14 +509,15 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 				Role:    permission.GetRole(),
 				Creator: permission.GetCreator(),
 			}
-			files = append(
-				files,
+			filesSuccesful = append(
+				filesSuccesful,
 				CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
 			)
 		}
 	}
 
-	c.JSON(http.StatusOK, files)
+	filesRes := &getSharedFilesResponse{Successful: filesSuccesful, Failed: filesFailed}
+	c.JSON(http.StatusOK, filesRes)
 }
 
 // DeleteFileByID is the request handler for DELETE /files/:id request.
