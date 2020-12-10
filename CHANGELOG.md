@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The user in context is now more enriched (with fields like job, rank, current unit...)
 - The metrics metric now contains a timestamp and more information about the user.
 
+### Fixed
+
+- Fix the fetching of GetSharedFiles bug that returns 404.
+
 ### Added
 
 - FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
