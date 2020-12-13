@@ -215,6 +215,7 @@ type updateFilesRequest struct {
 type getSharedFilesResponse struct {
 	Successful []*GetFileByIDResponse `json:"successful"`
 	Failed     []string               `json:"failed"`
+	ErrMsg     string                 `json:"errMsg,omitempty"`
 }
 
 // NewRouter creates a new Router, and initializes clients of File Service
@@ -516,7 +517,12 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		}
 	}
 
-	filesRes := &getSharedFilesResponse{Successful: filesSuccesful, Failed: filesFailed}
+	var errMsg string
+	if len(filesFailed) > 0 {
+		errMsg = "file not found"
+	}
+
+	filesRes := &getSharedFilesResponse{Successful: filesSuccesful, Failed: filesFailed, ErrMsg: errMsg}
 	c.JSON(http.StatusOK, filesRes)
 }
 
