@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- hotfix: ([49](https://github.com/meateam/drive-ui/pull/49/)) : fix fetch shared files bug.
+- major: ([204](https://github.com/meateam/api-gateway/pull/204)) : Fix the fetching of GetSharedFiles bug that returns 404. Instead of returning only the successful files, it returns the successful files, the failed files and the error (if any) (breaking changes)  
 
 ### Added
 
