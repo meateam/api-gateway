@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -155,7 +157,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	healthInterval := viper.GetInt(configHealthCheckInterval)
 	healthRPCTimeout := viper.GetInt(configHealthCheckRPCTimeout)
 
-	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, conns...)
+	badConns := make(chan *grpcPoolTypes.ConnPool, len(conns))
+
+	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, badConns, conns...)
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
@@ -278,4 +282,22 @@ func initServiceConn(url string) (*grpcPoolTypes.ConnPool, error) {
 		return nil, err
 	}
 	return &connPool, nil
+}
+
+func reviveConns(conns <-chan *grpcPoolTypes.ConnPool) {
+	for {
+		pool := <-conns
+		go func(pool *grpcPoolTypes.ConnPool) {
+			target := (*pool).Conn().Target()
+			var newPool *grpcPoolTypes.ConnPool
+			err := fmt.Errorf("temp")
+			for err != nil {
+				time.Sleep(time.Second * time.Duration(2))
+				err = nil
+				newPool, err = initServiceConn(target)
+			}
+			(*pool).Close()
+			pool = newPool
+		}(pool)
+	}
 }

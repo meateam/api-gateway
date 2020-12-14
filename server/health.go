@@ -35,6 +35,7 @@ func (h *Health) Check(
 	rpcTimeout int,
 	logger *logrus.Logger,
 	gotenberg *gotenberg.Client,
+	badConns chan<- *grpcPoolTypes.ConnPool,
 	conns ...*grpcPoolTypes.ConnPool) {
 	rpcTimeoutDuration := time.Duration(rpcTimeout) * time.Second
 	for {
@@ -56,6 +57,7 @@ func (h *Health) Check(
 				} else {
 					logger.Printf("error: %s health rpc failed: %+v", err, targetMsg)
 				}
+				badConns <- pool
 				h.UnSet()
 				flag = false
 			}
