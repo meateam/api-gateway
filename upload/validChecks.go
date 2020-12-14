@@ -2,6 +2,8 @@ package upload
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
@@ -9,7 +11,6 @@ import (
 	"github.com/meateam/api-gateway/user"
 	ppb "github.com/meateam/permission-service/proto"
 	"google.golang.org/grpc/status"
-	"net/http"
 )
 
 // getUserFromContext extracts the user from the context.
@@ -34,8 +35,8 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 
 	userFilePermission, _, err := file.CheckUserFilePermission(
 		c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileClient(),
+		r.permissionClient(),
 		reqUser.ID,
 		fileID,
 		role,

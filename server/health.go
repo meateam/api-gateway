@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/gotenberg-go-client/v6"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -35,38 +35,37 @@ func (h *Health) Check(
 	rpcTimeout int,
 	logger *logrus.Logger,
 	gotenberg *gotenberg.Client,
-	conns ...*grpc.ClientConn) {
+	conns ...*grpcPoolTypes.ConnPool) {
 	rpcTimeoutDuration := time.Duration(rpcTimeout) * time.Second
 	for {
 		flag := true
-		for _, conn := range conns {
-			func() {
-				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), rpcTimeoutDuration)
-				defer rpcCancel()
-				resp, err := healthpb.NewHealthClient(conn).Check(
-					rpcCtx, &healthpb.HealthCheckRequest{Service: ""})
-				targetMsg := fmt.Sprintf("target server %s", conn.Target())
-				if err != nil {
-					if stat, ok := status.FromError(err); ok && stat.Code() == codes.Unimplemented {
-						logger.Printf(
-							"error: %s does not implement the grpc health protocol (grpc.health.v1.Health)",
-							targetMsg)
-					} else if stat, ok := status.FromError(err); ok && stat.Code() == codes.DeadlineExceeded {
-						logger.Printf("timeout: %s health rpc did not complete within %v", targetMsg, rpcTimeout)
-					} else {
-						logger.Printf("error: %s health rpc failed: %+v", err, targetMsg)
-					}
-					h.UnSet()
-					flag = false
+		for _, pool := range conns {
+			conn := (*pool).Conn()
+			rpcCtx, rpcCancel := context.WithTimeout(context.Background(), rpcTimeoutDuration)
+			defer rpcCancel()
+			resp, err := healthpb.NewHealthClient(conn).Check(
+				rpcCtx, &healthpb.HealthCheckRequest{Service: ""})
+			targetMsg := fmt.Sprintf("target server %s", conn.Target())
+			if err != nil {
+				if stat, ok := status.FromError(err); ok && stat.Code() == codes.Unimplemented {
+					logger.Printf(
+						"error: %s does not implement the grpc health protocol (grpc.health.v1.Health)",
+						targetMsg)
+				} else if stat, ok := status.FromError(err); ok && stat.Code() == codes.DeadlineExceeded {
+					logger.Printf("timeout: %s health rpc did not complete within %v", targetMsg, rpcTimeout)
+				} else {
+					logger.Printf("error: %s health rpc failed: %+v", err, targetMsg)
 				}
+				h.UnSet()
+				flag = false
+			}
 
-				if resp.GetStatus() != healthpb.HealthCheckResponse_SERVING {
-					logger.Printf("%s service unhealthy (responded with %q)",
-						targetMsg, resp.GetStatus().String())
-					h.UnSet()
-					flag = false
-				}
-			}()
+			if resp.GetStatus() != healthpb.HealthCheckResponse_SERVING {
+				logger.Printf("%s service unhealthy (responded with %q)",
+					targetMsg, resp.GetStatus().String())
+				h.UnSet()
+				flag = false
+			}
 		}
 
 		if !gotenberg.Healthy() {

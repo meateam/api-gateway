@@ -24,6 +24,7 @@ import (
 	"github.com/meateam/gotenberg-go-client/v6"
 	grpcPool "github.com/meateam/grpc-go-conn-pool/grpc"
 	grpcPoolOptions "github.com/meateam/grpc-go-conn-pool/grpc/options"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -38,7 +39,7 @@ const (
 )
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
-func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
+func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -138,7 +139,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// initiate middlewares
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
-	conns := []*grpc.ClientConn{
+	conns := []*grpcPoolTypes.ConnPool{
 		fileConn,
 		uploadConn,
 		downloadConn,
@@ -187,13 +188,13 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
-		searchConn, userConn, delegateConn, gotenbergClient, om, logger)
+		searchConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
-	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, delegateConn, om, logger)
+	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
@@ -264,14 +265,17 @@ func corsRouterConfig() cors.Config {
 // initServiceConn creates a gRPC connection to url, returns the created connection
 // and nil err on success. Returns non-nil error if any error occurred while
 // creating the connection.
-func initServiceConn(url string) (*grpc.ClientConn, error) {
+func initServiceConn(url string) (*grpcPoolTypes.ConnPool, error) {
 	ctx := context.Background()
 	connPool, err := grpcPool.DialPool(ctx,
-		grpcPoolOptions.withEndpoint(url),
-		grpcPoolOptions.WithGRPCConnectionPool(viper.GetString(configPoolSize)),
+		grpcPoolOptions.WithGRPCDialOption(grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor())),
+		grpcPoolOptions.WithGRPCDialOption(grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20))),
+		grpcPoolOptions.WithGRPCDialOption(grpc.WithInsecure()),
+		grpcPoolOptions.WithEndpoint(url),
+		grpcPoolOptions.WithGRPCConnectionPool(viper.GetInt(configPoolSize)),
 	)
 	if err != nil {
 		return nil, err
 	}
-	return connPool, nil
+	return &connPool, nil
 }

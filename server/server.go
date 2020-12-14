@@ -6,8 +6,8 @@ import (
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/user"
 	ilogger "github.com/meateam/elasticsearch-logger"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -101,7 +101,7 @@ func init() {
 // Server is a structure that holds the http server of the api-gateway.
 type Server struct {
 	server *http.Server
-	conns  []*grpc.ClientConn
+	conns  []*grpcPoolTypes.ConnPool
 }
 
 // NewServer creates a Server of the api-gateway.
@@ -123,7 +123,7 @@ func NewServer() *Server {
 func (s *Server) Listen() {
 	defer func() {
 		for _, v := range s.conns {
-			v.Close()
+			(*v).Close()
 		}
 	}()
 

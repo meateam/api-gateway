@@ -306,8 +306,8 @@ github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e h1:8yz3
 github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e/go.mod h1:NOdhFDgEF8KJAH52BbdPBrFMFvYUSJHWUBN7eziwUWw=
 github.com/meateam/gotenberg-go-client/v6 v6.0.7 h1:9De2v5f6LPo92nzVjBbAlwyrMmqmPhQLIDZLP5qNHYo=
 github.com/meateam/gotenberg-go-client/v6 v6.0.7/go.mod h1:6Rfyc4psQ0N2GUBOp7fUjXblxHG+U9NdicqVgXd2tTQ=
-github.com/meateam/grpc-go-conn-pool v0.0.0-20201213132314-7b7543a5d5a8 h1:n4YJ0t9J/ULBahBhnrFT7UJfNRZOL6dKS4mtoBLlGfs=
-github.com/meateam/grpc-go-conn-pool v0.0.0-20201213132314-7b7543a5d5a8/go.mod h1:J+X9nSaR6J5mTt11iI8KxNFmUr10IAFoH47E7+nFklI=
+github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8 h1:lnzFfsxZdjpr9wdZiLoMykZtW0NsCDwUDWUxUWG5WII=
+github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8/go.mod h1:J+X9nSaR6J5mTt11iI8KxNFmUr10IAFoH47E7+nFklI=
 github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b h1:kLuCtglmkQf5K1FYI3CytVBAlaGdlh0rUg6qgnF+dvQ=
 github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b/go.mod h1:sOpwhHZYMTLqIcPVvypRs074zb9sOEWpLa4zh3eJEy0=
 github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9 h1:QJyL1aocmE6ZFQcA3XFrNXBSP3JVxxYJAmyrwwx3hIk=

@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/delegation-service/proto/delegation-service"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	spb "github.com/meateam/spike-service/proto/spike-service"
 	"github.com/sirupsen/logrus"
 	"go.elastic.co/apm"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -75,8 +76,8 @@ const (
 
 // Middleware is a structure that handles the authentication middleware.
 type Middleware struct {
-	spikeClient    spb.SpikeClient
-	delegateClient dpb.DelegationClient
+	spikeClient    factory.SpikeClientFactory
+	delegateClient factory.DelegationClientFactory
 	logger         *logrus.Logger
 }
 
@@ -84,8 +85,8 @@ type Middleware struct {
 // If logger is non-nil then it will be set as-is,
 // otherwise logger would default to logrus.New().
 func NewOAuthMiddleware(
-	spikeConn *grpc.ClientConn,
-	delegateConn *grpc.ClientConn,
+	spikeConn *grpcPoolTypes.ConnPool,
+	delegateConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Middleware {
 	// If no logger is given, use a default logger.
@@ -95,9 +96,12 @@ func NewOAuthMiddleware(
 
 	m := &Middleware{logger: logger}
 
-	m.spikeClient = spb.NewSpikeClient(spikeConn)
-
-	m.delegateClient = dpb.NewDelegationClient(delegateConn)
+	m.spikeClient = func() spb.SpikeClient {
+		return spb.NewSpikeClient((*spikeConn).Conn())
+	}
+	m.delegateClient = func() dpb.DelegationClient {
+		return dpb.NewDelegationClient((*delegateConn).Conn())
+	}
 
 	return m
 }
@@ -216,7 +220,7 @@ func (m *Middleware) extractAuthCodeToken(ctx *gin.Context) (*spb.ValidateAuthCo
 		Token: token,
 	}
 
-	spikeResponse, err := m.spikeClient.ValidateAuthCodeToken(ctx, validateAuthCodeTokenRequest)
+	spikeResponse, err := m.spikeClient().ValidateAuthCodeToken(ctx, validateAuthCodeTokenRequest)
 	if err != nil {
 		return nil, ctx.AbortWithError(http.StatusInternalServerError,
 			fmt.Errorf("internal error while authenticating the auth-code token: %v", err))
@@ -242,7 +246,7 @@ func (m *Middleware) extractClientCredentialsToken(ctx *gin.Context) (*spb.Valid
 		Token: token,
 	}
 
-	spikeResponse, err := m.spikeClient.ValidateToken(ctx, validateSpikeTokenRequest)
+	spikeResponse, err := m.spikeClient().ValidateToken(ctx, validateSpikeTokenRequest)
 	if err != nil {
 		return nil, ctx.AbortWithError(http.StatusInternalServerError,
 			fmt.Errorf("internal error while authenticating the client-credentias token: %v", err))
@@ -268,7 +272,7 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 		getUserByIDRequest := &dpb.GetUserByIDRequest{
 			Id: delegatorID,
 		}
-		delegatorObj, err := m.delegateClient.GetUserByID(ctx.Request.Context(), getUserByIDRequest)
+		delegatorObj, err := m.delegateClient().GetUserByID(ctx.Request.Context(), getUserByIDRequest)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
 				return ctx.AbortWithError(http.StatusUnauthorized,

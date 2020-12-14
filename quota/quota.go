@@ -5,17 +5,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	qpb "github.com/meateam/file-service/proto/quota"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
 // Router is a structure that handles quota related requests.
 type Router struct {
-	quotaClient qpb.QuotaServiceClient
+	quotaClient factory.QuotaClientFactory
 	logger      *logrus.Logger
 }
 
@@ -23,7 +24,7 @@ type Router struct {
 // with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	quotaConn *grpc.ClientConn,
+	quotaConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -33,7 +34,9 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.quotaClient = qpb.NewQuotaServiceClient(quotaConn)
+	r.quotaClient = func() qpb.QuotaServiceClient {
+		return qpb.NewQuotaServiceClient((*quotaConn).Conn())
+	}
 
 	return r
 }
@@ -81,7 +84,7 @@ func (r *Router) handleGetQuota(c *gin.Context, requesterID string, ownerID stri
 		return
 	}
 
-	quota, err := r.quotaClient.GetOwnerQuota(
+	quota, err := r.quotaClient().GetOwnerQuota(
 		c.Request.Context(),
 		&qpb.GetOwnerQuotaRequest{OwnerID: ownerID},
 	)
@@ -96,7 +99,7 @@ func (r *Router) handleGetQuota(c *gin.Context, requesterID string, ownerID stri
 
 // IsAllowedToGetQuota is used to check if the user is allowed to get another user's quota
 func (r *Router) isAllowedToGetQuota(c *gin.Context, reqUserID string, ownerID string) bool {
-	res, err := r.quotaClient.IsAllowedToGetQuota(
+	res, err := r.quotaClient().IsAllowedToGetQuota(
 		c.Request.Context(),
 		&qpb.IsAllowedToGetQuotaRequest{RequestingUser: reqUserID, OwnerID: ownerID},
 	)

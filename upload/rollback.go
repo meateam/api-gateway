@@ -25,7 +25,7 @@ func (r *Router) deleteUploadOnErrorWithStatus(c *gin.Context, status int, err e
 		return
 	}
 
-	_, deleteErr := r.fileClient.DeleteUploadByKey(c.Request.Context(), &fpb.DeleteUploadByKeyRequest{
+	_, deleteErr := r.fileClient().DeleteUploadByKey(c.Request.Context(), &fpb.DeleteUploadByKeyRequest{
 		Key:    key,
 		Bucket: bucket,
 	})
