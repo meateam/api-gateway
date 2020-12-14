@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"regexp"
@@ -21,6 +22,8 @@ import (
 	"github.com/meateam/api-gateway/upload"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/gotenberg-go-client/v6"
+	grpcPool "github.com/meateam/grpc-go-conn-pool/grpc"
+	grpcPoolOptions "github.com/meateam/grpc-go-conn-pool/grpc/options"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -262,12 +265,13 @@ func corsRouterConfig() cors.Config {
 // and nil err on success. Returns non-nil error if any error occurred while
 // creating the connection.
 func initServiceConn(url string) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(url,
-		grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor()),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)),
-		grpc.WithInsecure())
+	ctx := context.Background()
+	connPool, err := grpcPool.DialPool(ctx,
+		grpcPoolOptions.withEndpoint(url),
+		grpcPoolOptions.WithGRPCConnectionPool(viper.GetString(configPoolSize)),
+	)
 	if err != nil {
 		return nil, err
 	}
-	return conn, nil
+	return connPool, nil
 }

@@ -48,6 +48,7 @@ const (
 	configWhiteListText         = "white_list_text"
 	configSwaggerPathFile       = "swagger_path_file"
 	configShowSwaggerUI         = "show_swagger_ui"
+	configPoolSize              = "pool_size"
 )
 
 var (
@@ -92,6 +93,7 @@ func init() {
 	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
+	viper.SetDefault(configPoolSize, 4)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

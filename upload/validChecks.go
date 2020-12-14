@@ -2,14 +2,14 @@ package upload
 
 import (
 	"fmt"
-	"net/http"
-	"google.golang.org/grpc/status"
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	ppb "github.com/meateam/permission-service/proto"
+	"google.golang.org/grpc/status"
+	"net/http"
 )
 
 // getUserFromContext extracts the user from the context.
@@ -64,4 +64,3 @@ func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool
 	}
 	return queryRes, true
 }
-

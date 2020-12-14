@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// deleteUploadOnError removes the upload object in file-service when an error occurs, 
+// deleteUploadOnError removes the upload object in file-service when an error occurs,
 // it returns the quota to it's original size
 func (r *Router) deleteUploadOnError(c *gin.Context, err error, key string, bucket string) {
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -26,7 +26,7 @@ func (r *Router) deleteUploadOnErrorWithStatus(c *gin.Context, status int, err e
 	}
 
 	_, deleteErr := r.fileClient.DeleteUploadByKey(c.Request.Context(), &fpb.DeleteUploadByKeyRequest{
-		Key: key,
+		Key:    key,
 		Bucket: bucket,
 	})
 
