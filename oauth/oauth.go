@@ -76,9 +76,13 @@ const (
 
 // Middleware is a structure that handles the authentication middleware.
 type Middleware struct {
-	spikeClient    factory.SpikeClientFactory
+	// SpikeClientFactory
+	spikeClient factory.SpikeClientFactory
+
+	// DelegationClientFactory
 	delegateClient factory.DelegationClientFactory
-	logger         *logrus.Logger
+
+	logger *logrus.Logger
 }
 
 // NewOAuthMiddleware generates a middleware.

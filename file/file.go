@@ -154,15 +154,27 @@ var (
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	downloadClient   factory.DownloadClientFactory
-	fileClient       factory.FileClientFactory
-	uploadClient     factory.UploadClientFactory
+	// DownloadClientFactory
+	downloadClient factory.DownloadClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// UploadClientFactory
+	uploadClient factory.UploadClientFactory
+
+	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
-	permitClient     factory.PermitClientFactory
-	searchClient     factory.SearchClientFactory
-	gotenbergClient  *gotenberg.Client
-	oAuthMiddleware  *oauth.Middleware
-	logger           *logrus.Logger
+
+	// PermitClientFactory
+	permitClient factory.PermitClientFactory
+
+	// SearchClientFactory
+	searchClient factory.SearchClientFactory
+
+	gotenbergClient *gotenberg.Client
+	oAuthMiddleware *oauth.Middleware
+	logger          *logrus.Logger
 }
 
 // Permission is a struct that describes a user's permission to a file.

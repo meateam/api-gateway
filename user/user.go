@@ -45,8 +45,10 @@ const (
 
 //Router is a structure that handles users requests.
 type Router struct {
+	// UserClientFactory
 	userClient factory.UserClientFactory
-	logger     *logrus.Logger
+
+	logger *logrus.Logger
 }
 
 // User is a structure of an authenticated user.

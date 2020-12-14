@@ -272,9 +272,9 @@ func corsRouterConfig() cors.Config {
 	return corsConfig
 }
 
-// initServiceConn creates a gRPC connection to url, returns the created connection
+// initServiceConn creates a gRPC connection pool to url, returns the created connection pool
 // and nil err on success. Returns non-nil error if any error occurred while
-// creating the connection.
+// creating the connection pool.
 func initServiceConn(url string) (*grpcPoolTypes.ConnPool, error) {
 	ctx := context.Background()
 	connPool, err := grpcPool.DialPool(ctx,

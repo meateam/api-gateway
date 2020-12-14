@@ -26,10 +26,16 @@ const (
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	searchClient     factory.SearchClientFactory
-	fileClient       factory.FileClientFactory
+	// SearchClientFactory
+	searchClient factory.SearchClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
-	logger           *logrus.Logger
+
+	logger *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of search Service

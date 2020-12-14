@@ -107,13 +107,21 @@ func marshalSearchPB(f *fpb.File, file *spb.File) error {
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	uploadClient     factory.UploadClientFactory
-	fileClient       factory.FileClientFactory
+	// UploadClientFactory
+	uploadClient factory.UploadClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
-	searchClient     factory.SearchClientFactory
-	oAuthMiddleware  *oauth.Middleware
-	logger           *logrus.Logger
-	mu               sync.Mutex
+
+	// SearchClientFactory
+	searchClient factory.SearchClientFactory
+
+	oAuthMiddleware *oauth.Middleware
+	logger          *logrus.Logger
+	mu              sync.Mutex
 }
 
 // uploadInitBody is a structure of the json body of upload init request.

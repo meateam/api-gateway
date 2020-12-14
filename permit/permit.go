@@ -52,11 +52,17 @@ type updatePermitStatusRequest struct {
 
 // Router is a structure that handles permission requests.
 type Router struct {
-	permitClient     factory.PermitClientFactory
-	fileClient       factory.FileClientFactory
+	// PermitClientFactory
+	permitClient factory.PermitClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
-	oAuthMiddleware  *oauth.Middleware
-	logger           *logrus.Logger
+
+	oAuthMiddleware *oauth.Middleware
+	logger          *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service

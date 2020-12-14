@@ -16,8 +16,10 @@ import (
 
 // Router is a structure that handles quota related requests.
 type Router struct {
+	// QuotaClientFactory
 	quotaClient factory.QuotaClientFactory
-	logger      *logrus.Logger
+
+	logger *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service

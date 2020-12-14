@@ -57,11 +57,17 @@ type Permission struct {
 
 // Router is a structure that handles permission requests.
 type Router struct {
+	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
-	fileClient       factory.FileClientFactory
-	userClient       factory.UserClientFactory
-	oAuthMiddleware  *oauth.Middleware
-	logger           *logrus.Logger
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// UserClientFactory
+	userClient factory.UserClientFactory
+
+	oAuthMiddleware *oauth.Middleware
+	logger          *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service

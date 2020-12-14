@@ -25,8 +25,10 @@ const (
 
 // Router is a structure that handels delegation requests.
 type Router struct {
+	// DelegationClientFactory
 	delegateClient factory.DelegationClientFactory
-	logger         *logrus.Logger
+
+	logger *logrus.Logger
 }
 
 // NewRouter creates a new Router. If logger is non-nil then it will be
