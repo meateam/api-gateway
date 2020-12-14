@@ -141,17 +141,23 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	// initiate middlewares
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
-	conns := []*grpcPoolTypes.ConnPool{
-		fileConn,
-		uploadConn,
-		downloadConn,
-		permissionConn,
-		userConn,
-		searchConn,
-		spikeConn,
+
+	nonFatalConns := []*grpcPoolTypes.ConnPool{
 		permitConn,
 		delegateConn,
+		userConn,
+		spikeConn,
 	}
+
+	fatalConns := []*grpcPoolTypes.ConnPool{
+		fileConn,
+		downloadConn,
+		permissionConn,
+		uploadConn,
+		searchConn,
+	}
+
+	conns := append(fatalConns, nonFatalConns...)
 
 	health := NewHealthChecker()
 	healthInterval := viper.GetInt(configHealthCheckInterval)
@@ -159,7 +165,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	badConns := make(chan *grpcPoolTypes.ConnPool, len(conns))
 
-	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, badConns, conns...)
+	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, badConns, nonFatalConns, fatalConns...)
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
