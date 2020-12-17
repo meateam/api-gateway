@@ -166,6 +166,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	badConns := make(chan *grpcPoolTypes.ConnPool, len(conns))
 
 	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, badConns, nonFatalConns, fatalConns...)
+	go reviveConns(badConns)
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
