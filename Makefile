@@ -16,3 +16,12 @@ run: build
 		./$(BINARY_NAME)
 fmt:
 		./gofmt.sh
+
+#alias swagger="docker run --rm -it -e GOPATH=$HOME/go:/go -v $HOME:$HOME -w $(pwd) quay.io/goswagger/swagger"
+# Swagger
+install_swagger:
+	which swagger || go get -u github.com/go-swagger/go-swagger/cmd/swagger
+
+swagger: install_swagger
+	swagger generate spec -o ./swagger/swagger.json --scan-models
+

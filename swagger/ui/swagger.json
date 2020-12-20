@@ -1,0 +1,1385 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "http"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "title": "Drive API.",
+    "contact": {
+      "name": "Drive team",
+      "url": "http://www.google.com",
+      "email": "drive.team@example.com"
+    },
+    "version": "v2.0.0"
+  },
+  "host": "pandora.northeurope.cloudapp.azure.com",
+  "basePath": "/api",
+  "paths": {
+    "/delegators": {
+      "get": {
+        "description": "This will return a single delegator by its partial name",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "delegation"
+        ],
+        "summary": "Search delegator",
+        "operationId": "searchdelegator",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "Partial",
+            "description": "The user name",
+            "name": "partial",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/delegatorResponse"
+          }
+        }
+      }
+    },
+    "/delegators/{id}": {
+      "get": {
+        "description": "This will return a single external user by its id from the phonebook",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "delegation"
+        ],
+        "summary": "User",
+        "operationId": "delegator",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The delegator id",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/delegatorResponse"
+          }
+        }
+      }
+    },
+    "/files": {
+      "get": {
+        "description": "This will return all files according to the requested folder",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "List of files",
+        "operationId": "listFiles",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "description": "The parent of the files",
+            "name": "Parent",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/filesResponse"
+          }
+        }
+      },
+      "put": {
+        "description": "Updates many files with the same value.",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Update files",
+        "operationId": "updateFiles",
+        "parameters": [
+          {
+            "description": "Array of ids to update.",
+            "name": "IDs",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "description": "The update info",
+            "name": "PartialFile",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GetFileByIDResponse"
+            }
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UpdateResponse"
+          }
+        }
+      }
+    },
+    "/files/{id}": {
+      "get": {
+        "description": "This returns a single file according to the requested folder",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Single file",
+        "operationId": "file",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/fileResponse"
+          }
+        }
+      },
+      "put": {
+        "description": "This updates the file according to its id",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Update file",
+        "operationId": "updateFile",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id to update",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "The update info",
+            "name": "PartialFile",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/GetFileByIDResponse"
+            }
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UpdateResponse"
+          }
+        }
+      },
+      "delete": {
+        "description": "This deletes the file according to its id",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Delete file",
+        "operationId": "deleteFile",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id to delete",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/DeleteResponse"
+          }
+        }
+      }
+    },
+    "/files/{id}/ancestors": {
+      "get": {
+        "description": "This returns all of the ancestors of a given file",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Returns the file's ancestors",
+        "operationId": "fileAncestors",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/fileAncestorsResponse"
+          }
+        }
+      }
+    },
+    "/files/{id}/permissions": {
+      "get": {
+        "description": "This returns the permissions of a given file",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "File permissions",
+        "operationId": "getpermission",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/permissionsResponse"
+          }
+        }
+      },
+      "put": {
+        "description": "This creates a permissions to a given file",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Create permissions",
+        "operationId": "putpermission",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          },
+          {
+            "description": "The request body for permission",
+            "name": "Details",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/PermissionDetails"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/permissionResponse"
+          }
+        }
+      },
+      "delete": {
+        "description": "This deletes the permission of a file by its id and user",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Delete permissions",
+        "operationId": "deletepermission",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "x-go-name": "UserID",
+            "description": "The user id",
+            "name": "userId",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/permissionResponse"
+          }
+        }
+      }
+    },
+    "/files/{id}/permits": {
+      "get": {
+        "description": "This returns the permits of a given file",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "File permits",
+        "operationId": "getpermits",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/permitsResponse"
+          }
+        }
+      },
+      "put": {
+        "description": "This creates the permits of a given file",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Create file permits",
+        "operationId": "putpermits",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          },
+          {
+            "description": "The request body for creating a permit",
+            "name": "Details",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/PermitDetails"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/permitResponse"
+          }
+        }
+      },
+      "patch": {
+        "description": "This will update the permits to the file",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "files"
+        ],
+        "summary": "Update file permits",
+        "operationId": "patchpermits",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          },
+          {
+            "description": "The request body for update permit",
+            "name": "Details",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/UpdatePermitDetails"
+            }
+          }
+        ],
+        "responses": {
+          "200": {}
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "description": "This returns the file by search query",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "search"
+        ],
+        "summary": "User quota by id",
+        "operationId": "getSearchRequest",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "Q",
+            "description": "The search query",
+            "name": "q",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/getSearchResponse"
+          }
+        }
+      }
+    },
+    "/upload": {
+      "post": {
+        "description": "Uploads a folder.",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "upload"
+        ],
+        "summary": "Upload folder",
+        "operationId": "uploadfolder",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The parent of the new folder",
+            "name": "Parent",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "example": "application/vnd.drive.folder",
+            "x-go-name": "ContentType",
+            "description": "Folder type.",
+            "name": "Content-Type",
+            "in": "header"
+          },
+          {
+            "type": "string",
+            "example": "filename=folderName",
+            "x-go-name": "ContentDisposition",
+            "description": "The folder name",
+            "name": "Content-Disposition",
+            "in": "header"
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UploadResponse"
+          }
+        }
+      }
+    },
+    "/upload/{id}": {
+      "put": {
+        "description": "This will Update the contents of the file according to its ID",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "upload"
+        ],
+        "summary": "Update file content",
+        "operationId": "updateFileContent",
+        "parameters": [
+          {
+            "uniqueItems": true,
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The file id to update",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "file",
+            "x-go-name": "File",
+            "description": "The new file content",
+            "name": "file",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UploadResponse"
+          }
+        }
+      }
+    },
+    "/upload?UploadType=": {
+      "post": {
+        "description": "Initializes the resumable upload.",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "upload"
+        ],
+        "summary": "Init resumable upload",
+        "operationId": "initresumable",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The parent of the new file",
+            "name": "Parent",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "x-go-name": "XContentLength",
+            "description": "The file size",
+            "name": "X-Content-Length",
+            "in": "header"
+          },
+          {
+            "type": "string",
+            "name": "Authorization",
+            "in": "query"
+          },
+          {
+            "description": "The request body for upload resumable",
+            "name": "Details",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/FileDetails"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/initResumableResponse"
+          }
+        }
+      }
+    },
+    "/upload?UploadType=multipart": {
+      "post": {
+        "description": "Upload a small file under 5MB .",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "upload"
+        ],
+        "summary": "Upload multipart",
+        "operationId": "uploadmultipart",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "multipart",
+            "description": "Upload type.",
+            "name": "UploadType",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The parent of the new file",
+            "name": "Parent",
+            "in": "query"
+          },
+          {
+            "type": "file",
+            "x-go-name": "File",
+            "description": "The new file metadata",
+            "name": "file",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "name": "Authorization",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UploadResponse"
+          }
+        }
+      }
+    },
+    "/upload?UploadType=resumable": {
+      "post": {
+        "description": "Upload a big file over 5MB and up to 5TB .\nRuns after the init resumable upload",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "upload"
+        ],
+        "summary": "Upload resumable",
+        "operationId": "uploadresumable",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "resumable",
+            "description": "Upload type.",
+            "name": "UploadType",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "example": "5e23e4a5-027a-431b-bd67-39e46b59595a",
+            "x-go-name": "UploadID",
+            "description": "Upload id from init resumable upload.",
+            "name": "uploadId",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The parent of the new file",
+            "name": "Parent",
+            "in": "query"
+          },
+          {
+            "type": "file",
+            "x-go-name": "File",
+            "description": "The new file",
+            "name": "file",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "name": "Authorization",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/UploadResponse"
+          }
+        }
+      }
+    },
+    "/user/quota": {
+      "get": {
+        "description": "This returns the current quota of a user by its jwt token",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "quota"
+        ],
+        "summary": "My quota",
+        "operationId": "getquota",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/quotaResponse"
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "description": "This searches a user by its partial name",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "users"
+        ],
+        "summary": "Search user",
+        "operationId": "searchUserRequest",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "Partial",
+            "description": "The user name",
+            "name": "partial",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/userResponse"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "description": "This return a single user by its id",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "users"
+        ],
+        "summary": "Get user",
+        "operationId": "getuser",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/userResponse"
+          }
+        }
+      }
+    },
+    "/users/{id}/approverInfo": {
+      "get": {
+        "description": "This returns the approver info of a user by its id",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "users"
+        ],
+        "summary": "User approver info",
+        "operationId": "approverinfo",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The user id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/approverInfoResponse"
+          }
+        }
+      }
+    },
+    "/users/{id}/quota": {
+      "get": {
+        "description": "This return the quota of the user by its id",
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "users"
+        ],
+        "summary": "User quota",
+        "operationId": "getquotabyid",
+        "parameters": [
+          {
+            "type": "string",
+            "x-go-name": "ID",
+            "description": "The user id",
+            "name": "id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Bearer \u0026{jwt}",
+            "description": "The jwt key",
+            "name": "Authorization",
+            "in": "header",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/quotaResponse"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "CreatePermitResponse": {
+      "type": "object",
+      "x-go-package": "github.com/meateam/permit-service/proto"
+    },
+    "FileDetails": {
+      "description": "FileDetails request body for upload resumable",
+      "type": "object",
+      "properties": {
+        "mimeType": {
+          "type": "string",
+          "x-go-name": "MimeType"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/swagger"
+    },
+    "GetApproverInfoResponse": {
+      "type": "object",
+      "properties": {
+        "canApprove": {
+          "type": "boolean",
+          "x-go-name": "CanApprove"
+        },
+        "ranks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Ranks"
+        },
+        "unit": {
+          "type": "string",
+          "x-go-name": "Unit"
+        }
+      },
+      "x-go-package": "github.com/meateam/user-service/proto/users"
+    },
+    "GetFileByIDResponse": {
+      "type": "object",
+      "title": "GetFileByIDResponse is a structure used for parsing fpb.File to a json file metadata response.",
+      "properties": {
+        "appID": {
+          "type": "string",
+          "x-go-name": "AppID"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "CreatedAt"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "ID"
+        },
+        "isExternal": {
+          "type": "boolean",
+          "x-go-name": "IsExternal"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "ownerId": {
+          "type": "string",
+          "x-go-name": "OwnerID"
+        },
+        "parent": {
+          "type": "string",
+          "x-go-name": "Parent"
+        },
+        "permission": {
+          "$ref": "#/definitions/Permission"
+        },
+        "role": {
+          "type": "string",
+          "x-go-name": "Role"
+        },
+        "shared": {
+          "type": "boolean",
+          "x-go-name": "Shared"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Size"
+        },
+        "type": {
+          "type": "string",
+          "x-go-name": "Type"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "UpdatedAt"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/file"
+    },
+    "GetOwnerQuotaResponse": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Limit"
+        },
+        "ownerID": {
+          "type": "string",
+          "x-go-name": "OwnerID"
+        },
+        "used": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Used"
+        }
+      },
+      "x-go-package": "github.com/meateam/file-service/proto/quota"
+    },
+    "GetUserResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/User"
+        }
+      },
+      "x-go-package": "github.com/meateam/user-service/proto/users"
+    },
+    "Permission": {
+      "type": "object",
+      "title": "Permission is a struct that describes a user's permission to a file.",
+      "properties": {
+        "creator": {
+          "type": "string",
+          "x-go-name": "Creator"
+        },
+        "fileID": {
+          "type": "string",
+          "x-go-name": "FileID"
+        },
+        "role": {
+          "type": "string",
+          "x-go-name": "Role"
+        },
+        "userID": {
+          "type": "string",
+          "x-go-name": "UserID"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/permission"
+    },
+    "PermissionDetails": {
+      "description": "PermissionDetails request body for creating permission",
+      "type": "object",
+      "properties": {
+        "override": {
+          "type": "boolean",
+          "x-go-name": "Override"
+        },
+        "role": {
+          "type": "string",
+          "x-go-name": "Role"
+        },
+        "userID": {
+          "type": "string",
+          "x-go-name": "UserID"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/swagger"
+    },
+    "PermitDetails": {
+      "description": "PermitDetails request body for creating a permit",
+      "type": "object",
+      "properties": {
+        "approvers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Approvers"
+        },
+        "classification": {
+          "type": "string",
+          "x-go-name": "Classification"
+        },
+        "fileName": {
+          "type": "string",
+          "x-go-name": "FileName"
+        },
+        "info": {
+          "type": "string",
+          "x-go-name": "Info"
+        },
+        "users": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/User"
+          },
+          "x-go-name": "Users"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/swagger"
+    },
+    "UpdatePermitDetails": {
+      "description": "UpdatePermitDetails request body for updating a permit",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "x-go-name": "Status"
+        }
+      },
+      "x-go-package": "github.com/meateam/api-gateway/swagger"
+    },
+    "User": {
+      "description": "User details",
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "x-go-name": "FirstName"
+        },
+        "fullName": {
+          "type": "string",
+          "x-go-name": "FullName"
+        },
+        "hierarchy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-go-name": "Hierarchy"
+        },
+        "hierarchyFlat": {
+          "type": "string",
+          "x-go-name": "HierarchyFlat"
+        },
+        "id": {
+          "type": "string",
+          "x-go-name": "Id"
+        },
+        "lastName": {
+          "type": "string",
+          "x-go-name": "LastName"
+        },
+        "mail": {
+          "type": "string",
+          "x-go-name": "Mail"
+        }
+      },
+      "x-go-package": "github.com/meateam/user-service/proto/users"
+    },
+    "UserStatus": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "x-go-name": "Status"
+        },
+        "userId": {
+          "type": "string",
+          "x-go-name": "UserId"
+        }
+      },
+      "x-go-package": "github.com/meateam/permit-service/proto"
+    }
+  },
+  "responses": {
+    "DeleteResponse": {
+      "description": "An array of ids",
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "UpdateResponse": {
+      "description": "An array of ids Of failed files",
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "UploadResponse": {
+      "description": "File id"
+    },
+    "approverInfoResponse": {
+      "description": "The approver info object",
+      "schema": {
+        "$ref": "#/definitions/GetApproverInfoResponse"
+      }
+    },
+    "delegatorResponse": {
+      "description": "An array of delegators returned",
+      "schema": {
+        "$ref": "#/definitions/GetUserResponse"
+      }
+    },
+    "fileAncestorsResponse": {
+      "description": "File ancestors",
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "fileResponse": {
+      "description": "Single file",
+      "schema": {
+        "$ref": "#/definitions/GetFileByIDResponse"
+      }
+    },
+    "filesResponse": {
+      "description": "An array of files",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/GetFileByIDResponse"
+        }
+      }
+    },
+    "getSearchResponse": {
+      "description": "The quota object",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/GetFileByIDResponse"
+        }
+      }
+    },
+    "initResumableResponse": {
+      "description": "Upload id",
+      "headers": {
+        "X-Uploadid": {
+          "type": "string",
+          "description": "in:header"
+        }
+      }
+    },
+    "permissionResponse": {
+      "description": "An array of permissions",
+      "schema": {
+        "$ref": "#/definitions/Permission"
+      }
+    },
+    "permissionsResponse": {
+      "description": "An array of files",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/Permission"
+        }
+      }
+    },
+    "permitResponse": {
+      "description": "An array of permits",
+      "schema": {
+        "$ref": "#/definitions/CreatePermitResponse"
+      }
+    },
+    "permitsResponse": {
+      "description": "An array of permits",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/UserStatus"
+        }
+      }
+    },
+    "quotaResponse": {
+      "description": "The quota object",
+      "schema": {
+        "$ref": "#/definitions/GetOwnerQuotaResponse"
+      }
+    },
+    "userResponse": {
+      "description": "The user object",
+      "schema": {
+        "$ref": "#/definitions/GetUserResponse"
+      }
+    }
+  }
+}
