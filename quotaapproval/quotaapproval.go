@@ -6,11 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	qapb "github.com/meateam/quota-approval-service/proto/quotaApproval"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
@@ -27,7 +28,7 @@ const (
 
 // Router is a structure that handles quota-approval related requests.
 type Router struct {
-	quotaApprovalClient qapb.QuotaApprovalClient
+	quotaApprovalClient factory.QuotaApprovalClientFactory
 	logger              *logrus.Logger
 }
 
@@ -35,7 +36,7 @@ type Router struct {
 // with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	quotaApprovalConn *grpc.ClientConn,
+	quotaApprovalConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -45,7 +46,9 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.quotaApprovalClient = qapb.NewQuotaApprovalClient(quotaApprovalConn)
+	r.quotaApprovalClient = func() qapb.QuotaApprovalClient {
+		return qapb.NewQuotaApprovalClient((*quotaApprovalConn).Conn())
+	}
 
 	return r
 }
@@ -74,7 +77,7 @@ func (r *Router) GetQuotasApprovals(c *gin.Context) {
 		return
 	}
 
-	quotaApprovals, err := r.quotaApprovalClient.GetQuotasApprovals(
+	quotaApprovals, err := r.quotaApprovalClient().GetQuotasApprovals(
 		c.Request.Context(),
 		&qapb.GetQuotasApprovalsRequest{CreatedBy: createdBy, ApprovableBy: approvableBy},
 	)
@@ -102,7 +105,7 @@ func (r *Router) GetQuotaApprovalByID(c *gin.Context) {
 		return
 	}
 
-	quotaApproval, err := r.quotaApprovalClient.GetQuotaApprovalByID(
+	quotaApproval, err := r.quotaApprovalClient().GetQuotaApprovalByID(
 		c.Request.Context(),
 		&qapb.GetQuotaApprovalByIDRequest{Id: approvalRequestID},
 	)
@@ -138,7 +141,7 @@ func (r *Router) UpdateQuotaApproval(c *gin.Context) {
 
 	modifiedBy := reqUser.ID
 
-	updatedQuotaApproval, err := r.quotaApprovalClient.UpdateQuotaApproval(
+	updatedQuotaApproval, err := r.quotaApprovalClient().UpdateQuotaApproval(
 		c.Request.Context(),
 		&qapb.UpdateQuotaApprovalRequest{Id: approvalRequestID, ModifiedBy: modifiedBy, Status: approvalRequestStatus},
 	)
@@ -170,7 +173,7 @@ func (r *Router) CreateQuotaApproval(c *gin.Context) {
 	from := reqUser.ID
 	modifiedBy := reqUser.ID
 
-	createdQuotaApproval, err := r.quotaApprovalClient.CreateQuotaApproval(
+	createdQuotaApproval, err := r.quotaApprovalClient().CreateQuotaApproval(
 		c.Request.Context(),
 		&qapb.CreateQuotaApprovalRequest{From: from, ModifiedBy: modifiedBy, Size: approvalRequestSize, Info: approvalRequestInfo},
 	)

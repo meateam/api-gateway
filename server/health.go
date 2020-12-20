@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/meateam/gotenberg-go-client/v6"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -35,61 +35,92 @@ func (h *Health) Check(
 	rpcTimeout int,
 	logger *logrus.Logger,
 	gotenberg *gotenberg.Client,
-	conns ...*grpc.ClientConn) {
+	badConns chan<- *grpcPoolTypes.ConnPool,
+	nonFatalConns []*grpcPoolTypes.ConnPool,
+	fatalConns ...*grpcPoolTypes.ConnPool) {
 	rpcTimeoutDuration := time.Duration(rpcTimeout) * time.Second
 	for {
-		flag := true
-		for _, conn := range conns {
-			func() {
-				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), rpcTimeoutDuration)
-				defer rpcCancel()
-				resp, err := healthpb.NewHealthClient(conn).Check(
-					rpcCtx, &healthpb.HealthCheckRequest{Service: ""})
-				targetMsg := fmt.Sprintf("target server %s", conn.Target())
-				if err != nil {
-					if stat, ok := status.FromError(err); ok && stat.Code() == codes.Unimplemented {
-						logger.Printf(
-							"error: %s does not implement the grpc health protocol (grpc.health.v1.Health)",
-							targetMsg)
-					} else if stat, ok := status.FromError(err); ok && stat.Code() == codes.DeadlineExceeded {
-						logger.Printf("timeout: %s health rpc did not complete within %v", targetMsg, rpcTimeout)
-					} else {
-						logger.Printf("error: %s health rpc failed: %+v", err, targetMsg)
-					}
-					h.UnSet()
-					flag = false
-				}
+		// Check if the fatal connections are healthy.
+		// If one is not healthy, it will fail the entire system.
+		isHealthy := h.checkConnections(logger, fatalConns, badConns, true, rpcTimeout, rpcTimeoutDuration)
 
-				if resp.GetStatus() != healthpb.HealthCheckResponse_SERVING {
-					logger.Printf("%s service unhealthy (responded with %q)",
-						targetMsg, resp.GetStatus().String())
-					h.UnSet()
-					flag = false
-				}
-			}()
-		}
+		// Check the non-fatal connections' health
+		h.checkConnections(logger, nonFatalConns, badConns, false, rpcTimeout, rpcTimeoutDuration)
 
 		if !gotenberg.Healthy() {
 			logger.Printf("error: gotenberg at %s unhealthy", gotenberg.Hostname)
-			h.UnSet()
-			flag = false
 		}
 
-		if flag {
-			h.Set()
+		if isHealthy {
+			h.SetHealthy()
 		}
 
 		time.Sleep(time.Second * time.Duration(interval))
 	}
 }
 
-// Set sets the Boolean to true
-func (h *Health) Set() {
+// checkConnections goes over an array of connections.
+// If the array contains fatal connections and one of them failed,
+// it will fail the api-gateway's healthcheck.
+// Returns true iff all of the connections are healthy.
+func (h *Health) checkConnections(
+	logger *logrus.Logger,
+	conns []*grpcPoolTypes.ConnPool,
+	badConns chan<- *grpcPoolTypes.ConnPool,
+	isFatal bool,
+	rpcTimeout int,
+	rpcTimeoutDuration time.Duration) bool {
+
+	fatalString := "non-fatal"
+	if isFatal {
+		fatalString = "fatal"
+	}
+
+	isAllHealthy := true
+	for _, pool := range conns {
+		conn := (*pool).Conn()
+		rpcCtx, rpcCancel := context.WithTimeout(context.Background(), rpcTimeoutDuration)
+		defer rpcCancel()
+		resp, err := healthpb.NewHealthClient(conn).Check(
+			rpcCtx, &healthpb.HealthCheckRequest{Service: ""})
+		targetMsg := fmt.Sprintf("target server %s", conn.Target())
+		if err != nil {
+			if stat, ok := status.FromError(err); ok && stat.Code() == codes.Unimplemented {
+				logger.Printf(
+					"error: %s does not implement the grpc health protocol (grpc.health.v1.Health) : %s",
+					targetMsg, fatalString)
+			} else if stat, ok := status.FromError(err); ok && stat.Code() == codes.DeadlineExceeded {
+				logger.Printf("timeout: %s health rpc did not complete within %v : %s", targetMsg, rpcTimeout, fatalString)
+			} else {
+				logger.Printf("error: %s health rpc failed: %+v : %s", err, targetMsg, fatalString)
+			}
+			if isFatal {
+				h.SetUnhealthy()
+				isAllHealthy = false
+			}
+			badConns <- pool
+		}
+
+		if resp.GetStatus() != healthpb.HealthCheckResponse_SERVING {
+			logger.Printf("%s service unhealthy (responded with %q) : %s",
+				targetMsg, resp.GetStatus().String(), fatalString)
+			if isFatal {
+				h.SetUnhealthy()
+				isAllHealthy = false
+			}
+		}
+	}
+
+	return isAllHealthy
+}
+
+// SetHealthy sets the Boolean to true
+func (h *Health) SetHealthy() {
 	atomic.StoreInt32((*int32)(h), 1)
 }
 
-// UnSet sets the Boolean to false
-func (h *Health) UnSet() {
+// SetUnhealthy sets the Boolean to false
+func (h *Health) SetUnhealthy() {
 	atomic.StoreInt32((*int32)(h), 0)
 }
 

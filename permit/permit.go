@@ -6,17 +6,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
-	dpb "github.com/meateam/delegation-service/proto/delegation-service"
 	fpb "github.com/meateam/file-service/proto/file"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	ptpb "github.com/meateam/permit-service/proto"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -52,22 +52,26 @@ type updatePermitStatusRequest struct {
 
 // Router is a structure that handles permission requests.
 type Router struct {
-	permitClient     ptpb.PermitClient
-	fileClient       fpb.FileServiceClient
-	delegateClient   dpb.DelegationClient
-	permissionClient ppb.PermissionClient
-	oAuthMiddleware  *oauth.Middleware
-	logger           *logrus.Logger
+	// PermitClientFactory
+	permitClient factory.PermitClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// PermissionClientFactory
+	permissionClient factory.PermissionClientFactory
+
+	oAuthMiddleware *oauth.Middleware
+	logger          *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service
 // with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	permitConn *grpc.ClientConn,
-	permissionConn *grpc.ClientConn,
-	fileConn *grpc.ClientConn,
-	delegateConn *grpc.ClientConn,
+	permitConn *grpcPoolTypes.ConnPool,
+	permissionConn *grpcPoolTypes.ConnPool,
+	fileConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
@@ -78,10 +82,17 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.permitClient = ptpb.NewPermitClient(permitConn)
-	r.permissionClient = ppb.NewPermissionClient(permissionConn)
-	r.fileClient = fpb.NewFileServiceClient(fileConn)
-	r.delegateClient = dpb.NewDelegationClient(delegateConn)
+	r.permitClient = func() ptpb.PermitClient {
+		return ptpb.NewPermitClient((*permitConn).Conn())
+	}
+
+	r.permissionClient = func() ppb.PermissionClient {
+		return ppb.NewPermissionClient((*permissionConn).Conn())
+	}
+
+	r.fileClient = func() fpb.FileServiceClient {
+		return fpb.NewFileServiceClient((*fileConn).Conn())
+	}
 
 	r.oAuthMiddleware = oAuthMiddleware
 
@@ -117,7 +128,7 @@ func (r *Router) GetFilePermits(c *gin.Context) {
 	}
 
 	permitRequest := &ptpb.GetPermitByFileIDRequest{FileID: fileID}
-	permitsResponse, err := r.permitClient.GetPermitByFileID(c.Request.Context(), permitRequest)
+	permitsResponse, err := r.permitClient().GetPermitByFileID(c.Request.Context(), permitRequest)
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -164,7 +175,7 @@ func (r *Router) CreateFilePermits(c *gin.Context) {
 		userIDs = append(userIDs, user)
 	}
 
-	createdPermits, err := r.permitClient.CreatePermit(c.Request.Context(), &ptpb.CreatePermitRequest{
+	createdPermits, err := r.permitClient().CreatePermit(c.Request.Context(), &ptpb.CreatePermitRequest{
 		FileID:         fileID,
 		FileName:       permitRequest.FileName,
 		SharerID:       reqUser.ID,
@@ -201,7 +212,7 @@ func (r *Router) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	_, err := r.permitClient.UpdatePermitStatus(c.Request.Context(), &ptpb.UpdatePermitStatusRequest{
+	_, err := r.permitClient().UpdatePermitStatus(c.Request.Context(), &ptpb.UpdatePermitStatusRequest{
 		ReqID:  reqID,
 		Status: body.Status,
 	})
@@ -229,8 +240,8 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 	}
 
 	userFilePermission, _, err := file.CheckUserFilePermission(c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileClient(),
+		r.permissionClient(),
 		reqUser.ID,
 		fileID,
 		role)
