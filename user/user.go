@@ -186,7 +186,7 @@ func (r *Router) CanApproveToUser(c *gin.Context) {
 		UserID:     userID,
 	}
 
-	info, err := r.userClient.CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
+	canApproveToUserInfo, err := r.userClient.CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -194,7 +194,7 @@ func (r *Router) CanApproveToUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, info)
+	c.JSON(http.StatusOK, canApproveToUserInfo)
 }
 
 // ExtractRequestUser gets a context.Context and extracts the user's details from c.
