@@ -18,6 +18,7 @@ const (
 	configDocsSecret            = "docs_secret"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
+	configQuotaApprovalService  = "quota_approval_service"
 	configUserService           = "user_service"
 	configPermissionService     = "permission_service"
 	configPermitService         = "permit_service"
@@ -61,6 +62,7 @@ func init() {
 	viper.SetDefault(configDocsSecret, "docs@drive")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
+	viper.SetDefault(configQuotaApprovalService, "quota-approval-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
 	viper.SetDefault(configPermissionService, "permission-service:8080")
 	viper.SetDefault(configPermitService, "permit-service:8080")

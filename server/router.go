@@ -16,6 +16,7 @@ import (
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/permit"
 	"github.com/meateam/api-gateway/quota"
+	"github.com/meateam/api-gateway/quotaApproval"
 	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/upload"
@@ -81,6 +82,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 				"vipServiceUrl":        viper.GetString(configVipService),
 				"enableExternalShare":  viper.GetString(configEnableExternalShare),
 				"whiteListText":        viper.GetString(configWhiteListText),
+				"quotaApprovalUrl":     viper.GetString(configQuotaApprovalService),
 			},
 		)
 	})
@@ -131,6 +133,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		logger.Fatalf("couldn't setup spike service connection: %v", err)
 	}
 
+	quotaApprovalConn, err := initServiceConn(viper.GetString(configQuotaApprovalService))
+	if err != nil {
+		logger.Fatalf("couldn't setup file service connection: %v", err)
+	}
+
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// initiate middlewares
@@ -145,6 +152,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 		spikeConn,
 		permitConn,
 		delegateConn,
+		quotaApprovalConn,
 	}
 
 	health := NewHealthChecker()
@@ -189,6 +197,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
+	qar := quotaapproval.NewRouter(quotaApprovalConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
 	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, delegateConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
@@ -220,6 +229,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// Initiate client connection to quota service.
 	qr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to quota approval service.
+	qar.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to upload service.
 	ur.Setup(authRequiredRoutesGroup)
