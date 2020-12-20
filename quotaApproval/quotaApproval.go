@@ -2,12 +2,13 @@ package quotaapproval
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
-	qapb "github.com/meateam/quota-approval-service/proto/quotaApproval/quotaApproval"
+	qapb "github.com/meateam/quota-approval-service/proto/quotaApproval"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -26,7 +27,7 @@ const (
 
 // Router is a structure that handles quota-approval related requests.
 type Router struct {
-	quotaApprovalClient qapb.QuotaApprovalServiceClient
+	quotaApprovalClient qapb.QuotaApprovalClient
 	logger              *logrus.Logger
 }
 
@@ -44,21 +45,21 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.quotaApprovalClient = qapb.NewQuotaServiceClient(quotaApprovalConn)
+	r.quotaApprovalClient = qapb.NewQuotaApprovalClient(quotaApprovalConn)
 
 	return r
 }
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.GET("/quota/approval/:createdBy/:approvableBy", r.GetRequests)
+	rg.GET("/quota/approval/:createdBy/:approvableBy", r.GetQuotasApprovals)
 	rg.GET("/quota/approval/:id", r.GetQuotaApprovalByID)
-	rg.PUT("/quota/approval/:id/:status", r.UpdateRequest)
-	rg.POST("/quota/approval/:size/:info", r.CreateRequest)
+	rg.PUT("/quota/approval/:id/:status", r.UpdateQuotaApproval)
+	rg.POST("/quota/approval/:size/:info", r.CreateQuotaApproval)
 }
 
-// GetRequests is the request handler for GET /quota/approval/:createdBy/:approvableBy
-func (r *Router) GetRequests(c *gin.Context) {
+// GetQuotasApprovals is the request handler for GET /quota/approval/:createdBy/:approvableBy
+func (r *Router) GetQuotasApprovals(c *gin.Context) {
 	createdBy := c.Param("createdBy")
 	approvableBy := c.Param("approvableBy")
 
@@ -73,9 +74,9 @@ func (r *Router) GetRequests(c *gin.Context) {
 		return
 	}
 
-	quotaApprovals, err := r.quotaApprovalClient.GetRequests(
+	quotaApprovals, err := r.quotaApprovalClient.GetQuotasApprovals(
 		c.Request.Context(),
-		&qapb.GetRequests{createdBy: createdBy, approvableBy: approvableBy},
+		&qapb.GetQuotasApprovalsRequest{CreatedBy: createdBy, ApprovableBy: approvableBy},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -101,9 +102,9 @@ func (r *Router) GetQuotaApprovalByID(c *gin.Context) {
 		return
 	}
 
-	quotaApproval, err := r.quotaApprovalClient.GetQuotaApprovalById(
+	quotaApproval, err := r.quotaApprovalClient.GetQuotaApprovalByID(
 		c.Request.Context(),
-		&qapb.GetQuotaApprovalById{id: approvalRequestID},
+		&qapb.GetQuotaApprovalByIDRequest{Id: approvalRequestID},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -114,8 +115,8 @@ func (r *Router) GetQuotaApprovalByID(c *gin.Context) {
 	c.JSON(http.StatusOK, quotaApproval)
 }
 
-// UpdateRequest is the request handler for PUT /quota/approval/:id/:status
-func (r *Router) UpdateRequest(c *gin.Context) {
+// UpdateQuotaApproval is the request handler for PUT /quota/approval/:id/:status
+func (r *Router) UpdateQuotaApproval(c *gin.Context) {
 	approvalRequestID := c.Param("id")
 	approvalRequestStatus := c.Param("status")
 
@@ -137,9 +138,9 @@ func (r *Router) UpdateRequest(c *gin.Context) {
 
 	modifiedBy := reqUser.ID
 
-	updatedQuotaApproval, err := r.quotaApprovalClient.UpdateRequest(
+	updatedQuotaApproval, err := r.quotaApprovalClient.UpdateQuotaApproval(
 		c.Request.Context(),
-		&qapb.GetQuotaApprovalById{id: approvalRequestID, modifiedBy: modifiedBy, status: approvalRequestStatus},
+		&qapb.UpdateQuotaApprovalRequest{Id: approvalRequestID, ModifiedBy: modifiedBy, Status: approvalRequestStatus},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -150,12 +151,12 @@ func (r *Router) UpdateRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, updatedQuotaApproval)
 }
 
-// CreateRequest is the request handler for POST /quota/approval/:size/:info
-func (r *Router) CreateRequest(c *gin.Context) {
-	approvalRequestSize := c.Param("size")
+// CreateQuotaApproval is the request handler for POST /quota/approval/:size/:info
+func (r *Router) CreateQuotaApproval(c *gin.Context) {
+	approvalRequestSize := stringToInt64(c.Param("size"))
 	approvalRequestInfo := c.Param("info")
 
-	if approvalRequestSize == "" || approvalRequestInfo == "" {
+	if approvalRequestSize == 0 || approvalRequestInfo == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -169,9 +170,9 @@ func (r *Router) CreateRequest(c *gin.Context) {
 	from := reqUser.ID
 	modifiedBy := reqUser.ID
 
-	createdQuotaApproval, err := r.quotaApprovalClient.CreateRequest(
+	createdQuotaApproval, err := r.quotaApprovalClient.CreateQuotaApproval(
 		c.Request.Context(),
-		&qapb.GetQuotaApprovalById{from: from, modifiedBy: modifiedBy, size: approvalRequestSize, info: approvalRequestInfo},
+		&qapb.CreateQuotaApprovalRequest{From: from, ModifiedBy: modifiedBy, Size: approvalRequestSize, Info: approvalRequestInfo},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -180,4 +181,13 @@ func (r *Router) CreateRequest(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, createdQuotaApproval)
+}
+
+// Converts a string to int64, 0 is returned on failure
+func stringToInt64(s string) int64 {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		n = 0
+	}
+	return n
 }

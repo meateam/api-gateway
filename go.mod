@@ -15,6 +15,7 @@ require (
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
+	github.com/meateam/quota-approval-service v0.0.0-20201220095452-0f6c61faad58 // indirect
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676

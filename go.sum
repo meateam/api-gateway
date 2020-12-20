@@ -296,6 +296,12 @@ github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b h1:kLuC
 github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b/go.mod h1:sOpwhHZYMTLqIcPVvypRs074zb9sOEWpLa4zh3eJEy0=
 github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9 h1:QJyL1aocmE6ZFQcA3XFrNXBSP3JVxxYJAmyrwwx3hIk=
 github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9/go.mod h1:mdXHIk/KT9UtyCMbtTzm1PnXxkd9UKfhfTI4UNZ2IlU=
+github.com/meateam/quota-approval-service v0.0.0-20201207153936-50222ee4f1d4 h1:QjAT0U2JcHa5Hfo2KpJCv7I2jNY4kA1ir13QAMl/LYc=
+github.com/meateam/quota-approval-service v0.0.0-20201207153936-50222ee4f1d4/go.mod h1:OsvW9T1sg9IwC+o+0+d1Ua35ywhYVdPGnm9kqD8go9w=
+github.com/meateam/quota-approval-service v0.0.0-20201220091304-dafb6b72a112 h1:ZpQI8qTD8wTEaEvMw9f1pFkWgd9/xBZ955PcluaHFUc=
+github.com/meateam/quota-approval-service v0.0.0-20201220091304-dafb6b72a112/go.mod h1:OsvW9T1sg9IwC+o+0+d1Ua35ywhYVdPGnm9kqD8go9w=
+github.com/meateam/quota-approval-service v0.0.0-20201220095452-0f6c61faad58 h1:5OZcfCbbDRi3abj8jomsVTNvSZVlLgS/2r/HFpsSya0=
+github.com/meateam/quota-approval-service v0.0.0-20201220095452-0f6c61faad58/go.mod h1:OsvW9T1sg9IwC+o+0+d1Ua35ywhYVdPGnm9kqD8go9w=
 github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0 h1:WvDXyQcJqrp+a98biD+E5nk5sFxYM+qLYLj1PxDn4jY=
 github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0/go.mod h1:Q6j5mhMv4YdGZiDWAdlG8YWWYZyIzdub39f86mBz8Lg=
 github.com/meateam/spike-service v0.0.0-20191212084848-b7760c5526b3/go.mod h1:cg6abJq1OOTQqcoGkhjWztNGmLTzS4HGut3Djuww+mo=
