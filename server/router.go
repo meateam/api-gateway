@@ -86,7 +86,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
 				"vipServiceUrl":        viper.GetString(configVipService),
 				"enableExternalShare":  viper.GetString(configEnableExternalShare),
-				"whiteListText":        viper.GetString(configWhiteListText),
+				"whiteListText":  viper.GetString(configWhiteListText),
+				"bereshitSupportLink": viper.GetString(configBereshitSupportLink),
+				"bamSupportNumber": viper.GetString(configBamSupportNumber),
 			},
 		)
 	})

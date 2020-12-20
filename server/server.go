@@ -45,7 +45,9 @@ const (
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
 	configEnableExternalShare   = "enable_external_share"
-	configWhiteListText         = "white_list_text"
+	configWhiteListText = "white_list_text"
+	configBereshitSupportLink = "bereshit_support_link"
+	configBamSupportNumber = "bam_support_number"
 	configSwaggerPathFile       = "swagger_path_file"
 	configShowSwaggerUI         = "show_swagger_ui"
 	configPoolSize              = "pool_size"
@@ -90,6 +92,8 @@ func init() {
 	viper.SetDefault(configShowSwaggerUI, false)
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
+	viper.SetDefault(configBereshitSupportLink, "https://open.rocket.chat")
+	viper.SetDefault(configBamSupportNumber, "0543392468")
 	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")

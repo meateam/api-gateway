@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
 - FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
+- FEAT([195](https://github.com/meateam/api-gateway/issues/195)): call with grpc to user service method to get if user can approve 
+- FEAT: add new envs: bam_support_number, bereshit_support_link for approver support
 
 ## [v2.2.0] - 2020-11-18
 

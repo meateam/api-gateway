@@ -27,6 +27,9 @@ const (
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
 
+	// ParamApproverID is the name of the approver id param in the URL.
+	ParamApproverID = "approverID"
+
 	// ParamPartialName is the name of the partial user name param in URL.
 	ParamPartialName = "partial"
 
@@ -89,6 +92,7 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
+	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
 	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
@@ -169,6 +173,41 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, info)
+}
+
+// GetApproverInfo is the request handler for GET /users/:id/canApproveToUser/:approverID
+func (r *Router) CanApproveToUser(c *gin.Context) {
+	reqUser := ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	userID := c.Param(ParamUserID)
+	if userID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
+		return
+	}
+
+	approverID := c.Param(ParamApproverID)
+	if approverID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamApproverID))
+		return
+	}
+
+	canApproveToUserRequest := &uspb.CanApproveToUserRequest{
+		ApproverID: approverID,
+		UserID:     userID,
+	}
+
+	canApproveToUserInfo, err := r.userClient.CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, canApproveToUserInfo)
 }
 
 // ExtractRequestUser gets a context.Context and extracts the user's details from c.
