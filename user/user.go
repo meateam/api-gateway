@@ -175,7 +175,7 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, info)
 }
 
-// GetApproverInfo is the request handler for GET /users/:id/canApproveToUser/:approverID
+// CanApproveToUser is the request handler for GET /users/:id/canApproveToUser/:approverID
 func (r *Router) CanApproveToUser(c *gin.Context) {
 	reqUser := ExtractRequestUser(c)
 	if reqUser == nil {
@@ -199,7 +199,7 @@ func (r *Router) CanApproveToUser(c *gin.Context) {
 		UserID:     userID,
 	}
 
-	canApproveToUserInfo, err := r.userClient.CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
+	canApproveToUserInfo, err := r.userClient().CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
