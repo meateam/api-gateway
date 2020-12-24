@@ -10,22 +10,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	auth "github.com/meateam/api-gateway/oauth"
 	oauth "github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
-	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	"github.com/meateam/gotenberg-go-client/v6"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
-	usrpb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -155,17 +154,27 @@ var (
 
 // Router is a structure that handles upload requests.
 type Router struct {
-	downloadClient   dpb.DownloadClient
-	fileClient       fpb.FileServiceClient
-	uploadClient     upb.UploadClient
-	permissionClient ppb.PermissionClient
-	permitClient     ptpb.PermitClient
-	searchClient     spb.SearchClient
-	userClient       usrpb.UsersClient
-	delegationClient dlgpb.DelegationClient
-	gotenbergClient  *gotenberg.Client
-	oAuthMiddleware  *oauth.Middleware
-	logger           *logrus.Logger
+	// DownloadClientFactory
+	downloadClient factory.DownloadClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// UploadClientFactory
+	uploadClient factory.UploadClientFactory
+
+	// PermissionClientFactory
+	permissionClient factory.PermissionClientFactory
+
+	// PermitClientFactory
+	permitClient factory.PermitClientFactory
+
+	// SearchClientFactory
+	searchClient factory.SearchClientFactory
+
+	gotenbergClient *gotenberg.Client
+	oAuthMiddleware *oauth.Middleware
+	logger          *logrus.Logger
 }
 
 // Permission is a struct that describes a user's permission to a file.
@@ -216,14 +225,12 @@ type updateFilesRequest struct {
 // and Download Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	fileConn *grpc.ClientConn,
-	downloadConn *grpc.ClientConn,
-	uploadConn *grpc.ClientConn,
-	permissionConn *grpc.ClientConn,
-	permitConn *grpc.ClientConn,
-	searchConn *grpc.ClientConn,
-	userConn *grpc.ClientConn,
-	delegationConn *grpc.ClientConn,
+	fileConn *grpcPoolTypes.ConnPool,
+	downloadConn *grpcPoolTypes.ConnPool,
+	uploadConn *grpcPoolTypes.ConnPool,
+	permissionConn *grpcPoolTypes.ConnPool,
+	permitConn *grpcPoolTypes.ConnPool,
+	searchConn *grpcPoolTypes.ConnPool,
 	gotenbergClient *gotenberg.Client,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
@@ -235,14 +242,29 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.fileClient = fpb.NewFileServiceClient(fileConn)
-	r.downloadClient = dpb.NewDownloadClient(downloadConn)
-	r.uploadClient = upb.NewUploadClient(uploadConn)
-	r.permissionClient = ppb.NewPermissionClient(permissionConn)
-	r.permitClient = ptpb.NewPermitClient(permitConn)
-	r.searchClient = spb.NewSearchClient(searchConn)
-	r.userClient = usrpb.NewUsersClient(userConn)
-	r.delegationClient = dlgpb.NewDelegationClient(delegationConn)
+	r.fileClient = func() fpb.FileServiceClient {
+		return fpb.NewFileServiceClient((*fileConn).Conn())
+	}
+
+	r.downloadClient = func() dpb.DownloadClient {
+		return dpb.NewDownloadClient((*downloadConn).Conn())
+	}
+
+	r.uploadClient = func() upb.UploadClient {
+		return upb.NewUploadClient((*uploadConn).Conn())
+	}
+
+	r.permissionClient = func() ppb.PermissionClient {
+		return ppb.NewPermissionClient((*permissionConn).Conn())
+	}
+
+	r.permitClient = func() ptpb.PermitClient {
+		return ptpb.NewPermitClient((*permitConn).Conn())
+	}
+	r.searchClient = func() spb.SearchClient {
+		return spb.NewSearchClient((*searchConn).Conn())
+	}
+
 	r.gotenbergClient = gotenbergClient
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -271,7 +293,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	err := validateAppID(c, fileID, r.fileClient, AllowedDownloadApps)
+	err := validateAppID(c, fileID, r.fileClient(), AllowedDownloadApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -304,7 +326,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		Id: fileID,
 	}
 
-	file, err := r.fileClient.GetFileByID(c.Request.Context(), getFileByIDRequest)
+	file, err := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -348,7 +370,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 
 	appID := c.Value(oauth.ContextAppKey).(string)
 	filesParent := c.Query(ParamFileParent)
-	err := validateAppID(c, filesParent, r.fileClient, AllowedAllOperationsApps)
+	err := validateAppID(c, filesParent, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -412,7 +434,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	// Use the id of the owner of parent to get the folder's files.
-	filesResp, err := r.fileClient.GetFilesByFolder(
+	filesResp, err := r.fileClient().GetFilesByFolder(
 		c.Request.Context(),
 		&fpb.GetFilesByFolderRequest{OwnerID: fileOwner, FolderID: filesParent, QueryFile: &fileFilter},
 	)
@@ -427,8 +449,8 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
 		userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
-			r.fileClient,
-			r.permissionClient,
+			r.fileClient(),
+			r.permissionClient(),
 			reqUser.ID,
 			file.GetId(),
 			GetFilesByFolderRole)
@@ -458,7 +480,7 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		return
 	}
 
-	permissions, err := r.permissionClient.GetUserPermissions(
+	permissions, err := r.permissionClient().GetUserPermissions(
 		c.Request.Context(),
 		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID},
 	)
@@ -472,7 +494,7 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 
 	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
-		file, err := r.fileClient.GetFileByID(c.Request.Context(),
+		file, err := r.fileClient().GetFileByID(c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -523,7 +545,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	err := validateAppID(c, fileID, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -536,10 +558,10 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	ids, err := DeleteFile(
 		c.Request.Context(),
 		r.logger,
-		r.fileClient,
-		r.uploadClient,
-		r.searchClient,
-		r.permissionClient,
+		r.fileClient(),
+		r.uploadClient(),
+		r.searchClient(),
+		r.permissionClient(),
 		fileID,
 		reqUser.ID)
 	if err != nil {
@@ -566,7 +588,7 @@ func (r *Router) Download(c *gin.Context) {
 	}
 
 	// Get the file meta from the file service
-	fileMeta, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	fileMeta, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -586,7 +608,7 @@ func (r *Router) Download(c *gin.Context) {
 	span, spanCtx := loggermiddleware.StartSpan(c.Request.Context(), "/download.Download/Download")
 	defer span.End()
 
-	stream, err := r.downloadClient.Download(spanCtx, downloadRequest)
+	stream, err := r.downloadClient().Download(spanCtx, downloadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -619,7 +641,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 		return
 	}
 
-	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	err := validateAppID(c, fileID, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -664,7 +686,7 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 		return
 	}
 
-	err := validateAppID(c, fileID, r.fileClient, AllowedAllOperationsApps)
+	err := validateAppID(c, fileID, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -675,7 +697,7 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 		return
 	}
 
-	res, err := r.fileClient.GetAncestors(c.Request.Context(), &fpb.GetAncestorsRequest{Id: fileID})
+	res, err := r.fileClient().GetAncestors(c.Request.Context(), &fpb.GetAncestorsRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -702,8 +724,8 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	for firstPermittedFileIndex = 0; firstPermittedFileIndex < len(ancestors); firstPermittedFileIndex++ {
 		userFilePermission, foundPermission, err := CheckUserFilePermission(
 			c.Request.Context(),
-			r.fileClient,
-			r.permissionClient,
+			r.fileClient(),
+			r.permissionClient(),
 			reqUser.ID,
 			ancestors[firstPermittedFileIndex],
 			GetFileByIDRole,
@@ -731,7 +753,7 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
 
 	for i := 0; i < len(permittedAncestors); i++ {
-		file, err := r.fileClient.GetFileByID(
+		file, err := r.fileClient().GetFileByID(
 			c.Request.Context(),
 			&fpb.GetByFileByIDRequest{Id: permittedAncestors[i]},
 		)
@@ -778,8 +800,8 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 
 	for _, id := range body.IDList {
 		userFilePermission, _, err := CheckUserFilePermission(c.Request.Context(),
-			r.fileClient,
-			r.permissionClient,
+			r.fileClient(),
+			r.permissionClient(),
 			reqUser.ID,
 			id,
 			UpdateFilesRole)
@@ -838,7 +860,7 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 		sUpdatedData.Description = pf.Description
 	}
 
-	updateFilesResponse, err := r.fileClient.UpdateFiles(
+	updateFilesResponse, err := r.fileClient().UpdateFiles(
 		c.Request.Context(),
 		&fpb.UpdateFilesRequest{
 			IdList:      ids,
@@ -851,7 +873,7 @@ func (r *Router) handleUpdate(c *gin.Context, ids []string, pf partialFile) erro
 
 	for _, id := range ids {
 		sUpdatedData.Id = id
-		if _, err := r.searchClient.Update(c.Request.Context(), sUpdatedData); err != nil {
+		if _, err := r.searchClient().Update(c.Request.Context(), sUpdatedData); err != nil {
 			r.logger.Errorf("failed to update file %s in searchService", id)
 		}
 	}
@@ -1064,8 +1086,8 @@ func (r *Router) HandleUserFilePermission(
 	}
 
 	userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileClient(),
+		r.permissionClient(),
 		reqUser.ID,
 		fileID,
 		role)
@@ -1101,7 +1123,7 @@ func (r *Router) HandleUserFilePermit(
 	}
 
 	isPermitted, err := CheckUserFilePermit(c.Request.Context(),
-		r.permitClient,
+		r.permitClient(),
 		reqUser.ID,
 		fileID,
 		role)

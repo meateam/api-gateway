@@ -1,6 +1,6 @@
 package swagger
 
-import(
+import (
 	qpb "github.com/meateam/file-service/proto/quota"
 )
 
