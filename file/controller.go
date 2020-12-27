@@ -5,18 +5,52 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/gin-gonic/gin"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/status"
 )
+
+// func deleteFileAndPrem(ctx *gin.Context,
+// 	logger *logrus.Logger,
+// 	fileClient fpb.FileServiceClient,
+// 	permissionClient ppb.PermissionClient,
+// 	fileID string) {
+// 	// Delete permissions
+// 	permissionsFile, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
+// 	if err != nil {
+// 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+// 		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to get file permission to delete: %v", err)))
+// 	}
+
+// 	if _, err := permissionClient.DeleteFilePermissions(ctx, &ppb.DeleteFilePermissionsRequest{FileID: fileID}); err != nil {
+// 		loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file %s permissions: %v", fileID, err))
+// 	}
+
+// 	// Delete file from db
+// 	deletedFile, err := fileClient.DeleteFileByID(ctx, &fpb.DeleteFileByIDRequest{Id: file.GetId()})
+// 	if err != nil {
+// 		// TODO: add permission rollback
+// 		loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file: %v", err))
+// 	}
+
+// 	if deletedFile == nil {
+// 		// TODO: add permission rollback
+// 		loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file %s", file.GetId()))
+// 	} else {
+// 		return deletedFile.GetFile()
+// 	}
+// }
 
 // DeleteFile deletes fileID from file service and upload service, returns a slice of IDs of the files
 // that were deleted if there were any files that are descendants of fileID and any error if occurred.
 // nolint: gocyclo
-func DeleteFile(ctx context.Context,
+func DeleteFile(ctx *gin.Context,
 	logger *logrus.Logger,
 	fileClient fpb.FileServiceClient,
 	uploadClient upb.UploadClient,
@@ -26,25 +60,35 @@ func DeleteFile(ctx context.Context,
 	userID string) ([]string, error) {
 	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
-		return nil, fmt.Errorf("failed getting file to delete: %v", err)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed getting file to delete: %v", err)))
 	}
 
 	res, err := fileClient.GetDescendantsByID(ctx, &fpb.GetDescendantsByIDRequest{Id: fileID})
 	if err != nil {
-		return nil, err
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed getting file's descendants to delete: %v", err)))
 	}
 
 	descendants := res.GetDescendants()
 	deletedFiles := make([]*fpb.File, 0, len(descendants)+1)
 	floatFiles := make([]string, 0, len(descendants))
 
+	// Deleting the file from db
+	// TODO: change that the permission delete first before file
+	// Only the owner of the file can delete the file instance.
+	// If the user requesting to delete isn't the owner- delete it's permission to this file
 	if file.GetOwnerID() == userID {
+
+		// TODO: change to function delete file
 		deletedFile, err := fileClient.DeleteFileByID(ctx, &fpb.DeleteFileByIDRequest{Id: file.GetId()})
 		if err != nil {
+			// TODO: add permission rollback
 			loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file: %v", err))
 		}
 
 		if deletedFile == nil {
+			// TODO: add permission rollback
 			loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file %s", file.GetId()))
 		} else {
 			deletedFiles = append(deletedFiles, deletedFile.GetFile())
@@ -57,25 +101,33 @@ func DeleteFile(ctx context.Context,
 		}
 	}
 
+	// Delete file's descendants
 	for i := 0; i < len(descendants); i++ {
 		file := descendants[i].GetFile()
 		parent := descendants[i].GetParent()
+
 		if file.GetOwnerID() == userID {
+			// TODO: change to function delete file
 			deletedFile, err := fileClient.DeleteFileByID(ctx, &fpb.DeleteFileByIDRequest{Id: file.GetId()})
 			if err != nil {
 				loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file: %v", err))
+				// TODO: add permission rollback
 			}
 
 			if deletedFile == nil {
 				loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file %s", file.GetId()))
+				// TODO: add permission rollback
+
 			} else {
 				deletedFiles = append(deletedFiles, deletedFile.GetFile())
 			}
 		} else if parent == nil || parent.GetOwnerID() == userID {
+			// TODO: ask what it is??
 			floatFiles = append(floatFiles, file.GetId())
 		}
 	}
 
+	// TODO: ask what it is??
 	root := ""
 	failedFloatFiles, err := HandleUpdate(
 		ctx,
@@ -103,6 +155,7 @@ func DeleteFile(ctx context.Context,
 			loggermiddleware.LogError(logger, err)
 		}
 
+		// TODO: change this to do first
 		_, err := permissionClient.DeleteFilePermissions(ctx, &ppb.DeleteFilePermissionsRequest{FileID: file.GetId()})
 		if err != nil {
 			loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file %s permissions: %v", file.GetId(), err))
