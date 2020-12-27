@@ -184,8 +184,6 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 
 	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
 
-	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
-
 	c.Next()
 }
 
