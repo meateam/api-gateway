@@ -6,11 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/delegation-service/proto/delegation-service"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
@@ -24,14 +25,16 @@ const (
 
 // Router is a structure that handels delegation requests.
 type Router struct {
-	delegateClient dpb.DelegationClient
-	logger         *logrus.Logger
+	// DelegationClientFactory
+	delegateClient factory.DelegationClientFactory
+
+	logger *logrus.Logger
 }
 
 // NewRouter creates a new Router. If logger is non-nil then it will be
 // set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	delegateConn *grpc.ClientConn,
+	delegateConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -41,7 +44,9 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.delegateClient = dpb.NewDelegationClient(delegateConn)
+	r.delegateClient = func() dpb.DelegationClient {
+		return dpb.NewDelegationClient((*delegateConn).Conn())
+	}
 
 	return r
 }
@@ -69,7 +74,7 @@ func (r *Router) GetUserByID(c *gin.Context) {
 		Id: userID,
 	}
 
-	user, err := r.delegateClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+	user, err := r.delegateClient().GetUserByID(c.Request.Context(), getUserByIDRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -92,7 +97,7 @@ func (r *Router) SearchByName(c *gin.Context) {
 		Name: partialName,
 	}
 
-	user, err := r.delegateClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
+	user, err := r.delegateClient().FindUserByName(c.Request.Context(), findUserByNameRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))

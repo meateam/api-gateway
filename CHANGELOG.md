@@ -8,21 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
-- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
-- FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
 - FEAT([199](https://github.com/meateam/api-gateway/pull/199)): added pagination. BREAKING shared files return value
-- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
-- FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
+
+### Fixed
+
+- major: ([204](https://github.com/meateam/api-gateway/pull/204)) : Fix the fetching of GetSharedFiles bug that returns 404. Instead of returning only the successful files, it returns the successful files, the failed files and the error (if any) (breaking changes)  
+
+## [v2.3.0] - 2020-12-24
 
 ### Changed
 
 - The user in context is now more enriched (with fields like job, rank, current unit...)
 - The metrics metric now contains a timestamp and more information about the user.
 
-### Fixed
-
-- major: ([204](https://github.com/meateam/api-gateway/pull/204)) : Fix the fetching of GetSharedFiles bug that returns 404. Instead of returning only the successful files, it returns the successful files, the failed files and the error (if any) (breaking changes)  
-
+### Added
+- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
+- FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
+- FEAT([195](https://github.com/meateam/api-gateway/issues/195)): call with grpc to user service method to get if user can approve 
+- FEAT: add new envs: bam_support_number, bereshit_support_link for approver support
 
 ## [v2.2.0] - 2020-11-18
 
@@ -64,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
+[v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.3.0
 [v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0
 [v2.1.1]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/meateam/api-gateway/compare/v2.0.0...v2.1.0
