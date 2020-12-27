@@ -55,6 +55,12 @@ const (
 	// ParamFileUpdatedAt is a constant for file updated at parameter in a request.
 	ParamFileUpdatedAt = "updatedAt"
 
+	// ParamPageNum is a constant for the requested page num in the pagination.
+	ParamPageNum = "pageNum"
+
+	// ParamPageSize is a constant for the requested page size in the pagination.
+	ParamPageSize = "pageSize"
+
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
@@ -194,6 +200,13 @@ type GetFileByIDResponse struct {
 	AppID       string      `json:"appID,omitempty"`
 }
 
+type getSharedFilesResponse struct {
+	Files     *filesResponse `json:"files"`
+	PageNum   int64          `json:"pageNum"`
+	ItemCount int64          `json:"itemCount"`
+	ErrMsg    string         `json:"errMsg,omitempty"`
+}
+
 type partialFile struct {
 	ID          string  `json:"id,omitempty"`
 	Name        string  `json:"name,omitempty"`
@@ -212,10 +225,9 @@ type updateFilesRequest struct {
 	PartialFile partialFile `json:"partialFile"`
 }
 
-type getSharedFilesResponse struct {
+type filesResponse struct {
 	Successful []*GetFileByIDResponse `json:"successful"`
 	Failed     []string               `json:"failed"`
-	ErrMsg     string                 `json:"errMsg,omitempty"`
 }
 
 // NewRouter creates a new Router, and initializes clients of File Service
@@ -464,10 +476,18 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		return
 	}
 
+	// Defining pagination variables
+	pageNum := stringToInt64(c.Query(ParamPageNum))
+	pageSize := stringToInt64(c.Query(ParamPageSize))
+
 	// Get user permissions (shared and owner)
 	permissions, err := r.permissionClient.GetUserPermissions(
 		c.Request.Context(),
-		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID},
+		&ppb.GetUserPermissionsRequest{
+			UserID:   reqUser.ID,
+			PageNum:  pageNum,
+			PageSize: pageSize,
+			IsShared: true},
 	)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -522,8 +542,15 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		errMsg = "file not found"
 	}
 
-	filesRes := &getSharedFilesResponse{Successful: filesSuccesful, Failed: filesFailed, ErrMsg: errMsg}
-	c.JSON(http.StatusOK, filesRes)
+	files := &filesResponse{Successful: filesSuccesful, Failed: filesFailed}
+	sharedFilesResponse := &getSharedFilesResponse{
+		Files:     files,
+		PageNum:   permissions.PageNum,
+		ItemCount: permissions.ItemCount,
+		ErrMsg:    errMsg,
+	}
+
+	c.JSON(http.StatusOK, sharedFilesResponse)
 }
 
 // DeleteFileByID is the request handler for DELETE /files/:id request.

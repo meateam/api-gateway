@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
+- FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
+- FEAT([199](https://github.com/meateam/api-gateway/pull/199)): added pagination. BREAKING shared files return value
+- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
+- FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
+
 ### Changed
 
 - The user in context is now more enriched (with fields like job, rank, current unit...)
@@ -16,10 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - major: ([204](https://github.com/meateam/api-gateway/pull/204)) : Fix the fetching of GetSharedFiles bug that returns 404. Instead of returning only the successful files, it returns the successful files, the failed files and the error (if any) (breaking changes)  
 
-### Added
-
-- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
-- FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
 
 ## [v2.2.0] - 2020-11-18
 
@@ -37,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- FEAT([143](https://github.com/meateam/api-gateway/pull/143)): Added + Changed
+
 - Files will now have an `appID` field with the value of the client ID which created the file.
 
 - External apps (which does not include `Dropbox` and `Docs`) can now preform actions on behalf of users by authenticating with `authcode` grant-type (oauth):
@@ -49,7 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Authentication for Dropbox will **only** work with the `Auth-Type` header value of `Dropbox` instead of `Service`.
-
 
 ## [v2.0.0] - 2020-10-28
 

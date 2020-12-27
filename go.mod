@@ -13,7 +13,7 @@ require (
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
-	github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b
+	github.com/meateam/permission-service v0.0.0-20201130154756-fc1aa61e086d
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
@@ -27,13 +27,11 @@ require (
 	go.elastic.co/apm/module/apmgin v1.6.0
 	go.elastic.co/apm/module/apmgrpc v1.6.0
 	go.elastic.co/apm/module/apmhttp v1.6.0
-	go.mongodb.org/mongo-driver v1.3.4
-	google.golang.org/grpc v1.27.0
+	go.mongodb.org/mongo-driver v1.4.2
+	google.golang.org/grpc v1.33.1
 )
 
 replace github.com/meateam/api-gateway/logger => ./logger
-
-replace github.com/meateam/api-gateway/user => ./user
 
 replace github.com/meateam/api-gateway/upload => ./upload
 
