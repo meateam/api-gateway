@@ -381,6 +381,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	}
 
 	appID := c.Value(oauth.ContextAppKey).(string)
+
 	filesParent := c.Query(ParamFileParent)
 	err := validateAppID(c, filesParent, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
@@ -388,19 +389,13 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
+	// From oauth
 	queryAppID := appID
-
-	// indicates wheather files from a specific appID were requested.
-	isSpecificApp := false
 
 	// Check if a specific app was requested by the drive.
 	// Other apps are not permitted to do so.
 	if stringInSlice(appID, AllowedAllOperationsApps) {
-		requestedAppID := c.Query(QueryAppID)
-		if requestedAppID != "" {
-			isSpecificApp = true
-			queryAppID = requestedAppID
-		}
+		queryAppID = c.Query(QueryAppID)
 	}
 
 	if _, exists := c.GetQuery(QueryShareFiles); exists {
@@ -410,7 +405,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 			return
 		}
 
-		r.GetSharedFiles(c, isSpecificApp, queryAppID)
+		r.GetSharedFiles(c, queryAppID)
 		return
 	}
 
@@ -494,10 +489,14 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 
 	pageNum := stringToInt64(c.Query(ParamPageNum))
 	pageSize := stringToInt64(c.Query(ParamPageSize))
+
+	// Get all permission for {queryAppID} specificApp
+	// If {queryAppID} = "" it return all user permission
 	permissions, err := r.permissionClient().GetUserPermissions(
 		c.Request.Context(),
 		&ppb.GetUserPermissionsRequest{
 			UserID:   reqUser.ID,
+			AppID:    queryAppID,
 			PageNum:  pageNum,
 			PageSize: pageSize,
 			IsShared: true},
@@ -512,24 +511,12 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 
 	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
-		file, err := r.fileClient().GetFileByID(c.Request.Context(),
-			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
+		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 			return
-		}
-
-		// If a specific appID was requested, return only its files.
-		// Otherwise, return shared files of dropbox and drive.
-		if isSpecificApp && file.GetAppID() != queryAppID {
-			continue
-		} else {
-			// Show only drive and dropbox shared files
-			if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
-				continue
-			}
 		}
 
 		if file.GetOwnerID() != reqUser.ID {
@@ -1083,6 +1070,7 @@ func CreatePermission(ctx context.Context,
 	createPermissionRequest := ppb.CreatePermissionRequest{
 		FileID:  permission.GetFileID(),
 		UserID:  permission.GetUserID(),
+		AppID:   permission.GetAppID(),
 		Role:    permission.GetRole(),
 		Creator: permission.GetCreator(),
 	}

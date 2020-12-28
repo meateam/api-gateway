@@ -241,12 +241,14 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
+	appID := c.Value(oauth.ContextAppKey).(string)
+
 	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient(), Permission{
 		FileID:  fileID,
 		UserID:  permission.UserID,
 		Role:    permission.Role,
 		Creator: reqUser.ID,
-	}, permission.Override)
+	}, appID, permission.Override)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -378,10 +380,11 @@ func IsPermitted(ctx context.Context,
 // CreatePermission creates permission in the permission-service.
 func CreatePermission(ctx context.Context,
 	permissionClient ppb.PermissionClient,
-	permission Permission, override bool) (*ppb.PermissionObject, error) {
+	permission Permission, appID string, override bool) (*ppb.PermissionObject, error) {
 	permissionRequest := &ppb.CreatePermissionRequest{
 		FileID:   permission.FileID,
 		UserID:   permission.UserID,
+		AppID:    appID,
 		Role:     ppb.Role(ppb.Role_value[permission.Role]),
 		Creator:  permission.Creator,
 		Override: override,
@@ -390,7 +393,7 @@ func CreatePermission(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return createdPermission, nil
 }
 

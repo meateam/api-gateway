@@ -296,6 +296,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	newPermission := ppb.PermissionObject{
 		FileID:  createFolderResp.GetId(),
 		UserID:  reqUser.ID,
+		AppID:   appID,
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}
@@ -407,6 +408,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	newPermission := ppb.PermissionObject{
 		FileID:  createFileResp.GetId(),
 		UserID:  reqUser.ID,
+		AppID:   appID,
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}
@@ -558,6 +560,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	newPermission := ppb.PermissionObject{
 		FileID:  createFileResp.GetId(),
 		UserID:  reqUser.ID,
+		AppID:   appID,
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}

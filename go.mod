@@ -16,13 +16,13 @@ require (
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8
-	github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b
+	github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
 	github.com/meateam/user-service v2.1.1-0.20201224124158-ee5d834b0f10+incompatible
-	github.com/olivere/elastic/v7 v7.0.9
+	github.com/olivere/elastic/v7 v7.0.22
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/viper v1.6.1
