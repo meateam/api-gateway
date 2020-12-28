@@ -480,7 +480,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 // Can only be requested by AllowedAllOperationsApps.
 // queryAppID is the specific app requested by the application.
 // isSpecificApp indicates wheather files from a specific appID were requested.
-func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID string) {
+func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
