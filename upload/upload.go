@@ -920,7 +920,7 @@ func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
 		return
 	}
 
-	_, deleteErr := file.DeleteFile(c.Request.Context(),
+	_, deleteErr := file.DeleteFile(c,
 		r.logger,
 		r.fileClient(),
 		r.uploadClient(),

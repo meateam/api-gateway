@@ -125,8 +125,8 @@ const (
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
 
-	// fileIdIsRequiredMessage is the error message for missing fileID
-	fileIdIsRequiredMessage = "fileID is required"
+	// fileIDIsRequiredMessage is the error message for missing fileID
+	fileIDIsRequiredMessage = "fileID is required"
 )
 
 var (
@@ -289,7 +289,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 func (r *Router) GetFileByID(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
@@ -541,7 +541,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
@@ -637,7 +637,7 @@ func (r *Router) Download(c *gin.Context) {
 func (r *Router) UpdateFile(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
@@ -682,7 +682,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 func (r *Router) GetFileAncestors(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
