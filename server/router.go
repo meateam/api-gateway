@@ -293,10 +293,14 @@ func initServiceConn(url string) (*grpcPoolTypes.ConnPool, error) {
 	return &connPool, nil
 }
 
-func reviveConns(conns <-chan *grpcPoolTypes.ConnPool) {
+// reviveConns is the function for reviving the connections in the badConns connection pool
+func reviveConns(badConns <-chan *grpcPoolTypes.ConnPool) {
 	for {
-		pool := <-conns
+		// Pull the pointer to the pool from the channel.
+		// Will run when the channel isn't empty
+		pool := <-badConns
 		go func(pool *grpcPoolTypes.ConnPool) {
+			// Get the target url
 			target := (*pool).Conn().Target()
 			var newPool *grpcPoolTypes.ConnPool
 			err := fmt.Errorf("temp")
@@ -306,6 +310,7 @@ func reviveConns(conns <-chan *grpcPoolTypes.ConnPool) {
 				newPool, err = initServiceConn(target)
 			}
 			(*pool).Close()
+			// Replace the pointer to the new pool
 			*pool = *newPool
 		}(pool)
 	}
