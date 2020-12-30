@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - FIX([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
 
+### Fixed
+
+- hotfix:(BUG)([208](https://github.com/meateam/api-gateway/pull/208)): fix connection pool pointer bug.
+
 ## [v2.3.0] - 2020-12-24
 
 ### Changed
