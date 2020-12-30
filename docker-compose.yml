@@ -1,8 +1,7 @@
 version: "2.1"
 services:
   drive-ui:
-    image: drive-ui
-    build : ../drive-ui
+    image: "drivehub.azurecr.io/meateam/drive-ui:v3.0.0"
     ports:
       - "80:80"
     depends_on:
@@ -31,7 +30,7 @@ services:
       - ../kdrive.env
     command: server /data
   upload-service:
-    image: 'drivehub.azurecr.io/meateam/upload-service:develop'
+    image: "drivehub.azurecr.io/meateam/upload-service:v2.0.0"
     env_file:
       - ../kdrive.env
     depends_on:
@@ -39,7 +38,7 @@ services:
     ports:
       - "8081:8080"
   download-service:
-    image: 'drivehub.azurecr.io/meateam/download-service:develop'
+    image: "drivehub.azurecr.io/meateam/download-service:v2.0.0"
     env_file:
       - ../kdrive.env
     ports:
@@ -47,7 +46,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'drivehub.azurecr.io/meateam/file-service:develop'
+    image: "drivehub.azurecr.io/meateam/file-service:v3.0.0"
     env_file:
       - ../kdrive.env
     ports:
@@ -63,7 +62,7 @@ services:
     depends_on:
       - minio
   authentication-service:
-    image: 'drivehub.azurecr.io/meateam/authentication-service:develop'
+    image: "drivehub.azurecr.io/meateam/authentication-service:v2.0.0"
     ports:
       - "8084:8080"
     env_file:
@@ -72,13 +71,13 @@ services:
       - saml-idp
       - user-service
   saml-idp:
-    image: 'drivehub.azurecr.io/meateam/test-saml-idp:latest'
+    image: "drivehub.azurecr.io/meateam/test-saml-idp:latest"
     ports:
       - "8085:8080"
     env_file:
       - ../kdrive.env
   user-service:
-    image: 'drivehub.azurecr.io/meateam/user-service:develop'
+    image: "drivehub.azurecr.io/meateam/user-service:v2.0.0"
     ports:
       - "8086:8080"
     env_file:
@@ -91,7 +90,7 @@ services:
     ports:
       - "6379:6379"
   permission-service:
-    image: 'drivehub.azurecr.io/meateam/permission-service:develop'
+    image: "drivehub.azurecr.io/meateam/permission-service:v2.0.0"
     ports:
       - "8087:8080"
     env_file:
@@ -99,16 +98,16 @@ services:
     depends_on:
       - mongo
   search-service:
-    image: 'drivehub.azurecr.io/meateam/search-service:develop'
+    image: "drivehub.azurecr.io/meateam/search-service:v2.0.0"
     env_file:
       - ../kdrive.env
     ports:
-      - '8088:8080'
+      - "8088:8080"
     depends_on:
       elasticsearch:
         condition: service_healthy
   gotenberg-service:
-    image: drivehub.azurecr.io/meateam/gotenberg:6
+    image: "drivehub.azurecr.io/meateam/gotenberg:6"
     env_file:
       - ../kdrive.env
     tmpfs:
@@ -140,7 +139,7 @@ services:
     depends_on:
       - elasticsearch
   spike-service:
-    image: drivehub.azurecr.io/meateam/spike-service:develop
+    image: "drivehub.azurecr.io/meateam/spike-service:v2.0.0"
     env_file:
       - ../kdrive.env
     depends_on:
@@ -148,13 +147,13 @@ services:
     ports:
       - "8090:8080"
   delegation-service:
-    image: drivehub.azurecr.io/meateam/delegation-service:develop
+    image: "drivehub.azurecr.io/meateam/delegation-service:v2.0.0"
     ports:
       - "8091:8080"
     env_file:
       - ../kdrive.env
   permit-service:
-    image: drivehub.azurecr.io/meateam/permit-service:develop
+    image: "drivehub.azurecr.io/meateam/permit-service:v2.0.0"
     env_file:
       - ../kdrive.env
     ports:
