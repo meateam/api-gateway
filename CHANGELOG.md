@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Fixed
+- FIX([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
 
 ## [v2.3.0] - 2020-12-24
 
@@ -13,9 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The user in context is now more enriched (with fields like job, rank, current unit...)
 - The metrics metric now contains a timestamp and more information about the user.
-
-### Fixed
-- FIX([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
 
 ### Added
 

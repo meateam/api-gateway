@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// deleteFileAndPrem deletes the file and the permissions to it from db
-func deleteFileAndPrem(ctx *gin.Context,
+// deleteFileAndPremission deletes the file and the permissions to it from db
+func deleteFileAndPremission(ctx *gin.Context,
 	logger *logrus.Logger,
 	fileClient fpb.FileServiceClient,
 	permissionClient ppb.PermissionClient,
@@ -39,15 +39,17 @@ func deleteFileAndPrem(ctx *gin.Context,
 	// Delete file from db
 	deletedFile, err := fileClient.DeleteFileByID(ctx, &fpb.DeleteFileByIDRequest{Id: fileID})
 	if err != nil || deletedFile == nil {
-		loggermiddleware.LogError(logger, fmt.Errorf("failed deleting file: %v", err))
+		if status.Code(err) != codes.NotFound {
+			// Add permission rollback
+			AddPermissionsOnError(ctx, err, fileID, filePermissions.GetPermissions(), permissionClient, logger)
+		} 
 
-		// Add permission rollback
-		AddPermissionsOnError(ctx, err, fileID, filePermissions.GetPermissions(), permissionClient, logger)
-	} else {
-		return deletedFile.GetFile()
-	}
-
-	return nil
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))		
+		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file: %v", err)))
+		return nil
+	} 
+	
+	return deletedFile.GetFile()
 }
 
 // DeleteFile deletes fileID from file service and upload service, returns a slice of IDs of the files
