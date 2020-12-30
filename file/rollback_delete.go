@@ -19,15 +19,12 @@ func AddPermissionsOnError(c *gin.Context,
 	permissions []*ppb.GetFilePermissionsResponse_UserRole,
 	permissionClient ppb.PermissionClient,
 	logger *logrus.Logger) {
-	// TODO : do i need to check for user id?
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for _, permission := range permissions {
 		wg.Add(1)
 		go func(permission *ppb.GetFilePermissionsResponse_UserRole) {
-
-			// TODO : check what is override in create permissions
 			permissionRequest := &ppb.CreatePermissionRequest{
 				FileID:  fileID,
 				UserID:  permission.GetUserID(),

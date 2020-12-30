@@ -106,7 +106,7 @@ func DeleteFile(ctx *gin.Context,
 		parent := descendants[i].GetParent()
 
 		if file.GetOwnerID() == userID {
-			deletedFile := deleteFileAndPrem(ctx, logger, fileClient, permissionClient, fileID)
+			deletedFile := deleteFileAndPrem(ctx, logger, fileClient, permissionClient, file.GetId())
 			if deletedFile != nil {
 				deletedFiles = append(deletedFiles, deletedFile)
 			}
