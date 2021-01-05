@@ -6,7 +6,7 @@ services:
         context: .
         dockerfile: test.Dockerfile
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     ports:
       - '8080:8080'
     depends_on:
@@ -30,7 +30,7 @@ services:
   upload-service:
     image: 'drivehub.azurecr.io/meateam/upload-service:develop'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     depends_on:
       - minio
     ports:
@@ -38,7 +38,7 @@ services:
   download-service:
     image: 'drivehub.azurecr.io/meateam/download-service:develop'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     ports:
       - '8082:8080'
     depends_on:
@@ -46,7 +46,7 @@ services:
   file-service:
     image: 'drivehub.azurecr.io/meateam/file-service:develop'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     ports:
       - '8083:8080'
     depends_on:
@@ -64,7 +64,7 @@ services:
     ports:
       - '8084:8080'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     depends_on:
       - saml-idp
       - user-service
@@ -73,13 +73,13 @@ services:
     ports:
       - '8085:8080'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
   user-service:
     image: 'drivehub.azurecr.io/meateam/user-service:develop'
     ports:
       - '8086:8080'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     depends_on:
       - mongo
       - redis
@@ -88,13 +88,13 @@ services:
     ports:
       - '8087:8080'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     depends_on:
       - mongo
   search-service:
     image: 'drivehub.azurecr.io/meateam/search-service:develop'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     ports:
       - '8088:8080'
     depends_on:
@@ -103,7 +103,7 @@ services:
   gotenberg-service:
     image: drivehub.azurecr.io/meateam/gotenberg:6
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     tmpfs:
       - /tmp
       - /gotenberg/tmp
@@ -112,7 +112,7 @@ services:
   spike-service:
     image: drivehub.azurecr.io/meateam/spike-service:develop
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     depends_on:
       - redis
     ports:
@@ -122,11 +122,11 @@ services:
     ports:
       - '8091:8080'
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
   permit-service:
     image: drivehub.azurecr.io/meateam/permit-service:develop
     env_file:
-      - ../kdrive.env
+      - ./kdrive.env
     ports:
       - 8092:8080
     depends_on:
