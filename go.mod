@@ -18,7 +18,7 @@ require (
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8
 	github.com/meateam/permission-service v0.0.0-20200204090700-2d1debc9dc9b
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
-	github.com/meateam/quota-approval-service v0.0.0-20201220095452-0f6c61faad58
+	github.com/meateam/quota-approval-service v0.0.0-20210110143310-cdb6f3f8e5f3
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
