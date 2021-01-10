@@ -10,6 +10,7 @@ import (
 	"github.com/meateam/api-gateway/user"
 	qpb "github.com/meateam/file-service/proto/quota"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
+	apb "github.com/meateam/quota-approval-service/proto/admin"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/status"
 )
@@ -18,6 +19,8 @@ import (
 type Router struct {
 	// QuotaClientFactory
 	quotaClient factory.QuotaClientFactory
+	// AdminClientFactory
+	adminClient factory.AdminClientFactory
 
 	logger *logrus.Logger
 }
@@ -27,6 +30,7 @@ type Router struct {
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
 	quotaConn *grpcPoolTypes.ConnPool,
+	adminConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -38,6 +42,10 @@ func NewRouter(
 
 	r.quotaClient = func() qpb.QuotaServiceClient {
 		return qpb.NewQuotaServiceClient((*quotaConn).Conn())
+	}
+
+	r.adminClient = func() apb.AdminsClient {
+		return apb.NewAdminsClient((*adminConn).Conn())
 	}
 
 	return r
@@ -82,8 +90,11 @@ func (r *Router) GetQuotaByID(c *gin.Context) {
 func (r *Router) handleGetQuota(c *gin.Context, requesterID string, ownerID string) {
 	allowed := r.isAllowedToGetQuota(c, requesterID, ownerID)
 	if !allowed {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+		isAdmin := r.isAdmin(c, requesterID)
+		if !isAdmin {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 	}
 
 	quota, err := r.quotaClient().GetOwnerQuota(
@@ -110,4 +121,16 @@ func (r *Router) isAllowedToGetQuota(c *gin.Context, reqUserID string, ownerID s
 		return false
 	}
 	return res.GetAllowed()
+}
+
+func (r *Router) isAdmin(c *gin.Context, reqUserID string) bool {
+	res, err := r.adminClient().IsUserAdmin(
+		c.Request.Context(),
+		&apb.IsUserAdminRequest{Id: reqUserID},
+	)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, err))
+		return false
+	}
+	return res.GetIsUserAdmin()
 }

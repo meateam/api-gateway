@@ -7,6 +7,7 @@ import (
 	qpb "github.com/meateam/file-service/proto/quota"
 	ppb "github.com/meateam/permission-service/proto"
 	ptpb "github.com/meateam/permit-service/proto"
+	apb "github.com/meateam/quota-approval-service/proto/admin"
 	qapb "github.com/meateam/quota-approval-service/proto/quotaApproval"
 	spb "github.com/meateam/search-service/proto"
 	spkpb "github.com/meateam/spike-service/proto/spike-service"
@@ -46,3 +47,6 @@ type QuotaClientFactory = func() qpb.QuotaServiceClient
 
 // QuotaApprovalClientFactory is a factory for the Quota GRPC client
 type QuotaApprovalClientFactory = func() qapb.QuotaApprovalClient
+
+// AdminClientFactory is a factory for the Admin GRPC client
+type AdminClientFactory = func() apb.AdminsClient
