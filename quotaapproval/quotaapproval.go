@@ -55,13 +55,13 @@ func NewRouter(
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.GET("/quota/approval/:createdBy/:approvableBy", r.GetQuotasApprovals)
+	rg.GET("/quota/approvals/:createdBy/:approvableBy", r.GetQuotasApprovals)
 	rg.GET("/quota/approval/:id", r.GetQuotaApprovalByID)
 	rg.PUT("/quota/approval/:id/:status", r.UpdateQuotaApproval)
 	rg.POST("/quota/approval/:size/:info", r.CreateQuotaApproval)
 }
 
-// GetQuotasApprovals is the request handler for GET /quota/approval/:createdBy/:approvableBy
+// GetQuotasApprovals is the request handler for GET /quota/approvals/:createdBy/:approvableBy
 func (r *Router) GetQuotasApprovals(c *gin.Context) {
 	createdBy := c.Param("createdBy")
 	approvableBy := c.Param("approvableBy")
