@@ -31,8 +31,11 @@ const (
 )
 
 func init() {
+	fmt.Printf("********************==> In Init!\n")
+
 	r, _ = server.NewRouter(logrus.New())
 
+	fmt.Printf("********************==> After NewRouter!\n")
 	var err error
 	authToken, err = test.GenerateJwtToken()
 	if err != nil {
@@ -48,6 +51,7 @@ func init() {
 	if err != nil {
 		fmt.Printf("Couldn't upload folder: %v\n", err)
 	}
+	fmt.Printf("********************==>No error in Init!\n")
 }
 
 // uploadFolder uploads a folder
@@ -138,7 +142,9 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 		// TODO: filter by date created
 		// TODO: filter by date modified
 	}
-	for _, tt := range tests {
+	fmt.Printf("********************==>RUNING ACTUAL TESTS!\n")
+	for i, tt := range tests {
+		fmt.Printf("********************==>INITING TEST %v!\n", i)
 		t.Run(tt.name, func(t *testing.T) {
 			query := url.Values{}
 			for param, value := range tt.args.params {
