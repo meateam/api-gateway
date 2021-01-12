@@ -42,7 +42,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'drivehub.azurecr.io/meateam/file-service:develop'
+    image: 'drivehub.azurecr.io/meateam/file-service:v3.0.0'
     env_file:
       - ../kdrive.env
     ports:
@@ -58,7 +58,7 @@ services:
     depends_on:
       - minio
   authentication-service:
-    image: 'drivehub.azurecr.io/meateam/authentication-service:develop'
+    image: 'drivehub.azurecr.io/meateam/authentication-service:v2.1.0'
     ports:
       - '8084:8080'
     env_file:
@@ -82,7 +82,7 @@ services:
       - mongo
       - redis
   permission-service:
-    image: 'drivehub.azurecr.io/meateam/permission-service:develop'
+    image: 'drivehub.azurecr.io/meateam/permission-service:pagination'
     ports:
       - '8087:8080'
     env_file:
