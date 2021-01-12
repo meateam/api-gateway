@@ -316,6 +316,8 @@ github.com/meateam/quota-approval-service v0.0.0-20201220095452-0f6c61faad58 h1:
 github.com/meateam/quota-approval-service v0.0.0-20201220095452-0f6c61faad58/go.mod h1:OsvW9T1sg9IwC+o+0+d1Ua35ywhYVdPGnm9kqD8go9w=
 github.com/meateam/quota-approval-service v0.0.0-20210110143310-cdb6f3f8e5f3 h1:OXhkeqaXokOv1TRttlpCnxoUVFG02rVi2CYEQnkD+2M=
 github.com/meateam/quota-approval-service v0.0.0-20210110143310-cdb6f3f8e5f3/go.mod h1:OsvW9T1sg9IwC+o+0+d1Ua35ywhYVdPGnm9kqD8go9w=
+github.com/meateam/quota-approval-service v0.0.0-20210112153340-281038f5ecc0 h1:9LPXbLsIbW++7n3c1ssHmdq5LlOPJ548TUr8v0Ber3o=
+github.com/meateam/quota-approval-service v0.0.0-20210112153340-281038f5ecc0/go.mod h1:OsvW9T1sg9IwC+o+0+d1Ua35ywhYVdPGnm9kqD8go9w=
 github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0 h1:WvDXyQcJqrp+a98biD+E5nk5sFxYM+qLYLj1PxDn4jY=
 github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0/go.mod h1:Q6j5mhMv4YdGZiDWAdlG8YWWYZyIzdub39f86mBz8Lg=
 github.com/meateam/spike-service v0.0.0-20191212084848-b7760c5526b3/go.mod h1:cg6abJq1OOTQqcoGkhjWztNGmLTzS4HGut3Djuww+mo=

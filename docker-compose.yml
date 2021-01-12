@@ -1,5 +1,11 @@
 version: '3'
 services:
+  drive-ui:
+    image: "drivehub.azurecr.io/meateam/drive-ui:develop"
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
   api-gateway:
     image: api-gateway
     build: .
@@ -43,7 +49,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'drivehub.azurecr.io/meateam/file-service:develop'
+    image: 'drivehub.azurecr.io/meateam/file-service:quotaApproval'
     env_file:
       - ../kdrive.env
     ports:
@@ -159,3 +165,4 @@ services:
       - '8093:8080'
     depends_on:
       - mongo
+      - file-service
