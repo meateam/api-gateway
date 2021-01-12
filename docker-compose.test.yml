@@ -15,7 +15,7 @@ services:
       - file-service
       - authentication-service
       - permission-service
-      - search-service
+      # - search-service
       - gotenberg-service
   minio:
     image: minio/minio
