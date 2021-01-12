@@ -15,6 +15,7 @@ services:
       - permission-service
       - search-service
       - gotenberg-service
+      - quota-approval-service
   minio:
     image: minio/minio
     volumes:
@@ -26,7 +27,7 @@ services:
       MINIO_SECRET_KEY: 'BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR'
     command: server /data
   upload-service:
-    image: 'bluehub.azurecr.io/meateam/upload-service:develop'
+    image: 'drivehub.azurecr.io/meateam/upload-service:develop'
     env_file:
       - ../kdrive.env
     depends_on:
@@ -34,7 +35,7 @@ services:
     ports:
       - '8081:8080'
   download-service:
-    image: 'bluehub.azurecr.io/meateam/download-service:develop'
+    image: 'drivehub.azurecr.io/meateam/download-service:develop'
     env_file:
       - ../kdrive.env
     ports:
@@ -42,7 +43,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'bluehub.azurecr.io/meateam/file-service:develop'
+    image: 'drivehub.azurecr.io/meateam/file-service:develop'
     env_file:
       - ../kdrive.env
     ports:
@@ -58,7 +59,7 @@ services:
     depends_on:
       - minio
   authentication-service:
-    image: 'bluehub.azurecr.io/meateam/authentication-service:develop'
+    image: 'drivehub.azurecr.io/meateam/authentication-service:develop'
     ports:
       - '8084:8080'
     env_file:
@@ -67,13 +68,13 @@ services:
       - saml-idp
       - user-service
   saml-idp:
-    image: 'bluehub.azurecr.io/meateam/test-saml-idp:latest'
+    image: 'drivehub.azurecr.io/meateam/test-saml-idp:latest'
     ports:
       - '8085:8080'
     env_file:
       - ../kdrive.env
   user-service:
-    image: 'bluehub.azurecr.io/meateam/user-service:develop'
+    image: 'drivehub.azurecr.io/meateam/user-service:develop'
     ports:
       - '8086:8080'
     env_file:
@@ -82,7 +83,7 @@ services:
       - mongo
       - redis
   permission-service:
-    image: 'bluehub.azurecr.io/meateam/permission-service:develop'
+    image: 'drivehub.azurecr.io/meateam/permission-service:develop'
     ports:
       - '8087:8080'
     env_file:
@@ -90,7 +91,7 @@ services:
     depends_on:
       - mongo
   search-service:
-    image: bluehub.azurecr.io/meateam/search-service:develop
+    image: drivehub.azurecr.io/meateam/search-service:develop
     env_file:
       - ../kdrive.env
     ports:
@@ -99,7 +100,7 @@ services:
       elasticsearch:
         condition: service_healthy
   gotenberg-service:
-    image: bluehub.azurecr.io/meateam/gotenberg:6
+    image: drivehub.azurecr.io/meateam/gotenberg:6
     env_file:
       - ../kdrive.env
     tmpfs:
@@ -108,7 +109,7 @@ services:
     ports:
       - 8089:8080
   spike-service:
-    image: bluehub.azurecr.io/meateam/spike-service:latest
+    image: drivehub.azurecr.io/meateam/spike-service:develop
     env_file:
       - ../kdrive.env
     depends_on:
@@ -116,13 +117,13 @@ services:
     ports:
       - '8090:8080'
   delegation-service:
-    image: bluehub.azurecr.io/meateam/delegation-service:develop
+    image: drivehub.azurecr.io/meateam/delegation-service:develop
     ports:
       - '8091:8080'
     env_file:
       - ../kdrive.env
   permit-service:
-    image: bluehub.azurecr.io/meateam/permit-service:develop
+    image: drivehub.azurecr.io/meateam/permit-service:develop
     env_file:
       - ../kdrive.env
     ports:
@@ -150,3 +151,11 @@ services:
     container_name: kibana
     ports: ['5601:5601']
     depends_on: ['elasticsearch']
+  quota-approval-service:
+    image: 'drivehub.azurecr.io/meateam/quota-approval-service:develop'
+    env_file:
+      - ../kdrive.env
+    ports:
+      - '8093:8080'
+    depends_on:
+      - mongo
