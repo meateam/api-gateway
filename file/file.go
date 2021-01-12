@@ -380,8 +380,6 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	appID := c.Value(oauth.ContextAppKey).(string)
-
 	filesParent := c.Query(ParamFileParent)
 	err := validateAppID(c, filesParent, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
@@ -389,7 +387,9 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	// From oauth
+	// Get the application ID of the app which sent the request.
+	// This was saved in the oauth middleware.
+	appID := c.Value(oauth.ContextAppKey).(string)
 	queryAppID := appID
 
 	// Check if a specific app was requested by the drive.
@@ -398,8 +398,11 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		queryAppID = c.Query(QueryAppID)
 	}
 
+	// Check if client requested all files shared with him.
 	if _, exists := c.GetQuery(QueryShareFiles); exists {
 		// Only AllowedAllOperationsApps can access GetSharedFiles.
+		// In the future - we may allow other apps to get the
+		// shared files which belong to them.
 		if !stringInSlice(appID, AllowedAllOperationsApps) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
@@ -477,9 +480,8 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 }
 
 // GetSharedFiles is the request handler for GET /files?shares.
-// Can only be requested by AllowedAllOperationsApps.
+// Currently, can only be requested by AllowedAllOperationsApps.
 // queryAppID is the specific app requested by the application.
-// isSpecificApp indicates wheather files from a specific appID were requested.
 func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
@@ -490,8 +492,8 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	pageNum := stringToInt64(c.Query(ParamPageNum))
 	pageSize := stringToInt64(c.Query(ParamPageSize))
 
-	// Get all permission for {queryAppID} specificApp
-	// If {queryAppID} = "" it return all user permission
+	// Return a page of all shared files' permissions which belong to the user,
+	// filtered by appID. If queryAppID = "", it will not filter by apps
 	permissions, err := r.permissionClient().GetUserPermissions(
 		c.Request.Context(),
 		&ppb.GetUserPermissionsRequest{
@@ -509,6 +511,7 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 		return
 	}
 
+	// Go over the permissions and get the files metadata related to them
 	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
 		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
@@ -519,6 +522,8 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 			return
 		}
 
+		// Filter files which belong to the requesting user.
+		// The creator of the permission is not necessarily the owner of the file!
 		if file.GetOwnerID() != reqUser.ID {
 			userPermission := &ppb.PermissionObject{
 				FileID:  permission.GetFileID(),
@@ -1082,10 +1087,9 @@ func CreatePermission(ctx context.Context,
 	return nil
 }
 
-// HandleUserFilePermission gets a gin context and the id of the requested file,
-// returns true if the user is permitted to operate on the file.
-// Returns false if the user isn't permitted to operate on it,
-// Returns false if any error occurred and logs the error.
+// HandleUserFilePermission gets the id of the requested file, and the required role.
+// Returns the user role as a string, and the permission if the user is permitted
+// to operate on the file, and `"", nil` if not.
 func (r *Router) HandleUserFilePermission(
 	c *gin.Context,
 	fileID string,
@@ -1097,7 +1101,7 @@ func (r *Router) HandleUserFilePermission(
 		return "", nil
 	}
 
-	userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
+	userStringRole, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
 		r.fileClient(),
 		r.permissionClient(),
 		reqUser.ID,
@@ -1111,11 +1115,11 @@ func (r *Router) HandleUserFilePermission(
 		return "", nil
 	}
 
-	if userFilePermission == "" {
+	if userStringRole == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	}
 
-	return userFilePermission, foundPermission
+	return userStringRole, foundPermission
 }
 
 // HandleUserFilePermit gets a gin context and the id of the requested file,

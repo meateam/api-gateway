@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- major:([199](https://github.com/meateam/api-gateway/pull/199)): added pagination for shared files.
+### Fixed
+
+- hotfix:(BUG)([208](https://github.com/meateam/api-gateway/pull/208)): fix connection pool pointer bug.
+
 ## [v2.3.0] - 2020-12-24
 
 ### Changed
