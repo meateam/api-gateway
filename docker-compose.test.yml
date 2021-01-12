@@ -15,7 +15,7 @@ services:
       - file-service
       - authentication-service
       - permission-service
-      # - search-service
+      - search-service
       - gotenberg-service
   minio:
     image: minio/minio
@@ -144,8 +144,3 @@ services:
       interval: 5s
       timeout: 10s
       retries: 5
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.5.0
-    container_name: kibana
-    ports: ['5601:5601']
-    depends_on: ['elasticsearch']
