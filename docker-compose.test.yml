@@ -84,7 +84,7 @@ services:
       - mongo
       - redis
   permission-service:
-    image: 'drivehub.azurecr.io/meateam/permission-service:develop'
+    image: 'drivehub.azurecr.io/meateam/permission-service:pagination'
     ports:
       - '8087:8080'
     env_file:

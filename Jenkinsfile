@@ -14,8 +14,8 @@ pipeline {
               image: aymdev/dind-compose 
               resources: 
                   requests: 
-                      cpu: 20m 
-                      memory: 512Mi 
+                      cpu: 1000m 
+                      memory: 2048Mi 
               securityContext: 
                   privileged: true 
               volumeMounts: 
