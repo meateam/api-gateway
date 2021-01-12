@@ -149,7 +149,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		delegateConn,
 		userConn,
 		spikeConn,
-		searchConn,
 	}
 
 	fatalConns := []*grpcPoolTypes.ConnPool{
@@ -157,6 +156,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		downloadConn,
 		permissionConn,
 		uploadConn,
+		searchConn,
 	}
 
 	conns := append(fatalConns, nonFatalConns...)
