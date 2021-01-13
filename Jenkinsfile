@@ -68,7 +68,7 @@ pipeline {
           configFileProvider([configFile(fileId:'d9e51ae8-06c8-4dc4-ba0d-d4794033bddd',variable:'API_CONFIG_FILE')]){
             sh "cp ${env.API_CONFIG_FILE} ./kdrive.env" 
             sh "cat kdrive.env"
-            sh "docker-compose -f docker-compose.test.yml up --build" 
+            sh "docker-compose -f docker-compose.test.yml up  --build --force-recreate --renew-anon-volumes --exit-code-from api-gateway" 
             sh "rm kdrive.env" 
           } 
           
