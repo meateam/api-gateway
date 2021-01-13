@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -21,6 +22,18 @@ const (
 	// UpdateFileRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the UpdateFile action.
 	UpdateFileRole = ppb.Role_WRITE
+
+	// MimeTypePPTX Docs mime types
+	MimeTypePPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+	// MimeTypeDOCX Docs mime types
+	MimeTypeDOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+	// MimeTypeXLSX Docs mime types
+	MimeTypeXLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+	// MimeTypeHeader file mime type.
+	MimeTypeHeader = "X-Mime-Type"
 )
 
 // UpdateSetup initializes its routes under rg.
@@ -38,7 +51,7 @@ func (r *Router) Update(c *gin.Context) {
 	}
 
 	fileID := c.Param(ParamFileID)
-	file, err := r.fileClient.GetFileByID(
+	file, err := r.fileClient().GetFileByID(
 		c.Request.Context(),
 		&fpb.GetByFileByIDRequest{Id: fileID},
 	)
@@ -64,7 +77,7 @@ func (r *Router) Update(c *gin.Context) {
 		return
 	}
 
-	createUpdateResponse, err := r.fileClient.CreateUpdate(c.Request.Context(), &fpb.CreateUploadRequest{
+	createUpdateResponse, err := r.fileClient().CreateUpdate(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  file.GetBucket(),
 		Name:    file.GetName(),
 		OwnerID: file.GetOwnerID(),
@@ -84,13 +97,13 @@ func (r *Router) Update(c *gin.Context) {
 		ContentType: file.Type,
 	}
 
-	resp, err := r.uploadClient.UploadInit(c.Request.Context(), uploadInitReq)
+	resp, err := r.uploadClient().UploadInit(c.Request.Context(), uploadInitReq)
 	if err != nil {
 		r.deleteUploadOnError(c, err, createUpdateResponse.GetKey(), createUpdateResponse.GetBucket())
 		return
 	}
 
-	_, err = r.fileClient.UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
+	_, err = r.fileClient().UpdateUploadID(c.Request.Context(), &fpb.UpdateUploadIDRequest{
 		Key:      createUpdateResponse.GetKey(),
 		Bucket:   createUpdateResponse.GetBucket(),
 		UploadID: resp.GetUploadId(),
@@ -117,7 +130,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	upload, err := r.fileClient.GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
+	upload, err := r.fileClient().GetUploadByID(c.Request.Context(), &fpb.GetUploadByIDRequest{UploadID: uploadID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -125,7 +138,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 	}
 
 	fileID := upload.GetFileID()
-	oldFile, err := r.fileClient.GetFileByID(
+	oldFile, err := r.fileClient().GetFileByID(
 		c.Request.Context(),
 		&fpb.GetByFileByIDRequest{Id: fileID},
 	)
@@ -141,7 +154,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		Bucket:   upload.GetBucket(),
 	}
 
-	resp, err := r.uploadClient.UploadComplete(c.Request.Context(), uploadCompleteRequest)
+	resp, err := r.uploadClient().UploadComplete(c.Request.Context(), uploadCompleteRequest)
 	if err != nil {
 		r.deleteUpdateOnError(c, err, upload)
 		return
@@ -154,17 +167,27 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 	// Locks the action so that no such action will occur at the same time
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	_, err = r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
+	_, err = r.fileClient().DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
 
-	updateFilesResponse, err := r.fileClient.UpdateFiles(c.Request.Context(), &fpb.UpdateFilesRequest{
+	mimeType := c.GetHeader(MimeTypeHeader)
+	fileName := oldFile.Name
+	if mimeType == "" {
+		mimeType = resp.GetContentType()
+	} else {
+		fileName = changeExtensionByMimeType(oldFile.Name, mimeType)
+	}
+
+	updateFilesResponse, err := r.fileClient().UpdateFiles(c.Request.Context(), &fpb.UpdateFilesRequest{
 		IdList: []string{fileID},
 		PartialFile: &fpb.File{
 			Key:  upload.GetKey(),
+			Type: mimeType,
+			Name: fileName,
 			Size: resp.GetContentLength(),
 		},
 	})
@@ -181,7 +204,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	deleteObjectsResponse, err := r.uploadClient.DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
+	deleteObjectsResponse, err := r.uploadClient().DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
 		Bucket: upload.Bucket,
 		Keys:   []string{oldFile.Key},
 	})
@@ -204,7 +227,7 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, upload *fpb.GetU
 		return
 	}
 
-	deleteObjectsResponse, deleteErr := r.uploadClient.DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
+	deleteObjectsResponse, deleteErr := r.uploadClient().DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
 		Bucket: upload.GetBucket(),
 		Keys:   []string{upload.GetKey()},
 	})
@@ -224,11 +247,47 @@ func (r *Router) deleteUpdateOnError(c *gin.Context, err error, upload *fpb.GetU
 		UploadID: upload.GetUploadID(),
 	}
 
-	_, deleteUploadErr := r.fileClient.DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
+	_, deleteUploadErr := r.fileClient().DeleteUploadByID(c.Request.Context(), deleteUploadRequest)
 	if deleteUploadErr != nil {
 		err = fmt.Errorf("%v: fail to delete upload %v", err, deleteUploadErr)
 	}
 
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 	loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+}
+
+// changeExtensionByMimeType returns the same file name and changes the extension by the mime type
+// This function is only used for the docs
+func changeExtensionByMimeType(fileName string, mimeType string) string {
+	splitName := strings.Split(fileName, ".")
+	lastIndex := len(splitName) - 1
+	oldExtantion := splitName[lastIndex]
+
+	switch mimeType {
+	case MimeTypeDOCX:
+		{
+			if oldExtantion == "doc" {
+				splitName[lastIndex] = "docx"
+			} else {
+				splitName = append(splitName, "docx")
+			}
+		}
+	case MimeTypePPTX:
+		{
+			if oldExtantion == "ppt" {
+				splitName[lastIndex] = "pptx"
+			} else {
+				splitName = append(splitName, "pptx")
+			}
+		}
+	case MimeTypeXLSX:
+		{
+			if oldExtantion == "xls" {
+				splitName[lastIndex] = "xlsx"
+			} else {
+				splitName = append(splitName, "xlsx")
+			}
+		}
+	}
+	return strings.Join(splitName, ".")
 }

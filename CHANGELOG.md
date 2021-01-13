@@ -5,9 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## Unreleased
+
+## [v3.0.0] - 2021-01-13
+
+### Added
+
+- major:([199](https://github.com/meateam/api-gateway/pull/199)): added pagination for shared files.
+### Fixed
+
+- hotfix:(BUG)([208](https://github.com/meateam/api-gateway/pull/208)): fix connection pool pointer bug.
+
+## [v2.3.0] - 2020-12-24
+
+### Changed
+
+- The user in context is now more enriched (with fields like job, rank, current unit...)
+- The metrics metric now contains a timestamp and more information about the user.
+
+### Added
+
+- FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
+- FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
+- FEAT([195](https://github.com/meateam/api-gateway/issues/195)): call with grpc to user service method to get if user can approve 
+- FEAT: add new envs: bam_support_number, bereshit_support_link for approver support
+
 ## [v2.2.0] - 2020-11-18
 
-## Added
+### Added
 
 - FEAT([89](https://github.com/meateam/authentication-service/pull/89)): add curl on docker image
 
@@ -20,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v2.1.0] - 2020-11-1
 
 ### Added
+
+- FEAT([143](https://github.com/meateam/api-gateway/pull/143)): Added + Changed
 
 - Files will now have an `appID` field with the value of the client ID which created the file.
 
@@ -34,7 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Authentication for Dropbox will **only** work with the `Auth-Type` header value of `Dropbox` instead of `Service`.
 
-
 ## [v2.0.0] - 2020-10-28
 
 ### Added
@@ -44,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
+[v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0
+[v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.3.0
 [v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0
 [v2.1.1]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/meateam/api-gateway/compare/v2.0.0...v2.1.0

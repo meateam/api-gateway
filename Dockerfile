@@ -13,5 +13,7 @@ FROM golang:alpine
 RUN apk --no-cache add curl
 LABEL Name=api-gateway Version=0.0.1
 COPY --from=builder /go/src/app/api-gateway /api-gateway
+COPY --from=builder /go/src/app/swagger/ /swagger/
 EXPOSE 8080
 ENTRYPOINT ["/api-gateway"]
+

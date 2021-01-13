@@ -3,13 +3,14 @@ package upload
 import (
 	"fmt"
 	"net/http"
-	"google.golang.org/grpc/status"
+
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	ppb "github.com/meateam/permission-service/proto"
+	"google.golang.org/grpc/status"
 )
 
 // getUserFromContext extracts the user from the context.
@@ -34,8 +35,8 @@ func (r *Router) HandleUserFilePermission(c *gin.Context, fileID string, role pp
 
 	userFilePermission, _, err := file.CheckUserFilePermission(
 		c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileClient(),
+		r.permissionClient(),
 		reqUser.ID,
 		fileID,
 		role,
@@ -64,4 +65,3 @@ func (r *Router) getQueryFromContext(c *gin.Context, query string) (string, bool
 	}
 	return queryRes, true
 }
-

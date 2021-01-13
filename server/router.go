@@ -1,13 +1,17 @@
 package server
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/meateam/api-gateway/delegation"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
@@ -20,6 +24,9 @@ import (
 	"github.com/meateam/api-gateway/upload"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/gotenberg-go-client/v6"
+	grpcPool "github.com/meateam/grpc-go-conn-pool/grpc"
+	grpcPoolOptions "github.com/meateam/grpc-go-conn-pool/grpc/options"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.elastic.co/apm/module/apmgin"
@@ -34,7 +41,7 @@ const (
 )
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
-func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
+func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// If no logger is given, use a default logger.
 	if logger == nil {
 		logger = logrus.New()
@@ -73,13 +80,15 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 				"authUrl":              viper.GetString(configAuthURL),
 				"docsUrl":              viper.GetString(configDocsURL),
 				"supportLink":          viper.GetString(configSupportLink),
-				"dropboxSupportLink":  viper.GetString(configDropboxSupportLink),
+				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
 				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
 				"externalShareName":    viper.GetString(configExternalShareName),
 				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
 				"vipServiceUrl":        viper.GetString(configVipService),
 				"enableExternalShare":  viper.GetString(configEnableExternalShare),
-				"whiteListText":  viper.GetString(configWhiteListText),
+				"whiteListText":        viper.GetString(configWhiteListText),
+				"bereshitSupportLink":  viper.GetString(configBereshitSupportLink),
+				"bamSupportNumber":     viper.GetString(configBamSupportNumber),
 			},
 		)
 	})
@@ -134,37 +143,71 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpc.ClientConn) {
 
 	// initiate middlewares
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
-	conns := []*grpc.ClientConn{
-		fileConn,
-		uploadConn,
-		downloadConn,
-		permissionConn,
-		userConn,
-		searchConn,
-		spikeConn,
+
+	nonFatalConns := []*grpcPoolTypes.ConnPool{
 		permitConn,
 		delegateConn,
+		userConn,
+		spikeConn,
 	}
+
+	fatalConns := []*grpcPoolTypes.ConnPool{
+		fileConn,
+		downloadConn,
+		permissionConn,
+		uploadConn,
+		searchConn,
+	}
+
+	conns := append(fatalConns, nonFatalConns...)
 
 	health := NewHealthChecker()
 	healthInterval := viper.GetInt(configHealthCheckInterval)
 	healthRPCTimeout := viper.GetInt(configHealthCheckRPCTimeout)
 
-	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, conns...)
+	badConns := make(chan *grpcPoolTypes.ConnPool, len(conns))
+
+	go health.Check(healthInterval, healthRPCTimeout, logger, gotenbergClient, badConns, nonFatalConns, fatalConns...)
+	go reviveConns(badConns)
 
 	// Health Check route.
 	apiRoutesGroup.GET("/healthcheck", health.healthCheck)
 
+	// handler for swagger documentation
+	apiRoutesGroup.StaticFile("/swagger", viper.GetString(configSwaggerPathFile)+"/swagger.json")
+
+	if viper.GetBool(configShowSwaggerUI) {
+		opts := middleware.SwaggerUIOpts{
+			SpecURL:  "/api/swagger",
+			BasePath: "/api",
+		}
+
+		sh := middleware.SwaggerUI(opts, nil)
+		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+	} else {
+		opts := middleware.RedocOpts{
+			SpecURL:  "/api/swagger",
+			BasePath: "/api",
+			RedocURL: "/api/redoc",
+		}
+
+		// redoc UI
+		apiRoutesGroup.StaticFile("/redoc", viper.GetString(configSwaggerPathFile)+"/redoc.standalone.js")
+
+		sh := middleware.Redoc(opts, nil)
+		apiRoutesGroup.GET("/docs", gin.WrapH(sh))
+	}
+
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
-		searchConn, userConn, delegateConn, gotenbergClient, om, logger)
+		searchConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
-	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, delegateConn, om, logger)
+	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
@@ -232,17 +275,43 @@ func corsRouterConfig() cors.Config {
 	return corsConfig
 }
 
-// initServiceConn creates a gRPC connection to url, returns the created connection
+// initServiceConn creates a gRPC connection pool to url, returns the created connection pool
 // and nil err on success. Returns non-nil error if any error occurred while
-// creating the connection.
-func initServiceConn(url string) (*grpc.ClientConn, error) {
-	conn, err := grpc.Dial(url,
-		grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor()),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20)),
-		grpc.WithInsecure())
+// creating the connection pool.
+func initServiceConn(url string) (*grpcPoolTypes.ConnPool, error) {
+	ctx := context.Background()
+	connPool, err := grpcPool.DialPool(ctx,
+		grpcPoolOptions.WithGRPCDialOption(grpc.WithUnaryInterceptor(apmgrpc.NewUnaryClientInterceptor())),
+		grpcPoolOptions.WithGRPCDialOption(grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(10<<20))),
+		grpcPoolOptions.WithGRPCDialOption(grpc.WithInsecure()),
+		grpcPoolOptions.WithEndpoint(url),
+		grpcPoolOptions.WithGRPCConnectionPool(viper.GetInt(configPoolSize)),
+	)
 	if err != nil {
 		return nil, err
 	}
+	return &connPool, nil
+}
 
-	return conn, nil
+// reviveConns is the function for reviving the connections in the badConns connection pool
+func reviveConns(badConns <-chan *grpcPoolTypes.ConnPool) {
+	for {
+		// Pull the pointer to the pool from the channel.
+		// Will run when the channel isn't empty
+		pool := <-badConns
+		go func(pool *grpcPoolTypes.ConnPool) {
+			// Get the target url
+			target := (*pool).Conn().Target()
+			var newPool *grpcPoolTypes.ConnPool
+			err := fmt.Errorf("temp")
+			for err != nil {
+				time.Sleep(time.Second * time.Duration(2))
+				err = nil
+				newPool, err = initServiceConn(target)
+			}
+			(*pool).Close()
+			// Replace the pointer to the new pool
+			*pool = *newPool
+		}(pool)
+	}
 }
