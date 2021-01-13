@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v3.0.0] - 2021-01-13
+
 ### Added
 
 - major:([199](https://github.com/meateam/api-gateway/pull/199)): added pagination for shared files.
@@ -68,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
+[v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0
 [v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.3.0
 [v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0
 [v2.1.1]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.1.1
