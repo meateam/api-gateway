@@ -54,6 +54,12 @@ const (
 	// ParamFileUpdatedAt is a constant for file updated at parameter in a request.
 	ParamFileUpdatedAt = "updatedAt"
 
+	// ParamPageNum is a constant for the requested page num in the pagination.
+	ParamPageNum = "pageNum"
+
+	// ParamPageSize is a constant for the requested page size in the pagination.
+	ParamPageSize = "pageSize"
+
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
@@ -201,6 +207,12 @@ type GetFileByIDResponse struct {
 	Permission  *Permission `json:"permission,omitempty"`
 	IsExternal  bool        `json:"isExternal"`
 	AppID       string      `json:"appID,omitempty"`
+}
+
+type GetSharedFilesResponse struct {
+	Files     []*GetFileByIDResponse `json:"files"`
+	PageNum   int64                  `json:"pageNum"`
+	ItemCount int64                  `json:"itemCount"`
 }
 
 type partialFile struct {
@@ -368,7 +380,6 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
-	appID := c.Value(oauth.ContextAppKey).(string)
 	filesParent := c.Query(ParamFileParent)
 	err := validateAppID(c, filesParent, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
@@ -376,29 +387,28 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		return
 	}
 
+	// Get the application ID of the app which sent the request.
+	// This was saved in the oauth middleware.
+	appID := c.Value(oauth.ContextAppKey).(string)
 	queryAppID := appID
-
-	// indicates wheather files from a specific appID were requested.
-	isSpecificApp := false
 
 	// Check if a specific app was requested by the drive.
 	// Other apps are not permitted to do so.
 	if stringInSlice(appID, AllowedAllOperationsApps) {
-		requestedAppID := c.Query(QueryAppID)
-		if requestedAppID != "" {
-			isSpecificApp = true
-			queryAppID = requestedAppID
-		}
+		queryAppID = c.Query(QueryAppID)
 	}
 
+	// Check if client requested all files shared with him.
 	if _, exists := c.GetQuery(QueryShareFiles); exists {
 		// Only AllowedAllOperationsApps can access GetSharedFiles.
+		// In the future - we may allow other apps to get the
+		// shared files which belong to them.
 		if !stringInSlice(appID, AllowedAllOperationsApps) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
 
-		r.GetSharedFiles(c, isSpecificApp, queryAppID)
+		r.GetSharedFiles(c, queryAppID)
 		return
 	}
 
@@ -470,19 +480,28 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 }
 
 // GetSharedFiles is the request handler for GET /files?shares.
-// Can only be requested by AllowedAllOperationsApps.
+// Currently, can only be requested by AllowedAllOperationsApps.
 // queryAppID is the specific app requested by the application.
-// isSpecificApp indicates wheather files from a specific appID were requested.
-func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID string) {
+func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
+	pageNum := stringToInt64(c.Query(ParamPageNum))
+	pageSize := stringToInt64(c.Query(ParamPageSize))
+
+	// Return a page of all shared files' permissions which belong to the user,
+	// filtered by appID. If queryAppID = "", it will not filter by apps
 	permissions, err := r.permissionClient().GetUserPermissions(
 		c.Request.Context(),
-		&ppb.GetUserPermissionsRequest{UserID: reqUser.ID},
+		&ppb.GetUserPermissionsRequest{
+			UserID:   reqUser.ID,
+			AppID:    queryAppID,
+			PageNum:  pageNum,
+			PageSize: pageSize,
+			IsShared: true},
 	)
 
 	if err != nil {
@@ -492,10 +511,10 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		return
 	}
 
+	// Go over the permissions and get the files metadata related to them
 	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
-		file, err := r.fileClient().GetFileByID(c.Request.Context(),
-			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
+		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -503,17 +522,8 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 			return
 		}
 
-		// If a specific appID was requested, return only its files.
-		// Otherwise, return shared files of dropbox and drive.
-		if isSpecificApp && file.GetAppID() != queryAppID {
-			continue
-		} else {
-			// Show only drive and dropbox shared files
-			if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
-				continue
-			}
-		}
-
+		// Filter files which belong to the requesting user.
+		// The creator of the permission is not necessarily the owner of the file!
 		if file.GetOwnerID() != reqUser.ID {
 			userPermission := &ppb.PermissionObject{
 				FileID:  permission.GetFileID(),
@@ -528,7 +538,13 @@ func (r *Router) GetSharedFiles(c *gin.Context, isSpecificApp bool, queryAppID s
 		}
 	}
 
-	c.JSON(http.StatusOK, files)
+	sharedFilesResponse := &GetSharedFilesResponse{
+		Files:     files,
+		PageNum:   permissions.PageNum,
+		ItemCount: permissions.ItemCount,
+	}
+
+	c.JSON(http.StatusOK, sharedFilesResponse)
 }
 
 // DeleteFileByID is the request handler for DELETE /files/:id request.
@@ -1059,6 +1075,7 @@ func CreatePermission(ctx context.Context,
 	createPermissionRequest := ppb.CreatePermissionRequest{
 		FileID:  permission.GetFileID(),
 		UserID:  permission.GetUserID(),
+		AppID:   permission.GetAppID(),
 		Role:    permission.GetRole(),
 		Creator: permission.GetCreator(),
 	}
@@ -1070,10 +1087,9 @@ func CreatePermission(ctx context.Context,
 	return nil
 }
 
-// HandleUserFilePermission gets a gin context and the id of the requested file,
-// returns true if the user is permitted to operate on the file.
-// Returns false if the user isn't permitted to operate on it,
-// Returns false if any error occurred and logs the error.
+// HandleUserFilePermission gets the id of the requested file, and the required role.
+// Returns the user role as a string, and the permission if the user is permitted
+// to operate on the file, and `"", nil` if not.
 func (r *Router) HandleUserFilePermission(
 	c *gin.Context,
 	fileID string,
@@ -1085,7 +1101,7 @@ func (r *Router) HandleUserFilePermission(
 		return "", nil
 	}
 
-	userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
+	userStringRole, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
 		r.fileClient(),
 		r.permissionClient(),
 		reqUser.ID,
@@ -1099,11 +1115,11 @@ func (r *Router) HandleUserFilePermission(
 		return "", nil
 	}
 
-	if userFilePermission == "" {
+	if userStringRole == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	}
 
-	return userFilePermission, foundPermission
+	return userStringRole, foundPermission
 }
 
 // HandleUserFilePermit gets a gin context and the id of the requested file,

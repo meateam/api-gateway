@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- major:([199](https://github.com/meateam/api-gateway/pull/199)): added pagination for shared files.
 ### Fixed
 
 - hotfix:(BUG)([208](https://github.com/meateam/api-gateway/pull/208)): fix connection pool pointer bug.
@@ -41,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- FEAT([143](https://github.com/meateam/api-gateway/pull/143)): Added + Changed
+
 - Files will now have an `appID` field with the value of the client ID which created the file.
 
 - External apps (which does not include `Dropbox` and `Docs`) can now preform actions on behalf of users by authenticating with `authcode` grant-type (oauth):
@@ -53,7 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Authentication for Dropbox will **only** work with the `Auth-Type` header value of `Dropbox` instead of `Service`.
-
 
 ## [v2.0.0] - 2020-10-28
 
