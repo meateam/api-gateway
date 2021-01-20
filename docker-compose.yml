@@ -166,3 +166,9 @@ services:
     depends_on:
       - mongo
       - file-service
+  quota-ui:
+    image: "drivehub.azurecr.io/meateam/quota-ui:develop"
+    ports:
+      - "8008:8008"
+    depends_on:
+      - api-gateway
