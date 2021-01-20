@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,9 @@ const (
 	// ParamPartialName is the name of the partial user name param in URL.
 	ParamPartialName = "partial"
 
+	// ParamSearchByFlag is the name of the flag that determines which search to execute.
+	ParamSearchByFlag = "searchBy"
+
 	// ExternalUserSource is the value of the source field of user that indicated that the user is external
 	ExternalUserSource = "external"
 
@@ -44,6 +48,17 @@ const (
 
 	// TransactionUserLabel is the label of the custom transaction field : user.
 	TransactionUserLabel = "user"
+)
+
+const (
+	// SearchByNameFlag is a flag for searching by name
+	SearchByNameFlag = iota
+
+	// FindByMailFlag is a flag for finding by mail
+	FindByMailFlag
+
+	// FindByTFlag is a flag for finding by user T
+	FindByTFlag
 )
 
 //Router is a structure that handles users requests.
@@ -91,7 +106,7 @@ func NewRouter(
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
-	rg.GET("/users", r.SearchByName)
+	rg.GET("/users", r.SearchByRouter)
 	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
 	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
@@ -122,6 +137,51 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
+}
+
+// SearchByRouter is the search by request router for GET /users
+func (r *Router) SearchByRouter(c *gin.Context) {
+	searchByFlag := stringToInt64(c.Query(ParamSearchByFlag))
+
+	switch searchByFlag {
+	case SearchByNameFlag:
+		r.SearchByName(c)
+	case FindByMailFlag:
+		r.FindByMail(c)
+	case FindByTFlag:
+		r.FindByUserT(c)
+	default:
+		r.SearchByName(c)
+	}
+}
+
+// FindByMail is the request handler for GET /users with flag FindByMailFlag
+func (r *Router) FindByMail(c *gin.Context) {
+	mail := c.Query(ParamPartialName)
+	if mail == "" {
+		c.String(http.StatusBadRequest, "mail required")
+		return
+	}
+
+	findUserByMailRequest := &uspb.GetByMailRequest{
+		Mail: mail,
+	}
+
+	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByMailRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+// FindByUserT is the request handler for GET /users with flag FindByTFlag
+func (r *Router) FindByUserT(c *gin.Context) {
+	c.AbortWithStatus(http.StatusNotImplemented)
+	return
 }
 
 // SearchByName is the request handler for GET /users
@@ -258,4 +318,13 @@ func SetApmUser(ctx *gin.Context, user User) {
 	if user.DisplayName != "" {
 		currentTransaction.Context.SetUserEmail(user.DisplayName)
 	}
+}
+
+// Converts a string to int64, 0 is returned on failure
+func stringToInt64(s string) int64 {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		n = 0
+	}
+	return n
 }
