@@ -18,6 +18,7 @@ import (
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/permit"
+	"github.com/meateam/api-gateway/producer"
 	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
@@ -139,6 +140,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		logger.Fatalf("couldn't setup spike service connection: %v", err)
 	}
 
+	listenerConn, err := initServiceConn(viper.GetString(configListenerService))
+	if err != nil {
+		logger.Fatalf("couldn't setup listener service connection: %v", err)
+	}
+
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// initiate middlewares
@@ -149,6 +155,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		delegateConn,
 		userConn,
 		spikeConn,
+		listenerConn,
 	}
 
 	fatalConns := []*grpcPoolTypes.ConnPool{
@@ -209,6 +216,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
 	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
+	prdcr := producer.NewRouter(listenerConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 
@@ -250,6 +258,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// Initiate client connection to search service.
 	sr.Setup(authRequiredRoutesGroup)
 
+	// Initiate client connection to producer service.
+	prdcr.Setup(authRequiredRoutesGroup)
+	
 	// Create a slice to manage connections and return it.
 	return r, conns
 }

@@ -1,10 +1,12 @@
 package factory
 
 import (
+	// aspb "github.com/MomentumTeam/index-service/search-service/protoFiles"
 	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	qpb "github.com/meateam/file-service/proto/quota"
+	prdcrpb "github.com/meateam/listener-service/proto/producer"
 	ppb "github.com/meateam/permission-service/proto"
 	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
@@ -42,3 +44,9 @@ type UserClientFactory = func() usrpb.UsersClient
 
 // QuotaClientFactory is a factory for the Quota GRPC client
 type QuotaClientFactory = func() qpb.QuotaServiceClient
+
+// ProducerClientFactory is a factory for the Producer GRPC client
+type ProducerClientFactory = func() prdcrpb.ProducerServiceClient
+
+// AdvancedSearchFactory is a factory for the Advanced Search GRPC client
+// type AdvancedSearchFactory = func() aspb.AdvancedSearchClient
