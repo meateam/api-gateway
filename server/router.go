@@ -213,7 +213,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
-	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
+	pr := permission.NewRouter(permissionConn, fileConn, userConn, listenerConn, om, logger)
 	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 	prdcr := producer.NewRouter(listenerConn, logger)

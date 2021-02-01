@@ -19,7 +19,7 @@ import (
 
 const (
 	// ParamFileID is the name of the file id param in URL.
-	ParamFileID = "id"
+	ParamFileID = "fileID"
 )
 
 
@@ -54,9 +54,10 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.PUT(fmt.Sprintf("/producer/file/:%s/contentchange", ParamFileID), r.SendContentChange)
-	rg.PUT(fmt.Sprintf("/producer/file/:%s/permissiondelete", ParamFileID), r.SendPermissionDelete)
+	rg.POST(fmt.Sprintf("/producer/file/:%s/contentchange", ParamFileID), r.SendContentChange)
+	rg.POST(fmt.Sprintf("/producer/file/:%s/permissiondelete", ParamFileID), r.SendPermissionDelete)
 }
+
 
 // SendContentChange ...
 func (r *Router) SendContentChange(c *gin.Context) {
