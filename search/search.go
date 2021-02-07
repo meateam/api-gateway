@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	aspb "github.com/MomentumTeam/index-service/search-service/proto/search"
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
@@ -24,10 +25,26 @@ const (
 	SearchTermQueryKey = "q"
 )
 
+// AdvancedSearchRequest is the filter request for advanced search
+type AdvancedSearchRequest struct {
+	Fields 	*aspb.MetaData 	`json:"fields,omitempty"`
+	Amount  *aspb.Amount 	`json:"amount" binding:"required"`
+	ExactMatch bool 		`json:"exactMatch"`
+}
+
+// AdvancedSearchResponse is the response from the advancedSearch
+type AdvancedSearchResponse struct {
+	File *file.GetFileByIDResponse `json:"file"`
+	HighlightedContent string `json:"highlightedContent"`
+}
+
 // Router is a structure that handles upload requests.
 type Router struct {
 	// SearchClientFactory
 	searchClient factory.SearchClientFactory
+
+	// AdvancedSearchFactory
+	advancedSearchClient factory.AdvancedSearchFactory
 
 	// FileClientFactory
 	fileClient factory.FileClientFactory
@@ -43,6 +60,7 @@ type Router struct {
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
 	searchConn *grpcPoolTypes.ConnPool,
+	advancedSearchConn *grpcPoolTypes.ConnPool,
 	fileConn *grpcPoolTypes.ConnPool,
 	permissionConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
@@ -56,6 +74,10 @@ func NewRouter(
 
 	r.searchClient = func() spb.SearchClient {
 		return spb.NewSearchClient((*searchConn).Conn())
+	}
+
+	r.advancedSearchClient = func() aspb.SearchClient {
+		return aspb.NewSearchClient((*advancedSearchConn).Conn())
 	}
 
 	r.fileClient = func() fpb.FileServiceClient {
@@ -72,9 +94,10 @@ func NewRouter(
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/search", r.Search)
+	rg.POST("/search/advanced", r.AdvancedSearch) 
 }
 
-// Search is the request handler for /upload request.
+// Search is the request handler for /search request.
 func (r *Router) Search(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
@@ -130,6 +153,85 @@ func (r *Router) Search(c *gin.Context) {
 
 			responseFiles = append(
 				responseFiles, file.CreateGetFileResponse(res, userFilePermission, foundPermission))
+		}
+	}
+
+	c.JSON(http.StatusOK, responseFiles)
+}
+
+
+// AdvancedSearch is the request handler for /search/advanced request.
+func (r *Router) AdvancedSearch(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("error extracting user from request")),
+		)
+
+		return
+	}
+	
+	var filters AdvancedSearchRequest
+	if err := c.Bind(&filters); err != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("failed parse search query")),
+		)
+
+		return
+	}
+	
+	// Call advanced search service
+	searchRequest := &aspb.SearchRequest{
+		UserID: reqUser.ID,
+		ExactMatch: filters.ExactMatch,
+		ResultsAmount: filters.Amount,
+		Fields: filters.Fields,
+	}
+	searchResponse, err := r.advancedSearchClient().Search(c.Request.Context(), searchRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	// Create response files
+	var responseFiles []*AdvancedSearchResponse
+
+	for _, result := range searchResponse.GetResults() {
+		userFilePermission, foundPermission, err := file.CheckUserFilePermission(
+			c.Request.Context(),
+			r.fileClient(),
+			r.permissionClient(),
+			reqUser.ID,
+			result.GetFileId(),
+			ppb.Role_READ,
+		)
+		if err != nil && status.Code(err) != codes.NotFound {
+			r.logger.Errorf("failed get permission with fileId %s, error: %v", result.GetFileId(), err)
+		}
+
+		if userFilePermission != "" {
+			res, err := r.fileClient().GetFileByID(
+				c.Request.Context(),
+				&fpb.GetByFileByIDRequest{Id: result.GetFileId()},
+			)
+			if err != nil {
+				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+				loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+				return
+			}
+
+			responseFiles = append(
+				responseFiles,
+				&AdvancedSearchResponse{
+					file.CreateGetFileResponse(res, userFilePermission, foundPermission),
+					result.HighlightedContent,
+				},
+			)
 		}
 	}
 

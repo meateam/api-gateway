@@ -27,7 +27,7 @@ const (
 type Router struct {
 	// PermitClientFactory
 	producerClient factory.ProducerClientFactory
-	
+
 	logger          *logrus.Logger
 }
 
@@ -59,9 +59,8 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 }
 
 
-// SendContentChange ...
+// SendContentChange - send msg to rabbit queue about content change
 func (r *Router) SendContentChange(c *gin.Context) {
-	
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -74,6 +73,24 @@ func (r *Router) SendContentChange(c *gin.Context) {
 		return
 	}
 
+// 	// Check if the user has the right permission to send rabbit msg for the file
+// 	userFilePermission, _, err := file.CheckUserFilePermission(
+// 		c.Request.Context(),
+// 		r.fileClient(),
+// 		r.permissionClient(),
+// 		reqUser.ID,
+// 		fileID,
+// 		ppb.Role_READ,
+// 	)
+// 	if err != nil && status.Code(err) != codes.NotFound {
+// 		r.logger.Errorf("failed get permission with fileId %s, error: %v", fileID, err)
+// 	}
+// 
+// 	if userFilePermission == "" {
+// 		r.logger.Errorf("the user doesn't have the permission to change the file %s", fileID)
+// 	}
+
+	// Send rabbit msg about content change
 	res, err := r.producerClient().SendContentChange(
 		c.Request.Context(),
 		&prdcr.SendContentChangeRequest{FileID: fileID},
@@ -87,7 +104,7 @@ func (r *Router) SendContentChange(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
-// SendPermissionDelete ...
+// SendPermissionDelete - send msg to rabbit queue about permission change
 func (r *Router) SendPermissionDelete(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {

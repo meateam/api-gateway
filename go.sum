@@ -38,6 +38,11 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataDog/zstd v1.4.4 h1:+IawcoXhCBylN7ccwdwf8LOH2jKq7NavGpEPanrlTzE=
 github.com/DataDog/zstd v1.4.4/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
+github.com/MomentumTeam/index-service v0.0.0-20201129093149-7bc6fd614f59 h1:3TloO4bMcnGf7bEm+kZjV8+1QqrFYYoX1ew43/7//O8=
+github.com/MomentumTeam/index-service v0.0.0-20210125084818-0eca2c9be8cd h1:PvDEnY7rTjYYsy1Y0y2m1klWgFaRK5mhl0Ar9JXBCBM=
+github.com/MomentumTeam/index-service v0.0.0-20210125084818-0eca2c9be8cd/go.mod h1:IcVmIk30hIrszHbLiWa14cZg79umUcspbEiGk7z1dLw=
+github.com/MomentumTeam/index-service v0.0.0-20210202082022-3015ff630fbc h1:OUfCpx8Z8eK9VUOxR+QS4ER4ac13kfE7l3O3xUi02Cg=
+github.com/MomentumTeam/index-service v0.0.0-20210202082022-3015ff630fbc/go.mod h1:IcVmIk30hIrszHbLiWa14cZg79umUcspbEiGk7z1dLw=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.1 h1:WEQqlqaGbrPkxLJWfBwQmfEAE1Z7ONdDLqrN38tNFfI=
@@ -413,6 +418,8 @@ github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8 h1:lnzFf
 github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8/go.mod h1:J+X9nSaR6J5mTt11iI8KxNFmUr10IAFoH47E7+nFklI=
 github.com/meateam/listener-service v0.0.0-20210126122102-f3dd635fc262 h1:ZBP/q4+sZHp+p4fbIScJ5Uwd38sg9GRiVscgp1WM6vc=
 github.com/meateam/listener-service v0.0.0-20210126122102-f3dd635fc262/go.mod h1:QsdOmDHcPN+C+zA9577rKWpoHSNuphI/KQZBwDE4RxM=
+github.com/meateam/listener-service v0.0.0-20210201132618-0b1f55c2cced h1:cGQGohqHq93GOjkZEbSSS5DWILbxmhbODsbbPR8oY98=
+github.com/meateam/listener-service v0.0.0-20210201132618-0b1f55c2cced/go.mod h1:QsdOmDHcPN+C+zA9577rKWpoHSNuphI/KQZBwDE4RxM=
 github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d h1:RZCObB9zc5Wi4Z8Gx7dmijdm+OurhCVUHK+51OKfVaE=
 github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d/go.mod h1:heP5QipRBNe0T9bov9r4Y/kUPyGddVrOSgKr+RwoV6Y=
 github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9 h1:QJyL1aocmE6ZFQcA3XFrNXBSP3JVxxYJAmyrwwx3hIk=
@@ -445,6 +452,10 @@ github.com/modern-go/reflect2 v1.0.1 h1:9f412s+6RmYXLWZSEzVVgPGK7C2PphHj5RJrvfx9
 github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
 github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe/go.mod h1:wL8QJuTMNUDYhXwkmfOly8iTdp5TEcJFWZD2D7SIkUc=
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
+github.com/nettashviro/index-service v0.0.0-20210201211513-8e4a11f962a2 h1:qvagx+yQPezdPIEGXGrQbt9YTU2+6+Gq54DI4+IfhHs=
+github.com/nettashviro/index-service v0.0.0-20210201211513-8e4a11f962a2/go.mod h1:EXAsAZSBDZC+OhRXzfkMxxQ18To66S8BpsilKml/dpI=
+github.com/nettashviro/index-service v0.0.0-20210201213101-21308bba4024 h1:mUzbCQCGjBcrwpcMV2mdiObmJ7xxocZDMc17jNl01Ts=
+github.com/nettashviro/index-service v0.0.0-20210201213101-21308bba4024/go.mod h1:EXAsAZSBDZC+OhRXzfkMxxQ18To66S8BpsilKml/dpI=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=

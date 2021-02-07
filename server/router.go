@@ -135,6 +135,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		logger.Fatalf("couldn't setup search service connection: %v", err)
 	}
 
+	advancedSearchConn, err := initServiceConn(viper.GetString(configAdvancedSearchService))
+	if err != nil {
+		logger.Fatalf("couldn't setup advanced search service connection: %v", err)
+	}
+
 	spikeConn, err := initServiceConn(viper.GetString(configSpikeService))
 	if err != nil {
 		logger.Fatalf("couldn't setup spike service connection: %v", err)
@@ -156,6 +161,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		userConn,
 		spikeConn,
 		listenerConn,
+		advancedSearchConn, // TODO: ask what fatal
 	}
 
 	fatalConns := []*grpcPoolTypes.ConnPool{
@@ -215,7 +221,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, listenerConn, om, logger)
 	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
-	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
+	sr := search.NewRouter(searchConn, advancedSearchConn, fileConn, permissionConn, logger)
 	prdcr := producer.NewRouter(listenerConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)

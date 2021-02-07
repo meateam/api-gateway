@@ -22,6 +22,7 @@ const (
 	configPermissionService     = "permission_service"
 	configPermitService         = "permit_service"
 	configSearchService         = "search_service"
+	configAdvancedSearchService = "advanced_search_service"
 	configSpikeService          = "spike_service"
 	configListenerService 		= "listener_service"
 	configGotenbergService      = "gotenberg_service"
@@ -69,6 +70,7 @@ func init() {
 	viper.SetDefault(configPermissionService, "permission-service:8080")
 	viper.SetDefault(configPermitService, "permit-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
+	viper.SetDefault(configAdvancedSearchService, "advanced-search-service:8080")
 	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configListenerService, "listener-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")

@@ -1,7 +1,7 @@
 package factory
 
 import (
-	// aspb "github.com/MomentumTeam/index-service/search-service/protoFiles"
+	aspb "github.com/MomentumTeam/index-service/search-service/proto/search"
 	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	dpb "github.com/meateam/download-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -49,4 +49,4 @@ type QuotaClientFactory = func() qpb.QuotaServiceClient
 type ProducerClientFactory = func() prdcrpb.ProducerServiceClient
 
 // AdvancedSearchFactory is a factory for the Advanced Search GRPC client
-// type AdvancedSearchFactory = func() aspb.AdvancedSearchClient
+type AdvancedSearchFactory = func() aspb.SearchClient

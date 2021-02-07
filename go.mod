@@ -3,11 +3,11 @@ module github.com/meateam/api-gateway
 go 1.13
 
 require (
+	github.com/MomentumTeam/index-service v0.0.0-20210202082022-3015ff630fbc
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.3.0
 	github.com/gin-gonic/gin v1.5.0
-	github.com/go-openapi/runtime v0.19.23
-	github.com/golang/protobuf v1.4.3 // indirect
+	github.com/go-openapi/runtime v0.19.26
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
@@ -16,6 +16,7 @@ require (
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8
+	github.com/meateam/listener-service v0.0.0-20210201132618-0b1f55c2cced
 	github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d
 	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
@@ -25,15 +26,14 @@ require (
 	github.com/olivere/elastic/v7 v7.0.22
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
-	github.com/spf13/viper v1.6.1
+	github.com/spf13/afero v1.5.1 // indirect
+	github.com/spf13/viper v1.7.1
 	go.elastic.co/apm v1.6.0
 	go.elastic.co/apm/module/apmgin v1.6.0
 	go.elastic.co/apm/module/apmgrpc v1.6.0
 	go.elastic.co/apm/module/apmhttp v1.6.0
-	go.mongodb.org/mongo-driver v1.4.2
-	golang.org/x/net v0.0.0-20201209123823-ac852fbbde11 // indirect
-	golang.org/x/sys v0.0.0-20201211090839-8ad439b19e0f // indirect
-	golang.org/x/text v0.3.4 // indirect
+	go.mongodb.org/mongo-driver v1.4.5
+	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
 	google.golang.org/genproto v0.0.0-20201211151036-40ec1c210f7a // indirect
 	google.golang.org/grpc v1.34.0
 	google.golang.org/grpc/examples v0.0.0-20201212000604-81b95b1854d7 // indirect
@@ -50,5 +50,7 @@ replace github.com/meateam/api-gateway/file => ./file
 replace github.com/meateam/api-gateway/quota => ./quota
 
 replace github.com/meateam/api-gateway/factory => ./factory
+
+replace github.com/meateam/api-gateway/producer => ./producer
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
