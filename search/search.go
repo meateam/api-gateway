@@ -27,15 +27,15 @@ const (
 
 // AdvancedSearchRequest is the filter request for advanced search
 type AdvancedSearchRequest struct {
-	Fields 	*aspb.MetaData 	`json:"fields,omitempty"`
-	Amount  *aspb.Amount 	`json:"amount" binding:"required"`
-	ExactMatch bool 		`json:"exactMatch"`
+	Fields 		aspb.MetaData 	`json:"fields"`
+	Amount  	aspb.Amount 	`json:"amount" binding:"required"`
+	ExactMatch 	bool 			`json:"exactMatch"`
 }
 
 // AdvancedSearchResponse is the response from the advancedSearch
 type AdvancedSearchResponse struct {
-	File *file.GetFileByIDResponse `json:"file"`
-	HighlightedContent string `json:"highlightedContent"`
+	File 				*file.GetFileByIDResponse 	`json:"file"`
+	HighlightedContent 	string 						`json:"highlightedContent"`
 }
 
 // Router is a structure that handles upload requests.
@@ -172,6 +172,7 @@ func (r *Router) AdvancedSearch(c *gin.Context) {
 		return
 	}
 	
+	// Parsing search request
 	var filters AdvancedSearchRequest
 	if err := c.Bind(&filters); err != nil {
 		loggermiddleware.LogError(
@@ -186,9 +187,11 @@ func (r *Router) AdvancedSearch(c *gin.Context) {
 	searchRequest := &aspb.SearchRequest{
 		UserID: reqUser.ID,
 		ExactMatch: filters.ExactMatch,
-		ResultsAmount: filters.Amount,
-		Fields: filters.Fields,
+		ResultsAmount: &filters.Amount,
+		Fields: &filters.Fields,
 	}
+
+	// Making a search request
 	searchResponse, err := r.advancedSearchClient().Search(c.Request.Context(), searchRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -198,9 +201,10 @@ func (r *Router) AdvancedSearch(c *gin.Context) {
 	}
 
 	// Create response files
-	var responseFiles []*AdvancedSearchResponse
+	var responseFiles []AdvancedSearchResponse
 
 	for _, result := range searchResponse.GetResults() {
+		// Get user permission
 		userFilePermission, foundPermission, err := file.CheckUserFilePermission(
 			c.Request.Context(),
 			r.fileClient(),
@@ -214,6 +218,7 @@ func (r *Router) AdvancedSearch(c *gin.Context) {
 		}
 
 		if userFilePermission != "" {
+			// Get file object
 			res, err := r.fileClient().GetFileByID(
 				c.Request.Context(),
 				&fpb.GetByFileByIDRequest{Id: result.GetFileId()},
@@ -227,7 +232,7 @@ func (r *Router) AdvancedSearch(c *gin.Context) {
 
 			responseFiles = append(
 				responseFiles,
-				&AdvancedSearchResponse{
+				AdvancedSearchResponse{
 					file.CreateGetFileResponse(res, userFilePermission, foundPermission),
 					result.HighlightedContent,
 				},
