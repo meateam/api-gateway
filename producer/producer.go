@@ -8,13 +8,17 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/meateam/api-gateway/factory"
+	"github.com/meateam/api-gateway/file"
 	"github.com/meateam/api-gateway/user"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	fpb "github.com/meateam/file-service/proto/file"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	prdcr "github.com/meateam/listener-service/proto/producer"
+	ppb "github.com/meateam/permission-service/proto"
 )
 
 const (
@@ -25,8 +29,14 @@ const (
 
 // Router is a structure that handles producer requests.
 type Router struct {
-	// PermitClientFactory
+	// ProducerClientFactory
 	producerClient factory.ProducerClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// PermissionClientFactory
+	permissionClient factory.PermissionClientFactory
 
 	logger          *logrus.Logger
 }
@@ -36,6 +46,8 @@ type Router struct {
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
 	producerConn *grpcPoolTypes.ConnPool,
+	fileConn *grpcPoolTypes.ConnPool,
+	permissionConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -47,6 +59,14 @@ func NewRouter(
 
 	r.producerClient = func() prdcr.ProducerServiceClient {
 		return prdcr.NewProducerServiceClient((*producerConn).Conn())
+	}
+
+	r.fileClient = func() fpb.FileServiceClient {
+		return fpb.NewFileServiceClient((*fileConn).Conn())
+	}
+
+	r.permissionClient = func() ppb.PermissionClient {
+		return ppb.NewPermissionClient((*permissionConn).Conn())
 	}
 
 	return r
@@ -73,22 +93,22 @@ func (r *Router) SendContentChange(c *gin.Context) {
 		return
 	}
 
-// 	// Check if the user has the right permission to send rabbit msg for the file
-// 	userFilePermission, _, err := file.CheckUserFilePermission(
-// 		c.Request.Context(),
-// 		r.fileClient(),
-// 		r.permissionClient(),
-// 		reqUser.ID,
-// 		fileID,
-// 		ppb.Role_READ,
-// 	)
-// 	if err != nil && status.Code(err) != codes.NotFound {
-// 		r.logger.Errorf("failed get permission with fileId %s, error: %v", fileID, err)
-// 	}
-// 
-// 	if userFilePermission == "" {
-// 		r.logger.Errorf("the user doesn't have the permission to change the file %s", fileID)
-// 	}
+	// Check if the user has the right permission to send rabbit msg for the file
+	userFilePermission, _, err := file.CheckUserFilePermission(
+		c.Request.Context(),
+		r.fileClient(),
+		r.permissionClient(),
+		reqUser.ID,
+		fileID,
+		ppb.Role_READ,
+	)
+	if err != nil && status.Code(err) != codes.NotFound {
+		r.logger.Errorf("failed get permission with fileId %s, error: %v", fileID, err)
+	}
+
+	if userFilePermission == "" {
+		r.logger.Errorf("the user doesn't have the permission to index the file %s", fileID)
+	}
 
 	// Send rabbit msg about content change
 	res, err := r.producerClient().SendContentChange(

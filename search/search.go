@@ -29,13 +29,13 @@ const (
 type AdvancedSearchRequest struct {
 	Fields 		aspb.MetaData 	`json:"fields"`
 	Amount  	aspb.Amount 	`json:"amount" binding:"required"`
-	ExactMatch 	bool 			`json:"exactMatch"`
+	ExactMatch 	bool			`json:"exactMatch"`
 }
 
 // AdvancedSearchResponse is the response from the advancedSearch
 type AdvancedSearchResponse struct {
-	File 				*file.GetFileByIDResponse 	`json:"file"`
-	HighlightedContent 	string 						`json:"highlightedContent"`
+	File				*file.GetFileByIDResponse	`json:"file"`
+	HighlightedContent	string						`json:"highlightedContent"`
 }
 
 // Router is a structure that handles upload requests.

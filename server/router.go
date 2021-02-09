@@ -222,7 +222,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, listenerConn, om, logger)
 	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, advancedSearchConn, fileConn, permissionConn, logger)
-	prdcr := producer.NewRouter(listenerConn, logger)
+	prdcr := producer.NewRouter(listenerConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 
