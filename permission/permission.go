@@ -7,15 +7,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
-	upb "github.com/meateam/user-service/proto"
+	upb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -56,20 +57,26 @@ type Permission struct {
 
 // Router is a structure that handles permission requests.
 type Router struct {
-	permissionClient ppb.PermissionClient
-	fileClient       fpb.FileServiceClient
-	userClient       upb.UsersClient
-	oAuthMiddleware  *oauth.Middleware
-	logger           *logrus.Logger
+	// PermissionClientFactory
+	permissionClient factory.PermissionClientFactory
+
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
+	// UserClientFactory
+	userClient factory.UserClientFactory
+
+	oAuthMiddleware *oauth.Middleware
+	logger          *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service
 // with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	permissionConn *grpc.ClientConn,
-	fileConn *grpc.ClientConn,
-	userConnection *grpc.ClientConn,
+	permissionConn *grpcPoolTypes.ConnPool,
+	fileConn *grpcPoolTypes.ConnPool,
+	userConnection *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
@@ -80,9 +87,17 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.permissionClient = ppb.NewPermissionClient(permissionConn)
-	r.fileClient = fpb.NewFileServiceClient(fileConn)
-	r.userClient = upb.NewUsersClient(userConnection)
+	r.permissionClient = func() ppb.PermissionClient {
+		return ppb.NewPermissionClient((*permissionConn).Conn())
+	}
+
+	r.fileClient = func() fpb.FileServiceClient {
+		return fpb.NewFileServiceClient((*fileConn).Conn())
+	}
+
+	r.userClient = func() upb.UsersClient {
+		return upb.NewUsersClient((*userConnection).Conn())
+	}
 
 	r.oAuthMiddleware = oAuthMiddleware
 
@@ -91,10 +106,10 @@ func NewRouter(
 
 // Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkExternalAdminScope := r.oAuthMiddleware.ScopeMiddleware(oauth.OutAdminScope)
+	checkShareScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.ShareScope)
 
 	rg.GET(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.GetFilePermissions)
-	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), checkExternalAdminScope, r.CreateFilePermission)
+	rg.PUT(fmt.Sprintf("/files/:%s/permissions", ParamFileID), checkShareScope, r.CreateFilePermission)
 	rg.DELETE(fmt.Sprintf("/files/:%s/permissions", ParamFileID), r.DeleteFilePermission)
 }
 
@@ -117,7 +132,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	permissions, err := GetFilePermissions(c.Request.Context(), fileID, r.permissionClient, r.fileClient)
+	permissions, err := GetFilePermissions(c.Request.Context(), fileID, r.permissionClient(), r.fileClient())
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -126,7 +141,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 	}
 
 	// Get File's metadata for its owner.
-	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -188,10 +203,18 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	// An app cannot create a permission for a file that does not belong to it.
+	// Unless the app is Drive.
+	ctxAppID := c.Value(oauth.ContextAppKey).(string)
+	if (ctxAppID != file.GetAppID()) && (ctxAppID != oauth.DriveAppID) {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
 		return
 	}
 
@@ -205,7 +228,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	userExists, err := r.userClient.GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
+	userExists, err := r.userClient().GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -218,12 +241,14 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient, Permission{
+	appID := c.Value(oauth.ContextAppKey).(string)
+
+	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient(), Permission{
 		FileID:  fileID,
 		UserID:  permission.UserID,
 		Role:    permission.Role,
 		Creator: reqUser.ID,
-	}, permission.Override)
+	}, appID, permission.Override)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -260,7 +285,7 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		userID = reqUser.ID
 	}
 
-	file, err := r.fileClient.GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+	file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -284,7 +309,7 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	}
 
 	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}
-	permission, err := r.permissionClient.DeletePermission(c.Request.Context(), deleteRequest)
+	permission, err := r.permissionClient().DeletePermission(c.Request.Context(), deleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -314,8 +339,8 @@ func (r *Router) HandleUserFilePermission(
 	}
 
 	userFilePermission, foundPermission, err := file.CheckUserFilePermission(c.Request.Context(),
-		r.fileClient,
-		r.permissionClient,
+		r.fileClient(),
+		r.permissionClient(),
 		reqUser.ID,
 		fileID,
 		role)
@@ -355,10 +380,11 @@ func IsPermitted(ctx context.Context,
 // CreatePermission creates permission in the permission-service.
 func CreatePermission(ctx context.Context,
 	permissionClient ppb.PermissionClient,
-	permission Permission, override bool) (*ppb.PermissionObject, error) {
+	permission Permission, appID string, override bool) (*ppb.PermissionObject, error) {
 	permissionRequest := &ppb.CreatePermissionRequest{
 		FileID:   permission.FileID,
 		UserID:   permission.UserID,
+		AppID:    appID,
 		Role:     ppb.Role(ppb.Role_value[permission.Role]),
 		Creator:  permission.Creator,
 		Override: override,
@@ -367,7 +393,7 @@ func CreatePermission(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return createdPermission, nil
 }
 

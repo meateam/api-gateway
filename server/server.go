@@ -6,8 +6,8 @@ import (
 	"github.com/meateam/api-gateway/server/auth"
 	"github.com/meateam/api-gateway/user"
 	ilogger "github.com/meateam/elasticsearch-logger"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -15,6 +15,7 @@ const (
 	configPort                  = "port"
 	configUploadService         = "upload_service"
 	configDelegationService     = "delegation_service"
+	configDocsSecret            = "docs_secret"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
 	configUserService           = "user_service"
@@ -25,9 +26,11 @@ const (
 	configGotenbergService      = "gotenberg_service"
 	configSecret                = "secret"
 	configAuthURL               = "auth_url"
+	configDocsURL               = "docs_url"
 	configExternalApmURL        = "external_apm_url"
 	configAllowOrigins          = "allow_origins"
 	configSupportLink           = "support_link"
+	configDropboxSupportLink    = "dropbox_support_link"
 	configDownloadChromeURL     = "chrome_download_url"
 	configElasticsearchURL      = "elasticsearch_url"
 	configElasticsearchUser     = "elasticsearch_user"
@@ -42,6 +45,12 @@ const (
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
 	configEnableExternalShare   = "enable_external_share"
+	configWhiteListText = "white_list_text"
+	configBereshitSupportLink = "bereshit_support_link"
+	configBamSupportNumber = "bam_support_number"
+	configSwaggerPathFile       = "swagger_path_file"
+	configShowSwaggerUI         = "show_swagger_ui"
+	configPoolSize              = "pool_size"
 )
 
 var (
@@ -52,6 +61,7 @@ func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
 	viper.SetDefault(configDelegationService, "delegation-service:8080")
+	viper.SetDefault(configDocsSecret, "docs@drive")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
@@ -62,9 +72,11 @@ func init() {
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
+	viper.SetDefault(configDocsURL, "http://localhost:3000")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetDefault(configAllowOrigins, "http://localhost*")
 	viper.SetDefault(configSupportLink, "https://open.rocket.chat")
+	viper.SetDefault(configDropboxSupportLink, "https://open.rocket.chat")
 	viper.SetDefault(configElasticsearchURL, "http://localhost:9200")
 	viper.SetDefault(configElasticsearchUser, "")
 	viper.SetDefault(configElasticsearchPassword, "")
@@ -77,9 +89,15 @@ func init() {
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
+	viper.SetDefault(configShowSwaggerUI, false)
 	viper.SetDefault(configEnableExternalShare, false)
+	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
+	viper.SetDefault(configBereshitSupportLink, "https://open.rocket.chat")
+	viper.SetDefault(configBamSupportNumber, "0543392468")
+	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
+	viper.SetDefault(configPoolSize, 4)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
@@ -87,7 +105,7 @@ func init() {
 // Server is a structure that holds the http server of the api-gateway.
 type Server struct {
 	server *http.Server
-	conns  []*grpc.ClientConn
+	conns  []*grpcPoolTypes.ConnPool
 }
 
 // NewServer creates a Server of the api-gateway.
@@ -109,7 +127,7 @@ func NewServer() *Server {
 func (s *Server) Listen() {
 	defer func() {
 		for _, v := range s.conns {
-			v.Close()
+			(*v).Close()
 		}
 	}()
 

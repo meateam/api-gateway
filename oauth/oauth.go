@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	dpb "github.com/meateam/delegation-service/proto/delegation-service"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	spb "github.com/meateam/spike-service/proto/spike-service"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
+	"go.elastic.co/apm"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,33 +28,69 @@ const (
 	// AuthUserHeader is the key of the header which indicates whether an action is made on behalf of a user
 	AuthUserHeader = "Auth-User"
 
-	// OutAdminScope is the scope name required for uploading,
-	// downloading, and sharing files for an out-source user
-	OutAdminScope = "externalAdmin"
-
 	// UpdatePermitStatusScope is the scope name required for updating a permit's scope
 	UpdatePermitStatusScope = "status"
 
 	// AuthTypeHeader is the key of the service-host header
 	AuthTypeHeader = "Auth-Type"
 
-	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
-	ServiceAuthTypeValue = "Service"
+	// DropboxAuthTypeValue is the value of the AuthTypeHeader key for the Dropbox services
+	DropboxAuthTypeValue = "Dropbox"
+
+	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
+	ServiceAuthCodeTypeValue = "Service AuthCode"
+
+	// ContextAppKey is the context key used to get and set the client's appID in the context.
+	ContextAppKey = "appID"
+
+	// ContextScopesKey is the context key used to get and set the client's scopes in the context.
+	ContextScopesKey = "scopes"
+
+	// ContextAuthType is the context key used to get and set the auth type of the client in the context.
+	ContextAuthType = "authType"
+
+	// UploadScope is the scope required for upload
+	UploadScope = "upload"
+
+	// GetFileScope is the scope required for getting a file's metadata
+	GetFileScope = "get_metadata"
+
+	// ShareScope is the scope required for file share and unshare
+	ShareScope = "share"
+
+	// DownloadScope is the scope required for file upload
+	DownloadScope = "download"
+
+	// DownloadScope is the scope required for file upload
+	DeleteScope = "delete"
+
+	// DriveAppID is the app ID of the drive client.
+	DriveAppID = "drive"
+
+	// DropboxAppID is the app ID of the dropbox services.
+	DropboxAppID = "dropbox"
+
+	// TransactionClientLabel is the label of the custom transaction field : client-name.
+	TransactionClientLabel = "client"
 )
 
 // Middleware is a structure that handles the authentication middleware.
 type Middleware struct {
-	spikeClient    spb.SpikeClient
-	delegateClient dpb.DelegationClient
-	logger         *logrus.Logger
+	// SpikeClientFactory
+	spikeClient factory.SpikeClientFactory
+
+	// DelegationClientFactory
+	delegateClient factory.DelegationClientFactory
+
+	logger *logrus.Logger
 }
 
 // NewOAuthMiddleware generates a middleware.
 // If logger is non-nil then it will be set as-is,
 // otherwise logger would default to logrus.New().
 func NewOAuthMiddleware(
-	spikeConn *grpc.ClientConn,
-	delegateConn *grpc.ClientConn,
+	spikeConn *grpcPoolTypes.ConnPool,
+	delegateConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Middleware {
 	// If no logger is given, use a default logger.
@@ -62,142 +100,276 @@ func NewOAuthMiddleware(
 
 	m := &Middleware{logger: logger}
 
-	m.spikeClient = spb.NewSpikeClient(spikeConn)
-
-	m.delegateClient = dpb.NewDelegationClient(delegateConn)
+	m.spikeClient = func() spb.SpikeClient {
+		return spb.NewSpikeClient((*spikeConn).Conn())
+	}
+	m.delegateClient = func() dpb.DelegationClient {
+		return dpb.NewDelegationClient((*delegateConn).Conn())
+	}
 
 	return m
 }
 
-// ScopeMiddleware creates a middleware function that checks the scopes in context.
+// AuthorizationScopeMiddleware creates a middleware function that checks the scopes in context.
 // If the request is not from a service (AuthTypeHeader), Next will be immediately called.
 // If scopes are nil, the client is the drive client which is fine. Else, the required
 // scope should be included in the scopes array. If the required scope exists,and a
 // delegator exists too, the function will set the context user to be the delegator.
-func (m *Middleware) ScopeMiddleware(requiredScope string) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		authType := ctx.GetHeader(AuthTypeHeader)
+		ctx.Set(ContextAuthType, authType)
 
-		isService := c.GetHeader(AuthTypeHeader)
+		var err error
 
-		// If this is not a service, the user was already authenticated in Auth's UserMiddlewere
-		if isService != ServiceAuthTypeValue {
-			c.Next()
-			return
+		switch authType {
+		case DropboxAuthTypeValue:
+			err = m.dropboxAuthorization(ctx, requiredScope)
+		case ServiceAuthCodeTypeValue:
+			err = m.authCodeAuthorization(ctx, requiredScope)
+		default:
+			ctx.Next()
 		}
 
-		scopes := m.extractScopes(c)
-		if scopes == nil {
-			c.Next()
-			return
+		if err != nil {
+			loggermiddleware.LogError(m.logger, err)
 		}
-		for _, scope := range scopes {
-			if scope == requiredScope {
-				m.storeDelegator(c)
-				c.Next()
-				return
-			}
-		}
-		loggermiddleware.LogError(
-			m.logger,
-			c.AbortWithError(
-				http.StatusUnauthorized,
-				fmt.Errorf("the service is not allowed to do this operation"),
-			),
-		)
+
+		return
 	}
 }
 
-// extractScopes extracts the token from the Auth header and validates
-// them with spike service. Returns the scopes.
-func (m *Middleware) extractScopes(c *gin.Context) []string {
+// DropboxAuthorization validates the token generated by spike with the client-creadentials auth type.
+// Later, it extracts the scopes array from the token and return weather the required scope is in the scope array.
+// If a delegator exists too, the function will set the context user to be the delegator.
+func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string) error {
+	spikeToken, err := m.extractClientCredentialsToken(ctx)
 
-	tokenString := m.extractTokenFromHeader(c)
-	if tokenString == "" {
-		return nil
-	}
-
-	validateSpikeTokenRequest := &spb.ValidateTokenResquest{
-		Token: tokenString,
-	}
-
-	spikeResponse, err := m.spikeClient.ValidateToken(c, validateSpikeTokenRequest)
 	if err != nil {
-		loggermiddleware.LogError(m.logger, c.AbortWithError(http.StatusInternalServerError,
-			fmt.Errorf("internal error while authenticating the token: %v", err)))
-		return nil
+		return err
+	}
+
+	scopes := spikeToken.GetScopes()
+
+	ctx.Set(ContextScopesKey, scopes)
+	appID := DropboxAppID
+
+	// Checks the scopes, and if correct, store the user in the context.
+	for _, scope := range scopes {
+		if scope == requiredScope {
+			err = m.storeDelegator(ctx)
+			if err != nil {
+				return err
+			}
+
+			ctx.Set(ContextAppKey, appID)
+			SetApmClient(ctx, appID)
+
+			ctx.Next()
+			return nil
+		}
+	}
+
+	return ctx.AbortWithError(
+		http.StatusForbidden,
+		fmt.Errorf("required scope '%s' is not supplied - dropbox authorization", requiredScope),
+	)
+}
+
+// AuthCodeAuthorization validates the token generated by spike with the authorization-code auth type.
+// Later, it extracts the scopes array from the token and checks weather the required scope is in the scope array.
+// If it is, it register the user and client ID to the context
+func (m *Middleware) authCodeAuthorization(ctx *gin.Context, requiredScope string) error {
+	spikeToken, err := m.extractAuthCodeToken(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	scopes := spikeToken.GetScopes()
+	user := spikeToken.GetUser()
+	appID := spikeToken.GetAlias()
+
+	ctx.Set(ContextScopesKey, scopes)
+
+	// Checks the scopes, and if correct, register the user and the client ID.
+	for _, scope := range scopes {
+		if scope == requiredScope {
+			m.register(ctx, user)
+
+			ctx.Set(ContextAppKey, appID)
+			SetApmClient(ctx, appID)
+
+			ctx.Next()
+			return nil
+		}
+	}
+
+	return ctx.AbortWithError(
+		http.StatusForbidden,
+		fmt.Errorf("required scope '%s' is not supplied - authorization code", requiredScope),
+	)
+}
+
+// extractAuthCodeToken extracts the auth-code token from the Auth header and validates
+// it with spike service. Returns the extracted token.
+func (m *Middleware) extractAuthCodeToken(ctx *gin.Context) (*spb.ValidateAuthCodeTokenResponse, error) {
+
+	token, err := m.extractTokenFromHeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	validateAuthCodeTokenRequest := &spb.ValidateAuthCodeTokenRequest{
+		Token: token,
+	}
+
+	spikeResponse, err := m.spikeClient().ValidateAuthCodeToken(ctx, validateAuthCodeTokenRequest)
+	if err != nil {
+		return nil, ctx.AbortWithError(http.StatusInternalServerError,
+			fmt.Errorf("internal error while authenticating the auth-code token: %v", err))
 	}
 
 	if !spikeResponse.Valid {
 		message := spikeResponse.GetMessage()
-		loggermiddleware.LogError(m.logger,
-			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("invalid token %s", message)))
-
-		return nil
+		return nil, ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("invalid token: %s", message))
 	}
 
-	return spikeResponse.GetScopes()
+	return spikeResponse, nil
+}
+
+// extractClientCredentialsToken extracts the token from the Auth header and validates it with spike service.
+// Returns the extracted token.
+func (m *Middleware) extractClientCredentialsToken(ctx *gin.Context) (*spb.ValidateTokenResponse, error) {
+	token, err := m.extractTokenFromHeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	validateSpikeTokenRequest := &spb.ValidateTokenRequest{
+		Token: token,
+	}
+
+	spikeResponse, err := m.spikeClient().ValidateToken(ctx, validateSpikeTokenRequest)
+	if err != nil {
+		return nil, ctx.AbortWithError(http.StatusInternalServerError,
+			fmt.Errorf("internal error while authenticating the client-credentias token: %v", err))
+	}
+
+	if !spikeResponse.Valid {
+		message := spikeResponse.GetMessage()
+		return nil, ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("invalid token: %s", message))
+	}
+
+	return spikeResponse, nil
 }
 
 // storeDelegator checks if there is a delegator, and if so it validates the
 // delegator with the delegation service.
 // Then it sets the User in the request's context to be the delegator.
-func (m *Middleware) storeDelegator(c *gin.Context) {
+func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 	// Check if the action is made on behalf of a user
-	delegatorID := c.GetHeader(AuthUserHeader)
+	delegatorID := ctx.GetHeader(AuthUserHeader)
 
 	// If there is a delegator, validate him, then add him to the context
 	if delegatorID != "" {
 		getUserByIDRequest := &dpb.GetUserByIDRequest{
 			Id: delegatorID,
 		}
-		delegatorObj, err := m.delegateClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+		delegatorObj, err := m.delegateClient().GetUserByID(ctx.Request.Context(), getUserByIDRequest)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
-				loggermiddleware.LogError(m.logger,
-					c.AbortWithError(http.StatusUnauthorized,
-						fmt.Errorf("delegator: %v is not found", delegatorID)))
-				return
+				return ctx.AbortWithError(http.StatusUnauthorized,
+					fmt.Errorf("delegator: %v is not found", delegatorID))
 			}
 
-			loggermiddleware.LogError(m.logger, c.AbortWithError(http.StatusInternalServerError,
-				fmt.Errorf("internal error while authenticating the delegator: %v", err)))
-			return
+			return ctx.AbortWithError(http.StatusUnauthorized,
+				fmt.Errorf("internal error while authenticating the delegator: %v", err))
 		}
 
 		delegator := delegatorObj.GetUser()
 
-		c.Set(user.ContextUserKey, user.User{
-			ID:        delegator.Id,
-			FirstName: delegator.FirstName,
-			LastName:  delegator.LastName,
-			Source:    user.ExternalUserSource,
-		})
+		authenticatedUser := user.User{
+			ID:          delegator.GetId(),
+			FirstName:   delegator.GetFirstName(),
+			LastName:    delegator.GetLastName(),
+			Source:      user.ExternalUserSource,
+			DisplayName: delegator.GetHierarchy(),
+		}
+
+		user.SetApmUser(ctx, authenticatedUser)
+		ctx.Set(user.ContextUserKey, authenticatedUser)
 	}
+
+	return nil
 }
 
-func (m *Middleware) extractTokenFromHeader(c *gin.Context) string {
-	authArr := strings.Fields(c.GetHeader(AuthHeader))
+// register saves the user and client ID into the context
+func (m *Middleware) register(ctx *gin.Context, delegator *spb.User) {
+
+	authenticatedUser := user.User{
+		ID:        delegator.GetId(),
+		FirstName: delegator.GetFirstName(),
+		LastName:  delegator.GetLastName(),
+		Source:    user.InternalUserSource,
+	}
+
+	user.SetApmUser(ctx, authenticatedUser)
+	ctx.Set(user.ContextUserKey, authenticatedUser)
+}
+
+func (m *Middleware) extractTokenFromHeader(ctx *gin.Context) (string, error) {
+	authArr := strings.Fields(ctx.GetHeader(AuthHeader))
 
 	// No authorization header sent
 	if len(authArr) == 0 {
-		loggermiddleware.LogError(m.logger,
-			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no authorization header sent")))
-		return ""
+		return "", ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no authorization header sent"))
 	}
 
 	// The header value missing the correct prefix
 	if authArr[0] != AuthHeaderBearer {
-		loggermiddleware.LogError(m.logger, c.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
-			"authorization header is invalid. Value should start with 'Bearer'")))
-		return ""
+		return "", ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf(
+			"authorization header is invalid. Value should start with 'Bearer'"))
 	}
 
 	// The value of the header doesn't contain the token
 	if len(authArr) < 2 {
-		loggermiddleware.LogError(m.logger,
-			c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no token sent in header %v", authArr)))
-		return ""
+		return "", ctx.AbortWithError(http.StatusUnauthorized, fmt.Errorf("no token sent in header %v", authArr))
+
 	}
 
-	return authArr[1]
+	return authArr[1], nil
+}
+
+// validateRequiredScope checks if there is a specific scope in the context (unless it is the drive client).
+func (m *Middleware) ValidateRequiredScope(ctx *gin.Context, requiredScope string) bool {
+
+	appID := ctx.Value(ContextAppKey)
+	if appID == DriveAppID {
+		return true
+	}
+
+	contextScopes := ctx.Value(ContextScopesKey)
+	var scopes []string
+
+	switch v := contextScopes.(type) {
+	case []string:
+		scopes = v
+	default:
+		return false
+	}
+
+	for _, scope := range scopes {
+		if scope == requiredScope {
+			return true
+		}
+	}
+
+	return false
+}
+
+// SetApmUser adds a clientID to the current apm transaction.
+func SetApmClient(ctx *gin.Context, clientID string) {
+	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
+	currentTransaction.Context.SetCustom(TransactionClientLabel, clientID)
 }

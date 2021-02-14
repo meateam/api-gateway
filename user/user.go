@@ -9,12 +9,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	uspb "github.com/meateam/user-service/proto"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
+	uspb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.elastic.co/apm"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
@@ -25,6 +27,9 @@ const (
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
 
+	// ParamApproverID is the name of the approver id param in the URL.
+	ParamApproverID = "approverID"
+
 	// ParamPartialName is the name of the partial user name param in URL.
 	ParamPartialName = "partial"
 
@@ -34,30 +39,39 @@ const (
 	// InternalUserSource is the value of the source field of user that indicated that the user is internal
 	InternalUserSource = "internal"
 
-	// configBucketPostfix is the name of the environment variable containing the postfix for the bucket.
+	// ConfigBucketPostfix is the name of the environment variable containing the postfix for the bucket.
 	ConfigBucketPostfix = "bucket_postfix"
+
+	// TransactionUserLabel is the label of the custom transaction field : user.
+	TransactionUserLabel = "user"
 )
 
 //Router is a structure that handles users requests.
 type Router struct {
-	userClient uspb.UsersClient
-	logger     *logrus.Logger
+	// UserClientFactory
+	userClient factory.UserClientFactory
+
+	logger *logrus.Logger
 }
 
 // User is a structure of an authenticated user.
 type User struct {
-	ID        string `json:"id"`
-	FirstName string `json:"firstname"`
-	LastName  string `json:"lastname"`
-	Source    string `json:"source"`
-	Bucket    string `json:"bucket"`
+	ID          string `json:"id"`
+	FirstName   string `json:"firstname"`
+	LastName    string `json:"lastname"`
+	Source      string `json:"source"`
+	Bucket      string `json:"bucket"`
+	DisplayName string `json:"displayName"`
+	CurrentUnit string `json:"currentUnit"`
+	Rank        string `json:"rank"`
+	Job         string `json:"job"`
 }
 
 // NewRouter creates a new Router, and initializes clients of User Service
 //  with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	userConn *grpc.ClientConn,
+	userConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -67,7 +81,9 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.userClient = uspb.NewUsersClient(userConn)
+	r.userClient = func() uspb.UsersClient {
+		return uspb.NewUsersClient((*userConn).Conn())
+	}
 
 	return r
 }
@@ -76,6 +92,8 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
+	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
+	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -95,7 +113,7 @@ func (r *Router) GetUserByID(c *gin.Context) {
 		Id: userID,
 	}
 
-	user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+	user, err := r.userClient().GetUserByID(c.Request.Context(), getUserByIDRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -118,7 +136,7 @@ func (r *Router) SearchByName(c *gin.Context) {
 		Name: partialName,
 	}
 
-	user, err := r.userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
+	user, err := r.userClient().FindUserByName(c.Request.Context(), findUserByNameRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -127,6 +145,69 @@ func (r *Router) SearchByName(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
+}
+
+// GetApproverInfo is the request handler for GET /users/:id/approverInfo
+func (r *Router) GetApproverInfo(c *gin.Context) {
+	reqUser := ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	userID := c.Param(ParamUserID)
+	if userID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
+		return
+	}
+
+	getApproverInfoRequest := &uspb.GetApproverInfoRequest{
+		Id: userID,
+	}
+
+	info, err := r.userClient().GetApproverInfo(c.Request.Context(), getApproverInfoRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, info)
+}
+
+// CanApproveToUser is the request handler for GET /users/:id/canApproveToUser/:approverID
+func (r *Router) CanApproveToUser(c *gin.Context) {
+	reqUser := ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	userID := c.Param(ParamUserID)
+	if userID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
+		return
+	}
+
+	approverID := c.Param(ParamApproverID)
+	if approverID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamApproverID))
+		return
+	}
+
+	canApproveToUserRequest := &uspb.CanApproveToUserRequest{
+		ApproverID: approverID,
+		UserID:     userID,
+	}
+
+	canApproveToUserInfo, err := r.userClient().CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, canApproveToUserInfo)
 }
 
 // ExtractRequestUser gets a context.Context and extracts the user's details from c.
@@ -165,4 +246,16 @@ func normalizeCephBucketName(bucketName string) string {
 func IsExternalUser(userID string) bool {
 	_, err := primitive.ObjectIDFromHex(userID)
 	return err != nil
+}
+
+// SetApmUser adds a user to the current apm transaction.
+func SetApmUser(ctx *gin.Context, user User) {
+	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
+
+	currentTransaction.Context.SetCustom(TransactionUserLabel, user)
+	currentTransaction.Context.SetUserID(user.ID)
+
+	if user.DisplayName != "" {
+		currentTransaction.Context.SetUserEmail(user.DisplayName)
+	}
 }
