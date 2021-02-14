@@ -16,7 +16,6 @@ services:
       - authentication-service
       - permission-service
       - search-service
-      - gotenberg-service
   minio:
     image: minio/minio
     volumes:
