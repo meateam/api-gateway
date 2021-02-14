@@ -12,6 +12,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
+	github.com/meateam/dropbox-service v0.0.0-20210211145457-524158ef0ad7 // indirect
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7

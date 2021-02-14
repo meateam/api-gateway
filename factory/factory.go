@@ -3,10 +3,10 @@ package factory
 import (
 	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	dpb "github.com/meateam/download-service/proto"
+	drp "github.com/meateam/dropbox-service/proto/dropbox"
 	fpb "github.com/meateam/file-service/proto/file"
 	qpb "github.com/meateam/file-service/proto/quota"
 	ppb "github.com/meateam/permission-service/proto"
-	ptpb "github.com/meateam/permit-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	spkpb "github.com/meateam/spike-service/proto/spike-service"
 	upb "github.com/meateam/upload-service/proto"
@@ -31,9 +31,6 @@ type UploadClientFactory = func() upb.UploadClient
 // PermissionClientFactory is a factory for the Permission GRPC client
 type PermissionClientFactory = func() ppb.PermissionClient
 
-// PermitClientFactory is a factory for the Permit GRPC client
-type PermitClientFactory = func() ptpb.PermitClient
-
 // SearchClientFactory is a factory for the Search GRPC client
 type SearchClientFactory = func() spb.SearchClient
 
@@ -42,3 +39,6 @@ type UserClientFactory = func() usrpb.UsersClient
 
 // QuotaClientFactory is a factory for the Quota GRPC client
 type QuotaClientFactory = func() qpb.QuotaServiceClient
+
+// DropboxClientFactory is a factory for the Dropbox GRPC client
+type DropboxClientFactory = func() drp.DropboxClientFactory
