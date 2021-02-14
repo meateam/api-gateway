@@ -24,12 +24,24 @@ import (
 const (
 	// ParamFileID is the name of the file id param in URL.
 	ParamFileID = "id"
-	
+
 	// ParamReqID is the name of the request id param in URL.
 	ParamReqID = "requestId"
 
-	// QueryDeleteUserPermission is the id of the user to delete its permission to a file.
-	QueryDeleteUserPermission = "userId"
+	// ParamUserID is the name of the user id param in URL.
+	ParamUserID = "userId"
+
+	// ParamApproverID is the name of the approver id param in the URL.
+	ParamApproverID = "approverID"
+
+	// ContextDestionationKey is the context key used to get and set the external destination.
+	ContextDestionationKey = "destinationID"
+
+	// TomcalID is the destination of the dropbox.
+	TomcalID = "z"
+
+	// CtsID is the destination of the dropbox.
+	CtsID = "c"
 )
 
 type createExternalShareRequest struct {
@@ -38,7 +50,7 @@ type createExternalShareRequest struct {
 	Classification string   `json:"classification,omitempty"`
 	Info           string   `json:"info,omitempty"`
 	Approvers      []string `json:"approvers,omitempty"`
-	Destination	   string 	`json:"destination"`
+	Destination    string   `json:"destination"`
 }
 
 // User blabla
@@ -84,7 +96,7 @@ func NewRouter(
 	r := &Router{logger: logger}
 
 	r.dropboxClient = func() drp.DropboxClient {
-		return drp.NewDropboxClient((*dropboxConn).Conn())
+		return drp.NewDropboxClient((*permissionConn).Conn())
 	}
 
 	r.permissionClient = func() ppb.PermissionClient {
@@ -102,14 +114,17 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkStatusScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.UpdatePermitStatusScope)
+	// checkStatusScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.UpdatePermitStatusScope)
 
 	rg.GET(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.GetFilePermits)
-	rg.PUT(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.CreateFileRequest)
-	rg.PATCH(fmt.Sprintf("/permits/:%s", ParamReqID), checkStatusScope, r.UpdateStatus)
+	rg.PUT(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.CreateExternalShareRequest)
+	// rg.PATCH(fmt.Sprintf("/permits/:%s", ParamReqID), checkStatusScope, r.UpdateStatus)
+
+	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
+	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
-// GetFilePermits is a route function for retrieving permits of a file
+// GetFilePermits is a route function for retrieving permits (shared destination users) of a file
 // File id is extracted from url params
 func (r *Router) GetFilePermits(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -128,8 +143,8 @@ func (r *Router) GetFilePermits(c *gin.Context) {
 		return
 	}
 
-	permitRequest := &ptpb.GetPermitByFileIDRequest{FileID: fileID}
-	permitsResponse, err := r.permitClient().GetPermitByFileID(c.Request.Context(), permitRequest)
+	transferRequest := &drp.GetTransfersInfoRequest{FileID: fileID, UserID: reqUser.ID}
+	transfersResponse, err := r.dropboxClient().GetTransfersInfo(c.Request.Context(), transferRequest)
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -137,14 +152,14 @@ func (r *Router) GetFilePermits(c *gin.Context) {
 		return
 	}
 
-	permits := permitsResponse.GetUserStatus()
+	permits := transfersResponse.GetTo()
 
 	c.JSON(http.StatusOK, permits)
 }
 
-// CreateFileRequest creates permits for a given file and users
+// CreateExternalShareRequest creates permits for a given file and users
 // File id is extracted from url params, role is extracted from request body.
-func (r *Router) CreateFileRequest(c *gin.Context) {
+func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -176,13 +191,13 @@ func (r *Router) CreateFileRequest(c *gin.Context) {
 	var userIDs []*drp.User
 	for i := 0; i < len(createRequest.Users); i++ {
 		user := &drp.User{
-			Id:       createRequest.Users[i].ID,
+			Id:   createRequest.Users[i].ID,
 			Name: createRequest.Users[i].FullName,
 		}
 		userIDs = append(userIDs, user)
 	}
 
-	createRequestRes, err := r.dropboxClient().CreateRequestRequest(c.Request.Context(), &drp.CreateRequestRequest{
+	createRequestRes, err := r.dropboxClient().CreateRequest(c.Request.Context(), &drp.CreateRequestRequest{
 		FileID:         fileID,
 		FileName:       createRequest.FileName,
 		SharerID:       reqUser.ID,
@@ -190,7 +205,7 @@ func (r *Router) CreateFileRequest(c *gin.Context) {
 		Classification: createRequest.Classification,
 		Info:           createRequest.Info,
 		Approvers:      createRequest.Approvers,
-		Destination: 	createRequest.Destination,
+		Destination:    createRequest.Destination,
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -199,40 +214,6 @@ func (r *Router) CreateFileRequest(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, createRequestRes)
-
-}
-
-// UpdateStatus updates the permits status with the given request id
-func (r *Router) UpdateStatus(c *gin.Context) {
-	body := &updatePermitStatusRequest{}
-	if err := c.ShouldBindJSON(body); err != nil {
-		loggermiddleware.LogError(
-			r.logger,
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
-		)
-
-		return
-	}
-
-	reqID := c.Param(ParamReqID)
-	if reqID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	_, err := r.permitClient().UpdatePermitStatus(c.Request.Context(), &ptpb.UpdatePermitStatusRequest{
-		ReqID:  reqID,
-		Status: body.Status,
-	})
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	c.JSON(http.StatusOK, nil)
-
 }
 
 // GetUserFilePermission gets a gin context and the id of the requested file,
@@ -265,4 +246,91 @@ func (r *Router) GetUserFilePermission(c *gin.Context, fileID string, role ppb.R
 	}
 
 	return userFilePermission != ""
+}
+
+// CanApproveToUser is the request handler for GET /users/:userId/canApproveToUser/:approverID
+// must required a destination header
+func (r *Router) CanApproveToUser(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	userID := c.Param(ParamUserID)
+	if userID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
+		return
+	}
+
+	approverID := c.Param(ParamApproverID)
+	if approverID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamApproverID))
+		return
+	}
+
+	destination := c.GetHeader(ContextDestionationKey)
+	if destination == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
+		return
+	}
+	if destination != CtsID && destination != TomcalID {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+
+	canApproveToUserRequest := &drp.CanApproveToUserRequest{
+		ApproverID:  approverID,
+		UserID:      userID,
+		Destination: destination,
+	}
+
+	canApproveToUserInfo, err := r.dropboxClient().CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, canApproveToUserInfo)
+}
+
+// GetApproverInfo is the request handler for GET /users/:id/approverInfo
+func (r *Router) GetApproverInfo(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	userID := c.Param(ParamUserID)
+	if userID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
+		return
+	}
+
+	destination := c.GetHeader(ContextDestionationKey)
+	if destination == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
+		return
+	}
+	if destination != CtsID && destination != TomcalID {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+
+	getApproverInfoRequest := &drp.GetApproverInfoRequest{
+		Id:          userID,
+		Destination: destination,
+	}
+
+	info, err := r.dropboxClient().GetApproverInfo(c.Request.Context(), getApproverInfoRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, info)
 }

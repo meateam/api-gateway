@@ -13,11 +13,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/meateam/api-gateway/delegation"
+	"github.com/meateam/api-gateway/dropbox"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
-	"github.com/meateam/api-gateway/permit"
 	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
@@ -124,7 +124,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		logger.Fatalf("couldn't setup permission service connection: %v", err)
 	}
 
-	permitConn, err := initServiceConn(viper.GetString(configPermitService))
+	dropboxConn, err := initServiceConn(viper.GetString(configDropboxService))
 	if err != nil {
 		logger.Fatalf("couldn't setup permit service connection: %v", err)
 	}
@@ -145,7 +145,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
 
 	nonFatalConns := []*grpcPoolTypes.ConnPool{
-		permitConn,
+		dropboxConn,
 		delegateConn,
 		userConn,
 		spikeConn,
@@ -200,14 +200,14 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	// Initiate routers.
 	dr := delegation.NewRouter(delegateConn, logger)
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, dropboxConn,
 		searchConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
-	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
+	drp := dropbox.NewRouter(dropboxConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
@@ -244,8 +244,8 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// Initiate client connection to permission service.
 	pr.Setup(authRequiredRoutesGroup)
 
-	// Initiate client connection to permit service.
-	ptr.Setup(authRequiredRoutesGroup)
+	// Initiate client connection to dropbox service.
+	drp.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to search service.
 	sr.Setup(authRequiredRoutesGroup)

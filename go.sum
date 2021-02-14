@@ -373,6 +373,14 @@ github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311/go.mod h1
 github.com/meateam/dropbox-service v0.0.0-20201129121701-5f164d86d67b h1:1xaXnoGjKIk8Q8/zGTyRnQhm/GlIha5hmqATmexbKec=
 github.com/meateam/dropbox-service v0.0.0-20210211145457-524158ef0ad7 h1:zQ3gR+tNkmDEH/Wj0SsFDd+ReGAnKh3ieFCkCuuWNLQ=
 github.com/meateam/dropbox-service v0.0.0-20210211145457-524158ef0ad7/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
+github.com/meateam/dropbox-service v0.0.0-20210214091504-110968390f36 h1:9iuCmqNj7/egpDosalMUGbLmekepPz4IDbKig5LEaf8=
+github.com/meateam/dropbox-service v0.0.0-20210214091504-110968390f36/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
+github.com/meateam/dropbox-service v0.0.0-20210214093357-2bf961e8ed4a h1:De8mHEo5HDpQBE/riLjr3ccRpMUTDvK8uQzf+ryzhaY=
+github.com/meateam/dropbox-service v0.0.0-20210214093357-2bf961e8ed4a/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
+github.com/meateam/dropbox-service v0.0.0-20210214102322-0a5b39774ef4 h1:ZyzCGDUE1ali18xlyNqmvFy9fDcTlhNRiP5z0FsVY3A=
+github.com/meateam/dropbox-service v0.0.0-20210214102322-0a5b39774ef4/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
+github.com/meateam/dropbox-service v0.0.0-20210214104618-38ae427e485a h1:J8ePy5NqXCsys92MCT/QIlSMmKe6YjJk7vDr1C68ykU=
+github.com/meateam/dropbox-service v0.0.0-20210214104618-38ae427e485a/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
 github.com/meateam/elasticsearch-logger v1.1.2/go.mod h1:7/YC3u7mXrwspo+cuvOfM9dpYUlzy/n3Pgc2a5cdNS8=
 github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda h1:lxFVxa9uF+QA/D1NPA3rXqY7vqEhJrrXqRVdd5eQHUE=
 github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda/go.mod h1:aLGQxX9uf7lJ2Kr1J7+qq3IeO/NP7YAXe3IzVLTAIeM=

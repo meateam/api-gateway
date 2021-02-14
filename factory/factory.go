@@ -41,4 +41,4 @@ type UserClientFactory = func() usrpb.UsersClient
 type QuotaClientFactory = func() qpb.QuotaServiceClient
 
 // DropboxClientFactory is a factory for the Dropbox GRPC client
-type DropboxClientFactory = func() drp.DropboxClientFactory
+type DropboxClientFactory = func() drp.DropboxClient
