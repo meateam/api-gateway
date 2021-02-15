@@ -10,6 +10,7 @@ require (
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
+	github.com/klauspost/compress v1.11.7
 	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda

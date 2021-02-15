@@ -131,8 +131,14 @@ const (
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
 
-	// fileIdIsRequiredMessage is the error message for missing fileID
-	fileIdIsRequiredMessage = "fileID is required"
+	// fileIDIsRequiredMessage is the error message for missing fileID
+	fileIDIsRequiredMessage = "fileID is required"
+
+	// ContentDispositionHeader content-disposition header name.
+	ContentDispositionHeader = "Content-Disposition"
+
+	// FolderContentType is the custom content type of a folder.
+	FolderContentType = "application/vnd.drive.folder"
 )
 
 var (
@@ -156,6 +162,13 @@ var (
 	// AllowedDownloadApps are the applications which are only allowed to download
 	// files which are not theirs
 	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID}
+
+	// Some standard object extensions which we strictly dis-allow for compression.
+	standardExcludeCompressExtensions = []string{".gz", ".bz2", ".rar", ".zip", ".7z", ".xz", ".mp4", ".mkv", ".mov"}
+
+	// Some standard content-types which we strictly dis-allow for compression.
+	standardExcludeCompressContentTypes = []string{"video/*", "audio/*", "application/zip", "application/x-gzip",
+		"application/x-zip-compressed", " application/x-compress", "application/x-spoon"}
 )
 
 // Router is a structure that handles upload requests.
@@ -301,7 +314,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 func (r *Router) GetFileByID(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
@@ -557,7 +570,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
@@ -614,6 +627,13 @@ func (r *Router) Download(c *gin.Context) {
 
 	filename := fileMeta.GetName()
 	contentType := fileMeta.GetType()
+
+	if contentType == FolderContentType {
+		r.downloadFolder(c, fileMeta)
+
+		return
+	}
+
 	contentLength := fmt.Sprintf("%d", fileMeta.GetSize())
 
 	downloadRequest := &dpb.DownloadRequest{
@@ -653,7 +673,7 @@ func (r *Router) Download(c *gin.Context) {
 func (r *Router) UpdateFile(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
@@ -698,7 +718,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 func (r *Router) GetFileAncestors(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIdIsRequiredMessage)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
