@@ -134,6 +134,12 @@ const (
 
 	// FileIDIsRequiredMessage is the error message for missing fileID
 	FileIDIsRequiredMessage = "fileID is required"
+
+	// ContentDispositionHeader content-disposition header name.
+	ContentDispositionHeader = "Content-Disposition"
+
+	// FolderContentType is the custom content type of a folder.
+	FolderContentType = "application/vnd.drive.folder"
 )
 
 var (
@@ -157,6 +163,13 @@ var (
 	// AllowedDownloadApps are the applications which are only allowed to download
 	// files which are not theirs
 	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID, oauth.CargoAppID}
+
+	// Some standard object extensions which we strictly dis-allow for compression.
+	standardExcludeCompressExtensions = []string{".gz", ".bz2", ".rar", ".zip", ".7z", ".xz", ".mp4", ".mkv", ".mov"}
+
+	// Some standard content-types which we strictly dis-allow for compression.
+	standardExcludeCompressContentTypes = []string{"video/*", "audio/*", "application/zip", "application/x-gzip",
+		"application/x-zip-compressed", " application/x-compress", "application/x-spoon"}
 )
 
 // Router is a structure that handles upload requests.
@@ -755,6 +768,13 @@ func (r *Router) Download(c *gin.Context) {
 
 	filename := fileMeta.GetName()
 	contentType := fileMeta.GetType()
+
+	if contentType == FolderContentType {
+		r.downloadFolder(c, fileMeta)
+
+		return
+	}
+
 	contentLength := fmt.Sprintf("%d", fileMeta.GetSize())
 
 	downloadRequest := &dpb.DownloadRequest{

@@ -11,6 +11,7 @@ require (
 	github.com/go-openapi/runtime v0.19.29
 	github.com/go-openapi/validate v0.20.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
+	github.com/klauspost/compress v1.11.7
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/meateam/download-service v0.0.0-20210214143255-2b7c813e14ef

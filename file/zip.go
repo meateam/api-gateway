@@ -1,0 +1,211 @@
+package file
+
+import (
+	"io"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/klauspost/compress/zip"
+	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/download-service/download"
+	dpb "github.com/meateam/download-service/proto"
+	fpb "github.com/meateam/file-service/proto/file"
+	"google.golang.org/grpc/status"
+)
+
+// downloadFolder receives a folder and downloads all of the permitted files under the folder as a zip.
+func (r *Router) downloadFolder(c *gin.Context, folder *fpb.File) {
+	mappedPaths, permittedDescendants, err := r.getPermittedDescendantsMapPath(c, folder)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	now := strings.ReplaceAll(time.Now().UTC().Format(time.RFC3339), ":", "")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header(ContentDispositionHeader, "attachment; filename="+folder.GetName()+"-"+now+".zip")
+
+	archive := zip.NewWriter(c.Writer)
+	defer archive.Close()
+	if err := r.zipFolderToWriter(c, mappedPaths, permittedDescendants, folder, archive); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+}
+
+// getPermittedDescendantsMapPath receives a root folder and returns:
+// 1. A map of the ids to the permitted descendants.
+// 2. The permitted descendants array.
+// 3. An error if there was one.
+func (r *Router) getPermittedDescendantsMapPath(c *gin.Context, folder *fpb.File) (map[string]string, []*fpb.GetDescendantsByIDResponse_Descendant, error) {
+	res, err := r.fileClient().GetDescendantsByID(c.Request.Context(), &fpb.GetDescendantsByIDRequest{Id: folder.GetId()})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	descendants := res.GetDescendants()
+	permittedDescendants := make([]*fpb.GetDescendantsByIDResponse_Descendant, 0, len(descendants))
+	// Go over the files and filter those who are not permitted
+	for i := 0; i < len(descendants); i++ {
+		if role, _ := r.HandleUserFilePermission(c, descendants[i].GetFile().GetId(), DownloadRole); role == "" {
+			continue
+		}
+
+		permittedDescendants = append(permittedDescendants, descendants[i])
+	}
+
+	descendants = nil
+	permittedDescendants = permittedDescendants[:len(permittedDescendants)]
+
+	return mapFolderDescendantPath(folder, permittedDescendants), permittedDescendants, nil
+}
+
+// mapFolderDescendantPath gets a root folder and its descendants and returns a map of the root folder's and
+// its descendants path mapped by their IDs.
+func mapFolderDescendantPath(folder *fpb.File, descendants []*fpb.GetDescendantsByIDResponse_Descendant) map[string]string {
+	filePathMap := make(map[string]string, len(descendants)+1)
+	filePathMap[folder.GetId()] = folder.GetName() + "/"
+	currentBase := folder.GetId()
+	currentBaseFileIndex := 0
+
+	// While there's a file that its path hasn't been set continue to the next descendant and set its path.
+	for len(filePathMap) < len(descendants)+1 {
+		for i := 0; i < len(descendants); i++ {
+
+			// Check if we arrived to the current file and if we didn't already add the file.
+			if descendants[i].GetParent().GetId() == currentBase && filePathMap[currentBase] != "" {
+				path := filePathMap[currentBase] + descendants[i].GetFile().GetName()
+				if descendants[i].GetFile().GetType() == FolderContentType {
+					path += "/"
+				}
+
+				filePathMap[descendants[i].GetFile().GetId()] = path
+			}
+		}
+		currentBase = descendants[currentBaseFileIndex].GetFile().GetId()
+		currentBaseFileIndex++
+	}
+
+	return filePathMap
+}
+
+// zipFolderToWriter receives the mappingPaths, the descendants array and the folder -
+// and creates the zip from said folder.
+// The zip is then inserted to the writer(archive) and sent to the client.
+func (r *Router) zipFolderToWriter(
+	c *gin.Context,
+	mappedPaths map[string]string,
+	descendants []*fpb.GetDescendantsByIDResponse_Descendant,
+	folder *fpb.File,
+	archive *zip.Writer) error {
+
+	folderHeader := &zip.FileHeader{
+		Name:   mappedPaths[folder.GetId()],
+		Method: zip.Deflate,
+	}
+
+	folderHeader.SetModTime(time.Unix(folder.GetUpdatedAt()/time.Second.Milliseconds(), 0))
+	if _, err := archive.CreateHeader(folderHeader); err != nil {
+		return err
+	}
+
+	buffer := make([]byte, download.PartSize)
+	for _, descendant := range descendants {
+		if descendant.GetFile().GetType() == FolderContentType {
+			header := &zip.FileHeader{
+				Name:               mappedPaths[descendant.GetFile().GetId()],
+				Method:             zip.Deflate,
+				UncompressedSize64: uint64(descendant.GetFile().GetSize()),
+			}
+			header.SetModTime(time.Unix(descendant.GetFile().GetUpdatedAt()/time.Second.Milliseconds(), 0))
+
+			_, err := archive.CreateHeader(header)
+			if err != nil {
+				return err
+			}
+		} else {
+			stream, err := r.downloadClient().Download(c.Request.Context(), &dpb.DownloadRequest{
+				Key:    descendant.GetFile().GetKey(),
+				Bucket: descendant.GetFile().GetBucket(),
+			})
+
+			if err != nil {
+				return err
+			}
+
+			readCloser := download.NewStreamReadCloser(stream)
+			header := &zip.FileHeader{
+				Name:               mappedPaths[descendant.GetFile().GetId()],
+				Method:             zip.Deflate,
+				UncompressedSize64: uint64(descendant.GetFile().GetSize()),
+			}
+
+			header.SetModTime(time.Unix(descendant.GetFile().GetUpdatedAt()/time.Second.Milliseconds(), 0))
+
+			if hasStringSuffixInSlice(mappedPaths[descendant.GetFile().GetId()], standardExcludeCompressExtensions) ||
+				hasPattern(standardExcludeCompressContentTypes, descendant.GetFile().GetType()) {
+				// We strictly disable compression for standard extensions/content-types.
+				header.Method = zip.Store
+			}
+
+			if err := zipFileToWriter(readCloser, archive, header, buffer); err != nil {
+				return err
+			}
+
+		}
+
+	}
+
+	return nil
+}
+
+func (r *Router) zipMulipleFiles(c *gin.Context, files []*fpb.File) error {
+	return nil
+}
+
+// zipFileToWriter zips the read cluster rc into archive according to the given header.
+func zipFileToWriter(r io.ReadCloser, archive *zip.Writer, header *zip.FileHeader, buffer []byte) error {
+	if buffer == nil {
+		buffer = make([]byte, download.PartSize)
+	}
+
+	writer, err := archive.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+
+	if _, err = io.CopyBuffer(writer, r, buffer); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Utility which returns if a string is present in the list.
+// Comparison is case insensitive.
+func hasStringSuffixInSlice(str string, list []string) bool {
+	return false
+}
+
+// Returns true if any of the given wildcard patterns match the matchStr.
+func hasPattern(patterns []string, matchStr string) bool {
+	return false
+}
+
+// MatchSimple - finds whether the text matches/satisfies the pattern string.
+// supports only '*' wildcard in the pattern.
+// considers a file system path as a flat name space.
+func matchSimple(pattern, name string) bool {
+	return false
+}
+
+func deepMatchRune(str, pattern []rune, simple bool) bool {
+	return false
+}
