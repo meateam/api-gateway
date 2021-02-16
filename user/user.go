@@ -180,7 +180,25 @@ func (r *Router) FindByMail(c *gin.Context) {
 
 // FindByUserT is the request handler for GET /users with flag FindByTFlag
 func (r *Router) FindByUserT(c *gin.Context) {
-	c.AbortWithStatus(http.StatusNotImplemented)
+	userT := c.Query(ParamPartialName)
+	if userT == "" {
+		c.String(http.StatusBadRequest, "userT required")
+		return
+	}
+
+	findUserByMailRequest := &uspb.GetByMailRequest{
+		Mail: userT,
+	}
+
+	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByMailRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
 	return
 }
 
