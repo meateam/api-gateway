@@ -14,7 +14,6 @@ const (
 	envPrefix                   = "GW"
 	configPort                  = "port"
 	configUploadService         = "upload_service"
-	configDelegationService     = "delegation_service"
 	configDocsSecret            = "docs_secret"
 	configDownloadService       = "download_service"
 	configFileService           = "file_service"
@@ -45,9 +44,9 @@ const (
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
 	configEnableExternalShare   = "enable_external_share"
-	configWhiteListText = "white_list_text"
-	configBereshitSupportLink = "bereshit_support_link"
-	configBamSupportNumber = "bam_support_number"
+	configWhiteListText         = "white_list_text"
+	configBereshitSupportLink   = "bereshit_support_link"
+	configBamSupportNumber      = "bam_support_number"
 	configSwaggerPathFile       = "swagger_path_file"
 	configShowSwaggerUI         = "show_swagger_ui"
 	configPoolSize              = "pool_size"
@@ -60,7 +59,6 @@ var (
 func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
-	viper.SetDefault(configDelegationService, "delegation-service:8080")
 	viper.SetDefault(configDocsSecret, "docs@drive")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")

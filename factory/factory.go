@@ -1,7 +1,6 @@
 package factory
 
 import (
-	dlgpb "github.com/meateam/delegation-service/proto/delegation-service"
 	dpb "github.com/meateam/download-service/proto"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -15,9 +14,6 @@ import (
 
 // SpikeClientFactory is a factory for the Spike GRPC client
 type SpikeClientFactory = func() spkpb.SpikeClient
-
-// DelegationClientFactory is a factory for the Delegation GRPC client
-type DelegationClientFactory = func() dlgpb.DelegationClient
 
 // DownloadClientFactory is a factory for the Download GRPC client
 type DownloadClientFactory = func() dpb.DownloadClient

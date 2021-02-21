@@ -41,6 +41,15 @@ const (
 
 	// TransactionUserLabel is the label of the custom transaction field : user.
 	TransactionUserLabel = "user"
+
+	// HeaderDestionationID is the header used to get and set the external destination.
+	HeaderDestionationID = "destinationID"
+
+	// TomcalID is the destination of the dropbox.
+	TomcalID = "z"
+
+	// CtsID is the destination of the dropbox.
+	CtsID = "c"
 )
 
 //Router is a structure that handles users requests.
@@ -104,8 +113,15 @@ func (r *Router) GetUserByID(c *gin.Context) {
 		return
 	}
 
+	destination := c.GetHeader(HeaderDestionationID)
+	if destination != "" && destination != CtsID && destination != TomcalID {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+
 	getUserByIDRequest := &uspb.GetByIDRequest{
-		Id: userID,
+		Id:          userID,
+		Destination: destination,
 	}
 
 	user, err := r.userClient().GetUserByID(c.Request.Context(), getUserByIDRequest)
@@ -127,8 +143,15 @@ func (r *Router) SearchByName(c *gin.Context) {
 		return
 	}
 
+	destination := c.GetHeader(HeaderDestionationID)
+	if destination != "" && destination != CtsID && destination != TomcalID {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+
 	findUserByNameRequest := &uspb.FindUserByNameRequest{
-		Name: partialName,
+		Name:        partialName,
+		Destination: destination,
 	}
 
 	user, err := r.userClient().FindUserByName(c.Request.Context(), findUserByNameRequest)

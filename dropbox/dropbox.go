@@ -37,6 +37,7 @@ const (
 	// ContextDestionationKey is the context key used to get and set the external destination.
 	ContextDestionationKey = "destinationID"
 
+	// TODO: change to appID
 	// TomcalID is the destination of the dropbox.
 	TomcalID = "z"
 
@@ -53,7 +54,7 @@ type createExternalShareRequest struct {
 	Destination    string   `json:"destination"`
 }
 
-// User blabla
+// User ...
 type User struct {
 	ID       string `json:"id,omitempty"`
 	FullName string `json:"full_name,omitempty"`
@@ -118,7 +119,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 	rg.GET(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.GetFilePermits)
 	rg.PUT(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.CreateExternalShareRequest)
-	// rg.PATCH(fmt.Sprintf("/permits/:%s", ParamReqID), checkStatusScope, r.UpdateStatus)
 
 	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
 	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
@@ -178,9 +178,13 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		return
 	}
 
-	destination := createRequest.Destination
+	destination := c.GetHeader(ContextDestionationKey)
 	if destination == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
+		return
+	}
+	if destination != CtsID && destination != TomcalID {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
 

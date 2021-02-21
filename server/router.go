@@ -12,7 +12,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/meateam/api-gateway/delegation"
 	"github.com/meateam/api-gateway/dropbox"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
@@ -94,11 +93,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	})
 
 	// Initiate services gRPC connections.
-	delegateConn, err := initServiceConn(viper.GetString(configDelegationService))
-	if err != nil {
-		logger.Fatalf("couldn't setup delegation service connection: %v", err)
-	}
-
 	fileConn, err := initServiceConn(viper.GetString(configFileService))
 	if err != nil {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
@@ -142,11 +136,10 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// initiate middlewares
-	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
+	om := oauth.NewOAuthMiddleware(spikeConn, userConn, logger)
 
 	nonFatalConns := []*grpcPoolTypes.ConnPool{
 		dropboxConn,
-		delegateConn,
 		userConn,
 		spikeConn,
 	}
@@ -199,7 +192,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	}
 
 	// Initiate routers.
-	dr := delegation.NewRouter(delegateConn, logger)
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, dropboxConn,
 		searchConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
@@ -225,9 +217,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	}
 	// Authentication middleware on routes group.
 	authRequiredRoutesGroup := apiRoutesGroup.Group("/", middlewares...)
-
-	// Initiate client connection to delegation service.
-	dr.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
