@@ -186,11 +186,12 @@ func (r *Router) FindByUserT(c *gin.Context) {
 		return
 	}
 
-	findUserByMailRequest := &uspb.GetByMailRequest{
+	// User service accepts the same route for mails and userT - user search
+	findUserByTRequest := &uspb.GetByMailRequest{
 		Mail: userT,
 	}
 
-	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByMailRequest)
+	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByTRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -199,7 +200,6 @@ func (r *Router) FindByUserT(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
-	return
 }
 
 // SearchByName is the request handler for GET /users
