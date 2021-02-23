@@ -42,14 +42,16 @@ const (
 	// TransactionUserLabel is the label of the custom transaction field : user.
 	TransactionUserLabel = "user"
 
-	// HeaderDestionationID is the header used to get and set the external destination.
-	HeaderDestionationID = "destinationID"
+	// HeaderDestionation is the header used to get and set the external destination.
+	HeaderDestionation = "destination"
 
-	// TomcalID is the destination of the dropbox.
-	TomcalID = "z"
+	// TODO: add to env ?
 
-	// CtsID is the destination of the dropbox.
-	CtsID = "c"
+	// TomcalDest is the destination of the dropbox.
+	TomcalDest = "TOMCAL"
+
+	// CtsDest is the destination of the dropbox.
+	CtsDest = "CTS"
 )
 
 //Router is a structure that handles users requests.
@@ -113,8 +115,8 @@ func (r *Router) GetUserByID(c *gin.Context) {
 		return
 	}
 
-	destination := c.GetHeader(HeaderDestionationID)
-	if destination != "" && destination != CtsID && destination != TomcalID {
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != CtsDest && destination != TomcalDest {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
@@ -143,8 +145,8 @@ func (r *Router) SearchByName(c *gin.Context) {
 		return
 	}
 
-	destination := c.GetHeader(HeaderDestionationID)
-	if destination != "" && destination != CtsID && destination != TomcalID {
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != CtsDest && destination != TomcalDest {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}

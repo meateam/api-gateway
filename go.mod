@@ -14,9 +14,8 @@ require (
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/meateam/delegation-service v0.0.0-20191218064947-abf0a5785bdc
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
-	github.com/meateam/dropbox-service v0.0.0-20210214104618-38ae427e485a
+	github.com/meateam/dropbox-service v0.0.0-20210223131625-19c9c9336f99
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
@@ -26,7 +25,7 @@ require (
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
-	github.com/meateam/user-service v2.1.1-0.20210221122244-3f029af5a1b7+incompatible
+	github.com/meateam/user-service v2.1.1-0.20210223125806-f5f1c8bb4890+incompatible
 	github.com/olivere/elastic/v7 v7.0.22
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0

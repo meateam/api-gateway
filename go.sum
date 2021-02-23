@@ -481,6 +481,8 @@ github.com/meateam/dropbox-service v0.0.0-20210214102322-0a5b39774ef4 h1:ZyzCGDU
 github.com/meateam/dropbox-service v0.0.0-20210214102322-0a5b39774ef4/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
 github.com/meateam/dropbox-service v0.0.0-20210214104618-38ae427e485a h1:J8ePy5NqXCsys92MCT/QIlSMmKe6YjJk7vDr1C68ykU=
 github.com/meateam/dropbox-service v0.0.0-20210214104618-38ae427e485a/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
+github.com/meateam/dropbox-service v0.0.0-20210223131625-19c9c9336f99 h1:JbpV//VQ7Ug1zOuke01VLSXMKbmaYGnl5SRGFUHd5T8=
+github.com/meateam/dropbox-service v0.0.0-20210223131625-19c9c9336f99/go.mod h1:OMwxp9dYSyfAbYN06uqfZleO7pDm7SHIJhYFH0XMjg4=
 github.com/meateam/elasticsearch-logger v1.1.2/go.mod h1:7/YC3u7mXrwspo+cuvOfM9dpYUlzy/n3Pgc2a5cdNS8=
 github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda h1:lxFVxa9uF+QA/D1NPA3rXqY7vqEhJrrXqRVdd5eQHUE=
 github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda/go.mod h1:aLGQxX9uf7lJ2Kr1J7+qq3IeO/NP7YAXe3IzVLTAIeM=
@@ -516,6 +518,8 @@ github.com/meateam/user-service v2.1.1-0.20210221113052-81d6c70d077f+incompatibl
 github.com/meateam/user-service v2.1.1-0.20210221113052-81d6c70d077f+incompatible/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
 github.com/meateam/user-service v2.1.1-0.20210221122244-3f029af5a1b7+incompatible h1:9Z/cFwZDU1ZNM5eDYjuwrMSX7g4tCOAdKtmPKVqmdDc=
 github.com/meateam/user-service v2.1.1-0.20210221122244-3f029af5a1b7+incompatible/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
+github.com/meateam/user-service v2.1.1-0.20210223125806-f5f1c8bb4890+incompatible h1:Qf42qn1ZR5uT4jp9U/fQp8DFKZaaO2PTDVbWH5EBwlU=
+github.com/meateam/user-service v2.1.1-0.20210223125806-f5f1c8bb4890+incompatible/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/mitchellh/cli v1.0.0/go.mod h1:hNIlj7HEI86fIcpObd7a0FcrxTWetlwJDGcceTlRvqc=
 github.com/mitchellh/go-homedir v1.0.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=

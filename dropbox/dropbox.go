@@ -37,12 +37,13 @@ const (
 	// ContextDestionationKey is the context key used to get and set the external destination.
 	ContextDestionationKey = "destinationID"
 
-	// TODO: change to appID
-	// TomcalID is the destination of the dropbox.
-	TomcalID = "z"
+	// TODO: add to env variable?
 
-	// CtsID is the destination of the dropbox.
-	CtsID = "c"
+	// TomcalDest is the destination of the dropbox.
+	TomcalDest = "TOMCAL"
+
+	// CtsDest is the destination of the dropbox.
+	CtsDest = "CTS"
 )
 
 type createExternalShareRequest struct {
@@ -59,7 +60,10 @@ type User struct {
 	ID       string `json:"id,omitempty"`
 	FullName string `json:"full_name,omitempty"`
 }
-
+type transferPermit struct {
+	UserID string `json:"userId,omitempty"`
+	Status string `json:"status,omitempty"`
+}
 type updatePermitStatusRequest struct {
 	Status string `json:"status,omitempty"`
 }
@@ -117,16 +121,16 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	// checkStatusScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.UpdatePermitStatusScope)
 
-	rg.GET(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.GetFilePermits)
-	rg.PUT(fmt.Sprintf("/files/:%s/permits", ParamFileID), r.CreateExternalShareRequest)
+	rg.GET(fmt.Sprintf("/files/:%s/transferInfo", ParamFileID), r.GetTransfersInfo)
+	rg.PUT(fmt.Sprintf("/files/:%s/transfer", ParamFileID), r.CreateExternalShareRequest)
 
 	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
 	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
-// GetFilePermits is a route function for retrieving permits (shared destination users) of a file
+// GetTransfersInfo is a route function for retrieving transfersInfo of a file
 // File id is extracted from url params
-func (r *Router) GetFilePermits(c *gin.Context) {
+func (r *Router) GetTransfersInfo(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -152,9 +156,8 @@ func (r *Router) GetFilePermits(c *gin.Context) {
 		return
 	}
 
-	permits := transfersResponse.GetTo()
-
-	c.JSON(http.StatusOK, permits)
+	transfersInfo := transfersResponse.GetTransfersInfo()
+	c.JSON(http.StatusOK, transfersInfo)
 }
 
 // CreateExternalShareRequest creates permits for a given file and users
@@ -174,16 +177,11 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "%s is a required field", ParamFileID)
 		return
 	}
 
-	destination := c.GetHeader(ContextDestionationKey)
-	if destination == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
-		return
-	}
-	if destination != CtsID && destination != TomcalID {
+	if createRequest.destination != CtsDest && createRequest.destination != TomcalDest {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
@@ -192,9 +190,9 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		return
 	}
 
-	var userIDs []*drp.User
+	var userIDs []*drp.ApprovalUser
 	for i := 0; i < len(createRequest.Users); i++ {
-		user := &drp.User{
+		user := &drp.ApprovalUser{
 			Id:   createRequest.Users[i].ID,
 			Name: createRequest.Users[i].FullName,
 		}

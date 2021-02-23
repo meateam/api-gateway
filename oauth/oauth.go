@@ -283,7 +283,7 @@ func (m *Middleware) extractClientCredentialsToken(ctx *gin.Context) (*spb.Valid
 }
 
 // storeDelegator checks if there is a delegator, and if so it validates the
-// delegator with the delegation service.
+// delegator with the user service.
 // Then it sets the User in the request's context to be the delegator.
 func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 	// Check if the action is made on behalf of a user

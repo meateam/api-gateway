@@ -155,7 +155,7 @@ var (
 
 	// AllowedDownloadApps are the applications which are only allowed to download
 	// files which are not theirs
-	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID}
+	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID, oauth.CargoAppID}
 )
 
 // Router is a structure that handles upload requests.
