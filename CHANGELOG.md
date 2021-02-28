@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v3.0.1] - 2021-02-28
+
+### Added
+
+- hotfix:(): added new env:
+- 1. GW_BAM_SUPPORT_NUMBER
+- 2. GW_APPROVAL_UI_URL
+
 ## [v3.0.0] - 2021-01-13
 
 ### Added
@@ -71,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
+[v3.0.1]: https://github.com/meateam/api-gateway/compare/v3.0.0...v3.0.1
 [v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0
 [v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.3.0
 [v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0
