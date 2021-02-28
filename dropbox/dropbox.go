@@ -29,7 +29,7 @@ const (
 	ParamReqID = "requestId"
 
 	// ParamUserID is the name of the user id param in URL.
-	ParamUserID = "userId"
+	ParamUserID = "id"
 
 	// ParamApproverID is the name of the approver id param in the URL.
 	ParamApproverID = "approverID"
@@ -181,8 +181,8 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		return
 	}
 
-	if createRequest.destination != CtsDest && createRequest.destination != TomcalDest {
-		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+	if createRequest.Destination != CtsDest && createRequest.Destination != TomcalDest {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", createRequest.Destination))
 		return
 	}
 
@@ -276,7 +276,7 @@ func (r *Router) CanApproveToUser(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
 		return
 	}
-	if destination != CtsID && destination != TomcalID {
+	if destination != CtsDest && destination != TomcalDest {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
@@ -316,7 +316,7 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
 		return
 	}
-	if destination != CtsID && destination != TomcalID {
+	if destination != CtsDest && destination != TomcalDest {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
