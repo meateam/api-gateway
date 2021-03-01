@@ -244,6 +244,13 @@ type favFilesResponse struct {
 	Failed     []string               `json:"failed"`
 }
 
+// GetSharedFilesResponse is a structure used for the response of getSharedFiles.
+type GetSharedFilesResponse struct {
+	Files     []*GetFileByIDResponse `json:"files"`
+	PageNum   int64                  `json:"pageNum"`
+	ItemCount int64                  `json:"itemCount"`
+}
+
 type partialFile struct {
 	ID          string  `json:"id,omitempty"`
 	Name        string  `json:"name,omitempty"`
