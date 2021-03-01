@@ -131,8 +131,8 @@ const (
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
 
-	// fileIDIsRequiredMessage is the error message for missing fileID
-	fileIDIsRequiredMessage = "fileID is required"
+	// FileIDIsRequiredMessage is the error message for missing fileID
+	FileIDIsRequiredMessage = "fileID is required"
 
 	// ContentDispositionHeader content-disposition header name.
 	ContentDispositionHeader = "Content-Disposition"
@@ -222,6 +222,7 @@ type GetFileByIDResponse struct {
 	AppID       string      `json:"appID,omitempty"`
 }
 
+// GetSharedFilesResponse is a structure used for the response of getSharedFiles.
 type GetSharedFilesResponse struct {
 	Files     []*GetFileByIDResponse `json:"files"`
 	PageNum   int64                  `json:"pageNum"`
@@ -314,7 +315,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 func (r *Router) GetFileByID(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -570,7 +571,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -673,7 +674,7 @@ func (r *Router) Download(c *gin.Context) {
 func (r *Router) UpdateFile(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -718,7 +719,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 func (r *Router) GetFileAncestors(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 

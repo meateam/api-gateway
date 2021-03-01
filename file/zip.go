@@ -191,6 +191,12 @@ func zipFileToWriter(r io.ReadCloser, archive *zip.Writer, header *zip.FileHeade
 // Utility which returns if a string is present in the list.
 // Comparison is case insensitive.
 func hasStringSuffixInSlice(str string, list []string) bool {
+	str = strings.ToLower(str)
+	for _, v := range list {
+		if strings.HasSuffix(str, strings.ToLower(v)) {
+			return true
+		}
+	}
 	return false
 }
 
