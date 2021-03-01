@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- hotfix:([217](https://github.com/meateam/api-gateway/pull/217)): added authType and appID to metrics.
 ## [v3.1.0] - 2021-03-14
 
 ### Added
