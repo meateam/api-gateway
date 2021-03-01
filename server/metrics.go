@@ -29,8 +29,9 @@ const (
 )
 
 type extractedTokenInfo struct {
-	appID    string
-	authType string
+	appID       string
+	authType    string
+	delegatorID string
 }
 
 type body struct {
@@ -58,12 +59,18 @@ func NewMetricsLogger() gin.HandlerFunc {
 		currentTransaction := apm.TransactionFromContext(c.Request.Context())
 
 		reqInfo := extractRequestInfo(c)
+		currUser := user.ExtractRequestUser(c)
+
+		// If delegator which hasn't been populated yet, store the id only
+		if currUser == nil {
+			currUser = &user.User{ID: reqInfo.delegatorID}
+		}
 
 		t := time.Now()
 		roundedDate := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()) // round the time to date (day-month-year)
 
 		matricsBson := &body{
-			User:      user.ExtractRequestUser(c),
+			User:      currUser,
 			Path:      c.Request.URL.Path,
 			Method:    c.Request.Method,
 			TimeStamp: time.Now(),
@@ -125,16 +132,18 @@ func extractRequestInfo(c *gin.Context) *extractedTokenInfo {
 	}
 
 	appID := oauth.DriveAppID
+	delegatorID := ""
 
 	switch authType {
 	case oauth.DropboxAuthTypeValue:
 		appID = oauth.DropboxAppID
+		delegatorID = c.GetHeader(oauth.AuthUserHeader)
 	case oauth.CTSAuthTypeValue:
 		appID = oauth.CTSAppID
 	case oauth.ServiceAuthCodeTypeValue:
 		appID, _ = claims["clientName"].(string) // get the appID from the claims
 	}
-	finalInfo := &extractedTokenInfo{appID: appID, authType: authType}
+	finalInfo := &extractedTokenInfo{appID: appID, authType: authType, delegatorID: delegatorID}
 
 	return finalInfo
 }
