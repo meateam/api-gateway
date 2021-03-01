@@ -37,6 +37,9 @@ const (
 	// DropboxAuthTypeValue is the value of the AuthTypeHeader key for the Dropbox services
 	DropboxAuthTypeValue = "Dropbox"
 
+	// CTSAuthTypeValue is the value of the AuthTypeHeader key for the Dropbox services
+	CTSAuthTypeValue = "CTS"
+
 	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
 	ServiceAuthCodeTypeValue = "Service AuthCode"
 
@@ -61,7 +64,7 @@ const (
 	// DownloadScope is the scope required for file upload
 	DownloadScope = "download"
 
-	// DownloadScope is the scope required for file upload
+	// DeleteScope is the scope required for file upload
 	DeleteScope = "delete"
 
 	// DriveAppID is the app ID of the drive client.
@@ -69,6 +72,9 @@ const (
 
 	// DropboxAppID is the app ID of the dropbox services.
 	DropboxAppID = "dropbox"
+
+	// CTSAppID is the app ID of the cts services.
+	CTSAppID = "cts"
 
 	// TransactionClientLabel is the label of the custom transaction field : client-name.
 	TransactionClientLabel = "client"
@@ -215,7 +221,7 @@ func (m *Middleware) authCodeAuthorization(ctx *gin.Context, requiredScope strin
 // it with spike service. Returns the extracted token.
 func (m *Middleware) extractAuthCodeToken(ctx *gin.Context) (*spb.ValidateAuthCodeTokenResponse, error) {
 
-	token, err := m.extractTokenFromHeader(ctx)
+	token, err := ExtractTokenFromHeader(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +247,7 @@ func (m *Middleware) extractAuthCodeToken(ctx *gin.Context) (*spb.ValidateAuthCo
 // extractClientCredentialsToken extracts the token from the Auth header and validates it with spike service.
 // Returns the extracted token.
 func (m *Middleware) extractClientCredentialsToken(ctx *gin.Context) (*spb.ValidateTokenResponse, error) {
-	token, err := m.extractTokenFromHeader(ctx)
+	token, err := ExtractTokenFromHeader(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +324,8 @@ func (m *Middleware) register(ctx *gin.Context, delegator *spb.User) {
 	ctx.Set(user.ContextUserKey, authenticatedUser)
 }
 
-func (m *Middleware) extractTokenFromHeader(ctx *gin.Context) (string, error) {
+// ExtractTokenFromHeader extracts the token from the header and returns it as a string
+func ExtractTokenFromHeader(ctx *gin.Context) (string, error) {
 	authArr := strings.Fields(ctx.GetHeader(AuthHeader))
 
 	// No authorization header sent
