@@ -116,6 +116,9 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	}
 
 	destination := c.GetHeader(HeaderDestionation)
+	if destination == "" {
+		destination = TomcalDest
+	}
 	if destination != "" && destination != CtsDest && destination != TomcalDest {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
@@ -146,11 +149,14 @@ func (r *Router) SearchByName(c *gin.Context) {
 	}
 
 	destination := c.GetHeader(HeaderDestionation)
+	if destination == "" {
+		destination = TomcalDest
+	}
 	if destination != "" && destination != CtsDest && destination != TomcalDest {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
-
+	
 	findUserByNameRequest := &uspb.FindUserByNameRequest{
 		Name:        partialName,
 		Destination: destination,

@@ -34,8 +34,8 @@ const (
 	// ParamApproverID is the name of the approver id param in the URL.
 	ParamApproverID = "approverID"
 
-	// ContextDestionationKey is the context key used to get and set the external destination.
-	ContextDestionationKey = "destinationID"
+	// HeaderDestionation is the context key used to get and set the external destination.
+	HeaderDestionation = "destination"
 
 	// TODO: add to env variable?
 
@@ -49,7 +49,7 @@ const (
 type createExternalShareRequest struct {
 	FileName       string   `json:"fileName"`
 	Users          []User   `json:"users,omitempty"`
-	Classification string   `json:"classification,omitempty"`
+	Classification string   `json:"classification"`
 	Info           string   `json:"info,omitempty"`
 	Approvers      []string `json:"approvers,omitempty"`
 	Destination    string   `json:"destination"`
@@ -101,7 +101,7 @@ func NewRouter(
 	r := &Router{logger: logger}
 
 	r.dropboxClient = func() drp.DropboxClient {
-		return drp.NewDropboxClient((*permissionConn).Conn())
+		return drp.NewDropboxClient((*dropboxConn).Conn())
 	}
 
 	r.permissionClient = func() ppb.PermissionClient {
@@ -119,8 +119,6 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	// checkStatusScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.UpdatePermitStatusScope)
-
 	rg.GET(fmt.Sprintf("/files/:%s/transferInfo", ParamFileID), r.GetTransfersInfo)
 	rg.PUT(fmt.Sprintf("/files/:%s/transfer", ParamFileID), r.CreateExternalShareRequest)
 
@@ -271,9 +269,9 @@ func (r *Router) CanApproveToUser(c *gin.Context) {
 		return
 	}
 
-	destination := c.GetHeader(ContextDestionationKey)
+	destination := c.GetHeader(HeaderDestionation)
 	if destination == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", HeaderDestionation))
 		return
 	}
 	if destination != CtsDest && destination != TomcalDest {
@@ -311,9 +309,9 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 		return
 	}
 
-	destination := c.GetHeader(ContextDestionationKey)
+	destination := c.GetHeader(HeaderDestionation)
 	if destination == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", ContextDestionationKey))
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", HeaderDestionation))
 		return
 	}
 	if destination != CtsDest && destination != TomcalDest {

@@ -50,6 +50,8 @@ const (
 	configSwaggerPathFile       = "swagger_path_file"
 	configShowSwaggerUI         = "show_swagger_ui"
 	configPoolSize              = "pool_size"
+	configTomcalDestName		= "tomcal_dest_name"
+	configCtsDestName			= "cts_dest_name"
 )
 
 var (

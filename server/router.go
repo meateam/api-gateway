@@ -120,7 +120,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	dropboxConn, err := initServiceConn(viper.GetString(configDropboxService))
 	if err != nil {
-		logger.Fatalf("couldn't setup permit service connection: %v", err)
+		logger.Fatalf("couldn't setup dropbox service connection: %v", err)
 	}
 
 	searchConn, err := initServiceConn(viper.GetString(configSearchService))
@@ -258,6 +258,7 @@ func corsRouterConfig() cors.Config {
 		"x-requested-with",
 		"content-disposition",
 		"content-range",
+		"destination",
 		apmhttp.TraceparentHeader,
 	)
 
