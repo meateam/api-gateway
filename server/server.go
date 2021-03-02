@@ -40,6 +40,7 @@ const (
 	configHealthCheckInterval   = "health_check_interval"
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
 	configApprovalServiceURL    = "approval_url"
+	configApprovalServiceUIURL  = "approval_ui_url"
 	configExternalShareName     = "external_share_name"
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
@@ -86,6 +87,7 @@ func init() {
 	viper.SetDefault(configHealthCheckInterval, 5)
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
 	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
+	viper.SetDefault(configApprovalServiceUIURL, "http://approval.service.ui")
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
@@ -93,7 +95,7 @@ func init() {
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
 	viper.SetDefault(configBereshitSupportLink, "https://open.rocket.chat")
-	viper.SetDefault(configBamSupportNumber, "0543392468")
+	viper.SetDefault(configBamSupportNumber, "03555555")
 	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
