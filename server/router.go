@@ -82,6 +82,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"supportLink":          viper.GetString(configSupportLink),
 				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
 				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
+				"approvalServiceUIUrl": viper.GetString(configApprovalServiceUIURL),
 				"externalShareName":    viper.GetString(configExternalShareName),
 				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
 				"vipServiceUrl":        viper.GetString(configVipService),
