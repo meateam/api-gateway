@@ -13,6 +13,7 @@ import (
 	spb "github.com/meateam/spike-service/proto/spike-service"
 	usrpb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"go.elastic.co/apm"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -70,17 +71,20 @@ const (
 	// DriveAppID is the app ID of the drive client.
 	DriveAppID = "drive"
 
-	// DropboxAppID is the app ID of the dropbox services.
-	DropboxAppID = "dropbox"
+	// ConfigDropboxAppID is the name of the environment variable containing the cts dest appID.
+	ConfigDropboxAppID = "tomcal_dest_appid"
 
-	// CargoAppID is the app ID of the cargo services.
-	CargoAppID = "cargo"
+	// ConfigCargoAppID is the name of the environment variable containing the tomcal dest appID.
+	ConfigCargoAppID = "cts_dest_appid"
 
 	// TransactionClientLabel is the label of the custom transaction field : client-name.
 	TransactionClientLabel = "client"
 
-	// TomcalID is the destination of the dropbox.
-	TomcalID = "z"
+	// ConfigTomcalDest is the name of the environment variable containing the tomcal dest name.
+	ConfigTomcalDest = "tomcal_dest_value"
+
+	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
+	ConfigCtsDest = "cts_dest_value"
 )
 
 // Middleware is a structure that handles the authentication middleware.
@@ -167,9 +171,9 @@ func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string
 	var appID string
 	switch env {
 	case CargoAuthTypeValue:
-		appID = CargoAppID
+		appID = viper.GetString(ConfigCargoAppID)
 	default:
-		appID = DropboxAppID
+		appID = viper.GetString(ConfigDropboxAppID)
 	}
 
 	// Checks the scopes, and if correct, store the user in the context.
@@ -291,9 +295,10 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 
 	// If there is a delegator, validate him, then add him to the context
 	if delegatorID != "" {
+		// TODO: check if needed to add cts
 		getUserByIDRequest := &usrpb.GetByIDRequest{
 			Id:          delegatorID,
-			Destination: TomcalID,
+			Destination: viper.GetString(ConfigTomcalDest),
 		}
 		delegatorObj, err := m.userClient().GetUserByID(ctx.Request.Context(), getUserByIDRequest)
 		if err != nil {

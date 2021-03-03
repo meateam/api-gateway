@@ -39,6 +39,26 @@ const (
 	uploadRouteRegexp = "/api/upload.+"
 )
 
+
+// ExternalNetworkDest configuration of external network
+type ExternalNetworkDest struct{
+	Label       	string				`json:"label"`
+	Value       	string				`json:"value"`
+	AppID			string				`json:"appID"`
+	ApprovalURL 	string				`json:"approvalUrl"`
+	ApprovalUIURL 	string				`json:"approvalUIUrl"`
+	IsDefault 		bool				`json:"isDefault"`
+	// Classification 	[]Classification	`json:"classification"`
+}
+
+// Classification is configuration of classification types
+type Classification struct {
+	Name 		string 		`json:"name"`
+	IsAllowed 	bool 		`json:"isAllowed"`
+	Colors 		[]string 	`json:"colors, omitempty"`
+}
+
+
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
 func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// If no logger is given, use a default logger.
@@ -68,27 +88,27 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	apiRoutesGroup := r.Group("/api")
 
+
 	// Frontend configuration route.
 	apiRoutesGroup.GET("/config", func(c *gin.Context) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"chromeDownloadLink":   viper.GetString(configDownloadChromeURL),
-				"apmServerUrl":         viper.GetString(configExternalApmURL),
-				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"authUrl":              viper.GetString(configAuthURL),
-				"docsUrl":              viper.GetString(configDocsURL),
-				"supportLink":          viper.GetString(configSupportLink),
-				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
-				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
-				"approvalServiceUIUrl": viper.GetString(configApprovalServiceUIURL),
-				"externalShareName":    viper.GetString(configExternalShareName),
-				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
-				"vipServiceUrl":        viper.GetString(configVipService),
-				"enableExternalShare":  viper.GetString(configEnableExternalShare),
-				"whiteListText":        viper.GetString(configWhiteListText),
-				"bereshitSupportLink":  viper.GetString(configBereshitSupportLink),
-				"bamSupportNumber":     viper.GetString(configBamSupportNumber),
+				"chromeDownloadLink":   	viper.GetString(configDownloadChromeURL),
+				"apmServerUrl":         	viper.GetString(configExternalApmURL),
+				"authUrl":              	viper.GetString(configAuthURL),
+				"docsUrl":              	viper.GetString(configDocsURL),
+				"supportLink":          	viper.GetString(configSupportLink),
+				"dropboxSupportLink":   	viper.GetString(configDropboxSupportLink),
+				"externalShareName":    	viper.GetString(configExternalShareName),
+				"myExternalSharesName": 	viper.GetString(configMyExternalSharesName),
+				"vipServiceUrl":        	viper.GetString(configVipService),
+				"enableExternalShare":  	viper.GetString(configEnableExternalShare),
+				"whiteListText":        	viper.GetString(configWhiteListText),
+				"bereshitSupportLink":  	viper.GetString(configBereshitSupportLink),
+				"bamSupportNumber":     	viper.GetString(configBamSupportNumber),
+				"environment":          	os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+				"externalNetworkDests":		GetExternalNetworksConfiguration,
 			},
 		)
 	})
@@ -305,4 +325,67 @@ func reviveConns(badConns <-chan *grpcPoolTypes.ConnPool) {
 			*pool = *newPool
 		}(pool)
 	}
+}
+
+// GetExternalNetworksConfiguration get network object configuration
+func GetExternalNetworksConfiguration() []ExternalNetworkDest{
+	var externalNetworkDests = []ExternalNetworkDest {
+		{
+			Value: viper.GetString(configTomcalDestValue),
+			Label: viper.GetString(configTomcalDestName),
+			AppID: viper.GetString(configTomcalDestAppID),
+			ApprovalURL: viper.GetString(configApprovalServiceURL),
+			ApprovalUIURL: viper.GetString(configApprovalServiceUIURL),
+			IsDefault: true,
+			// Classification: []Classification {
+			// 	{
+			// 		Name: viper.GetString(configClassificationSavedName),
+			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
+			// 	},
+			// 	{
+			// 		Name: viper.GetString(configClassificationSecretName),
+			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
+			// 	},
+			// 	{
+			// 		Name: viper.GetString(configClassificationTopSecretName),
+			// 		IsAllowed: viper.GetBool(configClassificationTopSecretAllowed),
+			// 	},
+			// },
+		},
+		{
+			Value: viper.GetString(configCtsDestValue),
+			Label: viper.GetString(configCtsDestName),
+			AppID: viper.GetString(configCtsDestAppID),
+			ApprovalURL: viper.GetString(configApprovalCtsServiceURL),
+			ApprovalUIURL: viper.GetString(configApprovalCtsServiceUIURL),
+			IsDefault: false,
+			// Classification: []Classification {
+			// 	{
+			// 		Name: viper.GetString(configClassificationSavedName),
+			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
+			// 	},
+			// 	{
+			// 		Name: viper.GetString(configClassificationSecretName),
+			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
+			// 	},
+			// 	{
+			// 		Name: viper.GetString(configClassificationTopSecretName),
+			// 		IsAllowed: viper.GetBool(configClassificationTopSecretRedAllowed),
+			// 		Colors: viper.GetString(configClassificationTopSecretRedColor),
+			// 	},
+			// 	{
+			// 		Name: viper.GetString(configClassificationTopSecretName),
+			// 		IsAllowed: viper.GetBool(configClassificationTopSecretPurpleAllowed),
+			// 		Colors: viper.GetString(configClassificationTopSecretPurpleColor),
+			// 	},
+			// 	{
+			// 		Name: viper.GetString(configClassificationTopSecretName),
+			// 		IsAllowed: viper.GetBool(configClassificationTopSecretBlueAllowed),
+			// 		Colors: viper.GetString(configClassificationTopSecretBlueColor),
+			// 	},
+			// },		
+		},
+	}
+
+	return externalNetworkDests
 }

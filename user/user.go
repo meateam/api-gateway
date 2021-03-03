@@ -45,13 +45,11 @@ const (
 	// HeaderDestionation is the header used to get and set the external destination.
 	HeaderDestionation = "destination"
 
-	// TODO: add to env ?
+	// ConfigTomcalDest is the name of the environment variable containing the tomcal dest name.
+	ConfigTomcalDest = "tomcal_dest_value"
 
-	// TomcalDest is the destination of the dropbox.
-	TomcalDest = "TOMCAL"
-
-	// CtsDest is the destination of the dropbox.
-	CtsDest = "CTS"
+	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
+	ConfigCtsDest = "cts_dest_value"
 )
 
 //Router is a structure that handles users requests.
@@ -117,9 +115,9 @@ func (r *Router) GetUserByID(c *gin.Context) {
 
 	destination := c.GetHeader(HeaderDestionation)
 	if destination == "" {
-		destination = TomcalDest
+		destination = viper.GetString(ConfigTomcalDest)
 	}
-	if destination != "" && destination != CtsDest && destination != TomcalDest {
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
@@ -150,9 +148,9 @@ func (r *Router) SearchByName(c *gin.Context) {
 
 	destination := c.GetHeader(HeaderDestionation)
 	if destination == "" {
-		destination = TomcalDest
+		destination = viper.GetString(ConfigTomcalDest)
 	}
-	if destination != "" && destination != CtsDest && destination != TomcalDest {
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}

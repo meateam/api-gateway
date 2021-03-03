@@ -17,6 +17,7 @@ import (
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -24,9 +25,6 @@ import (
 const (
 	// ParamFileID is the name of the file id param in URL.
 	ParamFileID = "id"
-
-	// ParamReqID is the name of the request id param in URL.
-	ParamReqID = "requestId"
 
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
@@ -37,15 +35,12 @@ const (
 	// HeaderDestionation is the context key used to get and set the external destination.
 	HeaderDestionation = "destination"
 
-	// TODO: add to env variable?
+	// ConfigTomcalDest is the name of the environment variable containing the tomcal dest name.
+	ConfigTomcalDest = "tomcal_dest_value"
 
-	// TomcalDest is the destination of the dropbox.
-	TomcalDest = "TOMCAL"
-
-	// CtsDest is the destination of the dropbox.
-	CtsDest = "CTS"
+	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
+	ConfigCtsDest = "cts_dest_value"
 )
-
 type createExternalShareRequest struct {
 	FileName       string   `json:"fileName"`
 	Users          []User   `json:"users,omitempty"`
@@ -55,17 +50,10 @@ type createExternalShareRequest struct {
 	Destination    string   `json:"destination"`
 }
 
-// User ...
+// User struct
 type User struct {
 	ID       string `json:"id,omitempty"`
 	FullName string `json:"full_name,omitempty"`
-}
-type transferPermit struct {
-	UserID string `json:"userId,omitempty"`
-	Status string `json:"status,omitempty"`
-}
-type updatePermitStatusRequest struct {
-	Status string `json:"status,omitempty"`
 }
 
 // Router is a structure that handles permission requests.
@@ -179,7 +167,7 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		return
 	}
 
-	if createRequest.Destination != CtsDest && createRequest.Destination != TomcalDest {
+	if createRequest.Destination != viper.GetString(ConfigCtsDest) && createRequest.Destination != viper.GetString(ConfigTomcalDest) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", createRequest.Destination))
 		return
 	}
@@ -274,7 +262,7 @@ func (r *Router) CanApproveToUser(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", HeaderDestionation))
 		return
 	}
-	if destination != CtsDest && destination != TomcalDest {
+	if destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
@@ -314,7 +302,7 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", HeaderDestionation))
 		return
 	}
-	if destination != CtsDest && destination != TomcalDest {
+	if destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest){
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}

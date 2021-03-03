@@ -25,6 +25,7 @@ import (
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -155,7 +156,7 @@ var (
 
 	// AllowedDownloadApps are the applications which are only allowed to download
 	// files which are not theirs
-	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID, oauth.CargoAppID}
+	AllowedDownloadApps = []string{oauth.DriveAppID, viper.GetString(oauth.ConfigDropboxAppID), viper.GetString(oauth.ConfigCargoAppID)}
 )
 
 // Router is a structure that handles upload requests.
