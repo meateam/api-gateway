@@ -48,16 +48,7 @@ type ExternalNetworkDest struct{
 	ApprovalURL 	string				`json:"approvalUrl"`
 	ApprovalUIURL 	string				`json:"approvalUIUrl"`
 	IsDefault 		bool				`json:"isDefault"`
-	// Classification 	[]Classification	`json:"classification"`
 }
-
-// Classification is configuration of classification types
-type Classification struct {
-	Name 		string 		`json:"name"`
-	IsAllowed 	bool 		`json:"isAllowed"`
-	Colors 		[]string 	`json:"colors, omitempty"`
-}
-
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
 func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
@@ -108,7 +99,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"bereshitSupportLink":  	viper.GetString(configBereshitSupportLink),
 				"bamSupportNumber":     	viper.GetString(configBamSupportNumber),
 				"environment":          	os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"externalNetworkDests":		GetExternalNetworksConfiguration,
+				"externalNetworkDests":		GetExternalNetworksConfiguration(),
 			},
 		)
 	})
@@ -337,20 +328,6 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest{
 			ApprovalURL: viper.GetString(configApprovalServiceURL),
 			ApprovalUIURL: viper.GetString(configApprovalServiceUIURL),
 			IsDefault: true,
-			// Classification: []Classification {
-			// 	{
-			// 		Name: viper.GetString(configClassificationSavedName),
-			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
-			// 	},
-			// 	{
-			// 		Name: viper.GetString(configClassificationSecretName),
-			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
-			// 	},
-			// 	{
-			// 		Name: viper.GetString(configClassificationTopSecretName),
-			// 		IsAllowed: viper.GetBool(configClassificationTopSecretAllowed),
-			// 	},
-			// },
 		},
 		{
 			Value: viper.GetString(configCtsDestValue),
@@ -359,31 +336,6 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest{
 			ApprovalURL: viper.GetString(configApprovalCtsServiceURL),
 			ApprovalUIURL: viper.GetString(configApprovalCtsServiceUIURL),
 			IsDefault: false,
-			// Classification: []Classification {
-			// 	{
-			// 		Name: viper.GetString(configClassificationSavedName),
-			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
-			// 	},
-			// 	{
-			// 		Name: viper.GetString(configClassificationSecretName),
-			// 		IsAllowed: viper.GetBool(configClassificationSavedAllowed),
-			// 	},
-			// 	{
-			// 		Name: viper.GetString(configClassificationTopSecretName),
-			// 		IsAllowed: viper.GetBool(configClassificationTopSecretRedAllowed),
-			// 		Colors: viper.GetString(configClassificationTopSecretRedColor),
-			// 	},
-			// 	{
-			// 		Name: viper.GetString(configClassificationTopSecretName),
-			// 		IsAllowed: viper.GetBool(configClassificationTopSecretPurpleAllowed),
-			// 		Colors: viper.GetString(configClassificationTopSecretPurpleColor),
-			// 	},
-			// 	{
-			// 		Name: viper.GetString(configClassificationTopSecretName),
-			// 		IsAllowed: viper.GetBool(configClassificationTopSecretBlueAllowed),
-			// 		Colors: viper.GetString(configClassificationTopSecretBlueColor),
-			// 	},
-			// },		
 		},
 	}
 

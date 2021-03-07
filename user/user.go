@@ -114,9 +114,6 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	}
 
 	destination := c.GetHeader(HeaderDestionation)
-	if destination == "" {
-		destination = viper.GetString(ConfigTomcalDest)
-	}
 	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
@@ -147,9 +144,6 @@ func (r *Router) SearchByName(c *gin.Context) {
 	}
 
 	destination := c.GetHeader(HeaderDestionation)
-	if destination == "" {
-		destination = viper.GetString(ConfigTomcalDest)
-	}
 	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return

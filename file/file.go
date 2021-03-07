@@ -25,7 +25,6 @@ import (
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -156,7 +155,7 @@ var (
 
 	// AllowedDownloadApps are the applications which are only allowed to download
 	// files which are not theirs
-	AllowedDownloadApps = []string{oauth.DriveAppID, viper.GetString(oauth.ConfigDropboxAppID), viper.GetString(oauth.ConfigCargoAppID)}
+	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID, oauth.CargoAppID}
 )
 
 // Router is a structure that handles upload requests.
@@ -316,6 +315,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	alt := c.Query("alt")
 	if alt == "media" {
 		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
+
 		if !canDownload {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(
 				http.StatusForbidden,
@@ -595,6 +595,7 @@ func (r *Router) Download(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 
 	role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
+
 	if role == "" {
 		if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
 			c.AbortWithStatus(http.StatusUnauthorized)
@@ -1038,9 +1039,8 @@ func CheckUserFileTransfer(ctx context.Context,
 	if err != nil {
 		return false, err
 	}
-
+	
 	HasTransfer := hasTransferRes.GetHasTransfer()
-
 	return HasTransfer, nil
 }
 
@@ -1094,6 +1094,7 @@ func (r *Router) HandleUserFilePermission(
 	fileID string,
 	role ppb.Role) (string, *ppb.PermissionObject) {
 	reqUser := user.ExtractRequestUser(c)
+
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 
@@ -1131,6 +1132,7 @@ func (r *Router) HandleUserFilePermit(
 	role ppb.Role) bool {
 
 	reqUser := user.ExtractRequestUser(c)
+
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 

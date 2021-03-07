@@ -107,6 +107,7 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
+	rg.GET("/transfersInfo", r.GetTransfersInfo)
 	rg.GET(fmt.Sprintf("/files/:%s/transferInfo", ParamFileID), r.GetTransfersInfo)
 	rg.PUT(fmt.Sprintf("/files/:%s/transfer", ParamFileID), r.CreateExternalShareRequest)
 
@@ -124,14 +125,10 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	}
 
 	fileID := c.Param(ParamFileID)
-	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
+	if fileID != "" && !r.GetUserFilePermission(c, fileID, permission.GetFilePermissionsRole){
 		return
 	}
 
-	if !r.GetUserFilePermission(c, fileID, permission.GetFilePermissionsRole) {
-		return
-	}
 
 	transferRequest := &drp.GetTransfersInfoRequest{FileID: fileID, UserID: reqUser.ID}
 	transfersResponse, err := r.dropboxClient().GetTransfersInfo(c.Request.Context(), transferRequest)
