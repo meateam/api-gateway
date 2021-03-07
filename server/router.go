@@ -271,6 +271,7 @@ func corsRouterConfig() cors.Config {
 		"content-disposition",
 		"content-range",
 		"destination",
+		"fileID",
 		apmhttp.TraceparentHeader,
 	)
 

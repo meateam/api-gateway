@@ -59,13 +59,6 @@ const (
 	configSwaggerPathFile       			= "swagger_path_file"
 	configShowSwaggerUI         			= "show_swagger_ui"
 	configPoolSize              			= "pool_size"
-	// configClassificationSavedName  			= "classification_saved_name"
-	// configClassificationSecretName  		= "classification_secret_name"
-	// configClassificationTopSecretName  		= "classification_top_secret_name"
-	// configClassificationSavedAllowed		= "classification_saved_allowed"
-	// configClassificationSecretAllowed		= "classification_secret_allowed"
-	// configClassificationTopSecretAllowed 	= "classification_top_secret_allowed"
-	// configClassificationTopSecretAllowed 	= "classification_top_secret_allowed"
 )
 
 var (

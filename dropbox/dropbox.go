@@ -3,6 +3,7 @@ package dropbox
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -32,6 +33,12 @@ const (
 	// ParamApproverID is the name of the approver id param in the URL.
 	ParamApproverID = "approverID"
 
+	// QueryGetAll is the name of the query if get for all users
+	QueryGetAll = "all"
+
+	// HeaderFileID is the context key used to get fileId.
+	HeaderFileID = "fileID"
+	
 	// HeaderDestionation is the context key used to get and set the external destination.
 	HeaderDestionation = "destination"
 
@@ -108,7 +115,6 @@ func NewRouter(
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/transfersInfo", r.GetTransfersInfo)
-	rg.GET(fmt.Sprintf("/files/:%s/transferInfo", ParamFileID), r.GetTransfersInfo)
 	rg.PUT(fmt.Sprintf("/files/:%s/transfer", ParamFileID), r.CreateExternalShareRequest)
 
 	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
@@ -124,13 +130,29 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 		return
 	}
 
-	fileID := c.Param(ParamFileID)
+	isGetAll := c.Query(QueryGetAll)
+	fileID := c.GetHeader(HeaderFileID)
+
+	isAllUsers, err := strconv.ParseBool(isGetAll);
+	if isGetAll != "" && err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("please enter a valid value for %s query", QueryGetAll))
+		return
+	}
+	if isAllUsers && fileID == "" {
+		c.String(http.StatusBadRequest, fmt.Sprintf("please enter a header %s, if all query is true", HeaderFileID))
+		return
+	} 
+
 	if fileID != "" && !r.GetUserFilePermission(c, fileID, permission.GetFilePermissionsRole){
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
+	transferRequest := &drp.GetTransfersInfoRequest{FileID: fileID, SharerID: reqUser.ID}
+	if isAllUsers {
+		transferRequest = &drp.GetTransfersInfoRequest{FileID: fileID}
+	}
 
-	transferRequest := &drp.GetTransfersInfoRequest{FileID: fileID, UserID: reqUser.ID}
 	transfersResponse, err := r.dropboxClient().GetTransfersInfo(c.Request.Context(), transferRequest)
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
