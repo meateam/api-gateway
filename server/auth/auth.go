@@ -98,9 +98,10 @@ func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 
 		serviceName := c.GetHeader(AuthTypeHeader)
 
-		// The current transaction of the apm.
+		fmt.Printf("serviceName: %v, oauth.CargoAuthTypeValue: %v, boolean: %v \n", serviceName, oauth.CargoAuthTypeValue, serviceName != oauth.CargoAuthTypeValue)
+		fmt.Printf("serviceName != oauth.DropboxAuthTypeValue: %v, serviceName != ServiceAuthCodeTypeValue: %v \n", serviceName != oauth.DropboxAuthTypeValue, serviceName != ServiceAuthCodeTypeValue)
 
-		if serviceName != oauth.DropboxAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
+		if serviceName != oauth.DropboxAuthTypeValue && serviceName != oauth.CargoAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
 			// If not an external service, then it is a user (from the main Drive UI client).
 			oauth.SetApmClient(c, DriveClientName)
 			secret := secrets.Drive
