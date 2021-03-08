@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
+	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	uspb "github.com/meateam/user-service/proto/users"
@@ -31,11 +31,11 @@ const (
 	// ParamApproverID is the name of the approver id param in the URL.
 	ParamApproverID = "approverID"
 
-	// ParamPartialName is the name of the partial user name param in URL.
-	ParamPartialName = "partial"
+	// ParamRequestContent is the name of the partial user name param in URL.
+	ParamRequestContent = "content"
 
-	// ParamSearchByFlag is the name of the flag that determines which search to execute.
-	ParamSearchByFlag = "searchBy"
+	// ParamSearchType is the name of the flag that determines which search to execute.
+	ParamSearchType = "searchBy"
 
 	// ExternalUserSource is the value of the source field of user that indicated that the user is external
 	ExternalUserSource = "external"
@@ -50,15 +50,17 @@ const (
 	TransactionUserLabel = "user"
 )
 
+type searchByEnum int
+
 const (
-	// SearchByNameFlag is a flag for searching by name
-	SearchByNameFlag = iota
+	// SearchByName is an enum key for searching by name
+	SearchByName searchByEnum = iota
 
-	// FindByMailFlag is a flag for finding by mail
-	FindByMailFlag
+	// FindByMail is an enum key for finding by mail
+	FindByMail
 
-	// FindByTFlag is a flag for finding by user T
-	FindByTFlag
+	// FindByT is an enum key for finding by user T
+	FindByT
 )
 
 //Router is a structure that handles users requests.
@@ -141,14 +143,14 @@ func (r *Router) GetUserByID(c *gin.Context) {
 
 // SearchByRouter is the search by request router for GET /users
 func (r *Router) SearchByRouter(c *gin.Context) {
-	searchByFlag := stringToInt64(c.Query(ParamSearchByFlag))
+	searchBy := searchByEnum(file.StringToInt64(c.Query(ParamSearchType)))
 
-	switch searchByFlag {
-	case SearchByNameFlag:
+	switch searchBy {
+	case SearchByName:
 		r.SearchByName(c)
-	case FindByMailFlag:
+	case FindByMail:
 		r.FindByMail(c)
-	case FindByTFlag:
+	case FindByT:
 		r.FindByUserT(c)
 	default:
 		r.SearchByName(c)
@@ -157,7 +159,7 @@ func (r *Router) SearchByRouter(c *gin.Context) {
 
 // FindByMail is the request handler for GET /users with flag FindByMailFlag
 func (r *Router) FindByMail(c *gin.Context) {
-	mail := c.Query(ParamPartialName)
+	mail := c.Query(ParamRequestContent)
 	if mail == "" {
 		c.String(http.StatusBadRequest, "mail required")
 		return
@@ -167,6 +169,8 @@ func (r *Router) FindByMail(c *gin.Context) {
 		Mail: mail,
 	}
 
+	var users [1]*uspb.User
+
 	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByMailRequest)
 
 	if err != nil {
@@ -175,12 +179,14 @@ func (r *Router) FindByMail(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	users[0] = user.GetUser()
+
+	c.JSON(http.StatusOK, users)
 }
 
 // FindByUserT is the request handler for GET /users with flag FindByTFlag
 func (r *Router) FindByUserT(c *gin.Context) {
-	userT := c.Query(ParamPartialName)
+	userT := c.Query(ParamRequestContent)
 	if userT == "" {
 		c.String(http.StatusBadRequest, "userT required")
 		return
@@ -199,12 +205,14 @@ func (r *Router) FindByUserT(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	users := [1]*uspb.User{user.GetUser()}
+
+	c.JSON(http.StatusOK, users)
 }
 
 // SearchByName is the request handler for GET /users
 func (r *Router) SearchByName(c *gin.Context) {
-	partialName := c.Query(ParamPartialName)
+	partialName := c.Query(ParamRequestContent)
 	if partialName == "" {
 		c.String(http.StatusBadRequest, "partial name required")
 		return
@@ -336,13 +344,4 @@ func SetApmUser(ctx *gin.Context, user User) {
 	if user.DisplayName != "" {
 		currentTransaction.Context.SetUserEmail(user.DisplayName)
 	}
-}
-
-// Converts a string to int64, 0 is returned on failure
-func stringToInt64(s string) int64 {
-	n, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		n = 0
-	}
-	return n
 }

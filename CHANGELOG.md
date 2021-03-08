@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v3.1.0] - 2021-02-22
 ### Added
-- add advance search
+- FEAT([218](https://github.com/meateam/api-gateway/pull/218)): add advance search by mail/T.
 
 ## [v3.0.0] - 2021-01-13
 

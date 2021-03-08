@@ -363,15 +363,6 @@ func queryParamsToMap(c *gin.Context, paramNames ...string) map[string]string {
 	return paramMap
 }
 
-// Converts a string to int64, 0 is returned on failure
-func stringToInt64(s string) int64 {
-	n, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		n = 0
-	}
-	return n
-}
-
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -431,9 +422,9 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		Name:        paramMap[ParamFileName],
 		Type:        paramMap[ParamFileType],
 		Description: paramMap[ParamFileDescription],
-		Size:        stringToInt64(paramMap[ParamFileSize]),
-		CreatedAt:   stringToInt64(paramMap[ParamFileCreatedAt]),
-		UpdatedAt:   stringToInt64(paramMap[ParamFileUpdatedAt]),
+		Size:        StringToInt64(paramMap[ParamFileSize]),
+		CreatedAt:   StringToInt64(paramMap[ParamFileCreatedAt]),
+		UpdatedAt:   StringToInt64(paramMap[ParamFileUpdatedAt]),
 		Float:       false,
 		AppID:       queryAppID,
 	}
@@ -489,8 +480,8 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 		return
 	}
 
-	pageNum := stringToInt64(c.Query(ParamPageNum))
-	pageSize := stringToInt64(c.Query(ParamPageSize))
+	pageNum := StringToInt64(c.Query(ParamPageNum))
+	pageSize := StringToInt64(c.Query(ParamPageSize))
 
 	// Return a page of all shared files' permissions which belong to the user,
 	// filtered by appID. If queryAppID = "", it will not filter by apps
@@ -1308,4 +1299,13 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+// StringToInt64 converts a string to int64, 0 is returned on failure
+func StringToInt64(s string) int64 {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		n = 0
+	}
+	return n
 }
