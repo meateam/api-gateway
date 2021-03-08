@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
-	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/utils"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	uspb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
@@ -143,7 +143,7 @@ func (r *Router) GetUserByID(c *gin.Context) {
 
 // SearchByRouter is the search by request router for GET /users
 func (r *Router) SearchByRouter(c *gin.Context) {
-	searchBy := searchByEnum(file.StringToInt64(c.Query(ParamSearchType)))
+	searchBy := searchByEnum(utils.StringToInt64(c.Query(ParamSearchType)))
 
 	switch searchBy {
 	case SearchByName:
