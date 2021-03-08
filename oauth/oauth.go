@@ -305,7 +305,6 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 
 	// If there is a delegator, validate him, then add him to the context
 	if delegatorID != "" {
-		// TODO: check if needed to add cts
 		getUserByIDRequest := &usrpb.GetByIDRequest{
 			Id:          delegatorID,
 			Destination: destination,

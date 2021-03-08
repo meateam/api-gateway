@@ -49,6 +49,8 @@ const (
 	configCtsDestName						= "cts_dest_name"
 	configCtsDestValue						= "cts_dest_value"
 	configCtsDestAppID						= "cts_dest_appid"
+	configTransferStatusSuccess				= "transfer_status_success_type"
+	configTransferStatusFailed				= "transfer_status_failed_type"
 	configExternalShareName     			= "external_share_name"
 	configMyExternalSharesName  			= "my_external_shares_name"
 	configVipService            			= "vip_service"
@@ -114,6 +116,8 @@ func init() {
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
 	viper.SetDefault(configPoolSize, 4)
+	viper.SetDefault(configTransferStatusSuccess, "success")
+	viper.SetDefault(configTransferStatusFailed, "failed")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

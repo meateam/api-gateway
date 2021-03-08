@@ -55,7 +55,9 @@ type createExternalShareRequest struct {
 	Info           string   `json:"info,omitempty"`
 	Approvers      []string `json:"approvers,omitempty"`
 	Destination    string   `json:"destination"`
+	OwnerId 	   string 	`json:"ownerId`
 }
+
 
 // User struct
 type User struct {
@@ -121,6 +123,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
+
 // GetTransfersInfo is a route function for retrieving transfersInfo of a file
 // File id is extracted from url params
 func (r *Router) GetTransfersInfo(c *gin.Context) {
@@ -164,6 +167,7 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	transfersInfo := transfersResponse.GetTransfersInfo()
 	c.JSON(http.StatusOK, transfersInfo)
 }
+
 
 // CreateExternalShareRequest creates permits for a given file and users
 // File id is extracted from url params, role is extracted from request body.
@@ -213,6 +217,7 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		Info:           createRequest.Info,
 		Approvers:      createRequest.Approvers,
 		Destination:    createRequest.Destination,
+		OwnerID: 		createRequest.OwnerId,
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
