@@ -84,6 +84,10 @@ type User struct {
 	Job         string `json:"job"`
 }
 
+type usersResponse struct {
+	Users []*uspb.User `json:"users"`
+}
+
 // NewRouter creates a new Router, and initializes clients of User Service
 //  with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
@@ -169,8 +173,6 @@ func (r *Router) FindByMail(c *gin.Context) {
 		Mail: mail,
 	}
 
-	var users [1]*uspb.User
-
 	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByMailRequest)
 
 	if err != nil {
@@ -179,9 +181,9 @@ func (r *Router) FindByMail(c *gin.Context) {
 		return
 	}
 
-	users[0] = user.GetUser()
+	usersResponse := userResponseToUsersResponse(user)
 
-	c.JSON(http.StatusOK, users)
+	c.JSON(http.StatusOK, usersResponse)
 }
 
 // FindByUserT is the request handler for GET /users with flag FindByTFlag
@@ -205,9 +207,9 @@ func (r *Router) FindByUserT(c *gin.Context) {
 		return
 	}
 
-	users := [1]*uspb.User{user.GetUser()}
+	usersResponse := userResponseToUsersResponse(user)
 
-	c.JSON(http.StatusOK, users)
+	c.JSON(http.StatusOK, usersResponse)
 }
 
 // SearchByName is the request handler for GET /users
@@ -344,4 +346,14 @@ func SetApmUser(ctx *gin.Context, user User) {
 	if user.DisplayName != "" {
 		currentTransaction.Context.SetUserEmail(user.DisplayName)
 	}
+}
+
+func userResponseToUsersResponse(user *uspb.GetUserResponse) usersResponse {
+	var users []*uspb.User
+
+	users = append(users, user.GetUser())
+
+	usersResponse := usersResponse{Users: users}
+
+	return usersResponse
 }
