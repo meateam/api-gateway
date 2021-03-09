@@ -38,7 +38,7 @@ const (
 
 	// HeaderFileID is the context key used to get fileId.
 	HeaderFileID = "fileID"
-	
+
 	// HeaderDestionation is the context key used to get and set the external destination.
 	HeaderDestionation = "destination"
 
@@ -48,6 +48,7 @@ const (
 	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
 	ConfigCtsDest = "cts_dest_value"
 )
+
 type createExternalShareRequest struct {
 	FileName       string   `json:"fileName"`
 	Users          []User   `json:"users,omitempty"`
@@ -55,9 +56,8 @@ type createExternalShareRequest struct {
 	Info           string   `json:"info,omitempty"`
 	Approvers      []string `json:"approvers,omitempty"`
 	Destination    string   `json:"destination"`
-	OwnerId 	   string 	`json:"ownerId`
+	OwnerID        string   `json:"ownerId"`
 }
-
 
 // User struct
 type User struct {
@@ -123,7 +123,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
-
 // GetTransfersInfo is a route function for retrieving transfersInfo of a file
 // File id is extracted from url params
 func (r *Router) GetTransfersInfo(c *gin.Context) {
@@ -136,7 +135,7 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	isGetAll := c.Query(QueryGetAll)
 	fileID := c.GetHeader(HeaderFileID)
 
-	isAllUsers, err := strconv.ParseBool(isGetAll);
+	isAllUsers, err := strconv.ParseBool(isGetAll)
 	if isGetAll != "" && err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("please enter a valid value for %s query", QueryGetAll))
 		return
@@ -144,9 +143,9 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	if isAllUsers && fileID == "" {
 		c.String(http.StatusBadRequest, fmt.Sprintf("please enter a header %s, if all query is true", HeaderFileID))
 		return
-	} 
+	}
 
-	if fileID != "" && !r.GetUserFilePermission(c, fileID, permission.GetFilePermissionsRole){
+	if fileID != "" && !r.GetUserFilePermission(c, fileID, permission.GetFilePermissionsRole) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -167,7 +166,6 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	transfersInfo := transfersResponse.GetTransfersInfo()
 	c.JSON(http.StatusOK, transfersInfo)
 }
-
 
 // CreateExternalShareRequest creates permits for a given file and users
 // File id is extracted from url params, role is extracted from request body.
@@ -217,7 +215,7 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		Info:           createRequest.Info,
 		Approvers:      createRequest.Approvers,
 		Destination:    createRequest.Destination,
-		OwnerID: 		createRequest.OwnerId,
+		OwnerID:        createRequest.OwnerID,
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -326,7 +324,7 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("%s header is required", HeaderDestionation))
 		return
 	}
-	if destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest){
+	if destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}

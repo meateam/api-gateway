@@ -138,8 +138,8 @@ func extractRequestInfo(c *gin.Context) *extractedTokenInfo {
 	case oauth.DropboxAuthTypeValue:
 		appID = oauth.DropboxAppID
 		delegatorID = c.GetHeader(oauth.AuthUserHeader)
-	case oauth.CTSAuthTypeValue:
-		appID = oauth.CTSAppID
+	case oauth.CargoAuthTypeValue:
+		appID = oauth.CargoAppID
 	case oauth.ServiceAuthCodeTypeValue:
 		appID, _ = claims["clientName"].(string) // get the appID from the claims
 	}
