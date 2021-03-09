@@ -9,10 +9,11 @@ import (
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
-	dpb "github.com/meateam/delegation-service/proto/delegation-service"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	spb "github.com/meateam/spike-service/proto/spike-service"
+	usrpb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"go.elastic.co/apm"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,8 +38,8 @@ const (
 	// DropboxAuthTypeValue is the value of the AuthTypeHeader key for the Dropbox services
 	DropboxAuthTypeValue = "Dropbox"
 
-	// CTSAuthTypeValue is the value of the AuthTypeHeader key for the Dropbox services
-	CTSAuthTypeValue = "CTS"
+	// CargoAuthTypeValue is the value of the AuthTypeHeader key for the Cargo services
+	CargoAuthTypeValue = "Cargo"
 
 	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
 	ServiceAuthCodeTypeValue = "Service AuthCode"
@@ -61,23 +62,29 @@ const (
 	// ShareScope is the scope required for file share and unshare
 	ShareScope = "share"
 
-	// DownloadScope is the scope required for file upload
+	// DownloadScope is the scope required for file download
 	DownloadScope = "download"
 
-	// DeleteScope is the scope required for file upload
+	// DeleteScope is the scope required for file deletion
 	DeleteScope = "delete"
 
 	// DriveAppID is the app ID of the drive client.
 	DriveAppID = "drive"
 
-	// DropboxAppID is the app ID of the dropbox services.
+	// DropboxAppID is the app ID of the dropbox client.
 	DropboxAppID = "dropbox"
 
-	// CTSAppID is the app ID of the cts services.
-	CTSAppID = "cts"
+	// CargoAppID is the app ID of the cargo client.
+	CargoAppID = "cargo"
 
 	// TransactionClientLabel is the label of the custom transaction field : client-name.
 	TransactionClientLabel = "client"
+
+	// ConfigTomcalDest is the name of the environment variable containing the tomcal dest name.
+	ConfigTomcalDest = "tomcal_dest_value"
+
+	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
+	ConfigCtsDest = "cts_dest_value"
 )
 
 // Middleware is a structure that handles the authentication middleware.
@@ -85,8 +92,8 @@ type Middleware struct {
 	// SpikeClientFactory
 	spikeClient factory.SpikeClientFactory
 
-	// DelegationClientFactory
-	delegateClient factory.DelegationClientFactory
+	// UserClientFactory
+	userClient factory.UserClientFactory
 
 	logger *logrus.Logger
 }
@@ -96,7 +103,7 @@ type Middleware struct {
 // otherwise logger would default to logrus.New().
 func NewOAuthMiddleware(
 	spikeConn *grpcPoolTypes.ConnPool,
-	delegateConn *grpcPoolTypes.ConnPool,
+	userConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Middleware {
 	// If no logger is given, use a default logger.
@@ -109,8 +116,9 @@ func NewOAuthMiddleware(
 	m.spikeClient = func() spb.SpikeClient {
 		return spb.NewSpikeClient((*spikeConn).Conn())
 	}
-	m.delegateClient = func() dpb.DelegationClient {
-		return dpb.NewDelegationClient((*delegateConn).Conn())
+
+	m.userClient = func() usrpb.UsersClient {
+		return usrpb.NewUsersClient((*userConn).Conn())
 	}
 
 	return m
@@ -130,6 +138,8 @@ func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.Hand
 
 		switch authType {
 		case DropboxAuthTypeValue:
+			err = m.dropboxAuthorization(ctx, requiredScope)
+		case CargoAuthTypeValue:
 			err = m.dropboxAuthorization(ctx, requiredScope)
 		case ServiceAuthCodeTypeValue:
 			err = m.authCodeAuthorization(ctx, requiredScope)
@@ -158,7 +168,15 @@ func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string
 	scopes := spikeToken.GetScopes()
 
 	ctx.Set(ContextScopesKey, scopes)
-	appID := DropboxAppID
+
+	authType := ctx.Value(ContextAuthType)
+	var appID string
+	switch authType {
+	case CargoAuthTypeValue:
+		appID = CargoAppID
+	default:
+		appID = DropboxAppID
+	}
 
 	// Checks the scopes, and if correct, store the user in the context.
 	for _, scope := range scopes {
@@ -271,18 +289,28 @@ func (m *Middleware) extractClientCredentialsToken(ctx *gin.Context) (*spb.Valid
 }
 
 // storeDelegator checks if there is a delegator, and if so it validates the
-// delegator with the delegation service.
+// delegator with the user service.
 // Then it sets the User in the request's context to be the delegator.
 func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 	// Check if the action is made on behalf of a user
 	delegatorID := ctx.GetHeader(AuthUserHeader)
 
+	authType := ctx.Value(ContextAuthType)
+	var destination string
+	switch authType {
+	case CargoAuthTypeValue:
+		destination = viper.GetString(ConfigCtsDest)
+	default:
+		destination = viper.GetString(ConfigTomcalDest)
+	}
+
 	// If there is a delegator, validate him, then add him to the context
 	if delegatorID != "" {
-		getUserByIDRequest := &dpb.GetUserByIDRequest{
-			Id: delegatorID,
+		getUserByIDRequest := &usrpb.GetByIDRequest{
+			Id:          delegatorID,
+			Destination: destination,
 		}
-		delegatorObj, err := m.delegateClient().GetUserByID(ctx.Request.Context(), getUserByIDRequest)
+		delegatorObj, err := m.userClient().GetUserByID(ctx.Request.Context(), getUserByIDRequest)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
 				return ctx.AbortWithError(http.StatusUnauthorized,
@@ -300,7 +328,7 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 			FirstName:   delegator.GetFirstName(),
 			LastName:    delegator.GetLastName(),
 			Source:      user.ExternalUserSource,
-			DisplayName: delegator.GetHierarchy(),
+			DisplayName: delegator.GetHierarchyFlat(),
 		}
 
 		user.SetApmUser(ctx, authenticatedUser)
@@ -348,7 +376,7 @@ func ExtractTokenFromHeader(ctx *gin.Context) (string, error) {
 	return authArr[1], nil
 }
 
-// validateRequiredScope checks if there is a specific scope in the context (unless it is the drive client).
+// ValidateRequiredScope checks if there is a specific scope in the context (unless it is the drive client).
 func (m *Middleware) ValidateRequiredScope(ctx *gin.Context, requiredScope string) bool {
 
 	appID := ctx.Value(ContextAppKey)
@@ -375,7 +403,7 @@ func (m *Middleware) ValidateRequiredScope(ctx *gin.Context, requiredScope strin
 	return false
 }
 
-// SetApmUser adds a clientID to the current apm transaction.
+// SetApmClient adds a clientID to the current apm transaction.
 func SetApmClient(ctx *gin.Context, clientID string) {
 	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
 	currentTransaction.Context.SetCustom(TransactionClientLabel, clientID)
