@@ -16,9 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- hotfix:(): added new env:
-- 1. GW_BAM_SUPPORT_NUMBER
-- 2. GW_APPROVAL_UI_URL
+- hotfix:([216](https://github.com/meateam/api-gateway/pull/216)): added new env:
+  1. GW_BAM_SUPPORT_NUMBER
+  2. GW_APPROVAL_UI_URL
 
 ## [v3.0.0] - 2021-01-13
 
