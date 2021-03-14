@@ -27,6 +27,7 @@ const (
 	configSecret                = "secret"
 	configAuthURL               = "auth_url"
 	configDocsURL               = "docs_url"
+	configLocalOfficeURL        = "docs_local_office_url"
 	configExternalApmURL        = "external_apm_url"
 	configAllowOrigins          = "allow_origins"
 	configSupportLink           = "support_link"
@@ -41,13 +42,14 @@ const (
 	configHealthCheckInterval   = "health_check_interval"
 	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
 	configApprovalServiceURL    = "approval_url"
+	configApprovalServiceUIURL  = "approval_ui_url"
 	configExternalShareName     = "external_share_name"
 	configMyExternalSharesName  = "my_external_shares_name"
 	configVipService            = "vip_service"
 	configEnableExternalShare   = "enable_external_share"
-	configWhiteListText = "white_list_text"
-	configBereshitSupportLink = "bereshit_support_link"
-	configBamSupportNumber = "bam_support_number"
+	configWhiteListText         = "white_list_text"
+	configBereshitSupportLink   = "bereshit_support_link"
+	configBamSupportNumber      = "bam_support_number"
 	configSwaggerPathFile       = "swagger_path_file"
 	configShowSwaggerUI         = "show_swagger_ui"
 	configPoolSize              = "pool_size"
@@ -73,6 +75,7 @@ func init() {
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configDocsURL, "http://localhost:3000")
+	viper.SetDefault(configLocalOfficeURL, "http://localhost:3000")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetDefault(configAllowOrigins, "http://localhost*")
 	viper.SetDefault(configSupportLink, "https://open.rocket.chat")
@@ -86,6 +89,7 @@ func init() {
 	viper.SetDefault(configHealthCheckInterval, 5)
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
 	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
+	viper.SetDefault(configApprovalServiceUIURL, "http://approval.service.ui")
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
@@ -93,7 +97,7 @@ func init() {
 	viper.SetDefault(configEnableExternalShare, false)
 	viper.SetDefault(configWhiteListText, "או להיות מאושר באופן מיוחד")
 	viper.SetDefault(configBereshitSupportLink, "https://open.rocket.chat")
-	viper.SetDefault(configBamSupportNumber, "0543392468")
+	viper.SetDefault(configBamSupportNumber, "03555555")
 	viper.SetDefault(configSwaggerPathFile, "./swagger/ui")
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
