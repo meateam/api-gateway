@@ -160,7 +160,7 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 
 	transferRequest := &drp.GetTransfersInfoRequest{FileID: fileID, SharerID: reqUser.ID, PageNum: pageNum, PageSize: pageSize}
 	if isAllUsers {
-		transferRequest = &drp.GetTransfersInfoRequest{FileID: fileID}
+		transferRequest = &drp.GetTransfersInfoRequest{FileID: fileID, PageNum: pageNum, PageSize: pageSize}
 	}
 
 	transfersResponse, err := r.dropboxClient().GetTransfersInfo(c.Request.Context(), transferRequest)
