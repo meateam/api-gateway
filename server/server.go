@@ -51,6 +51,7 @@ const (
 	configCtsDestAppID						= "cts_dest_appid"
 	configTransferStatusSuccess				= "transfer_status_success_type"
 	configTransferStatusFailed				= "transfer_status_failed_type"
+	configTransferStatusInProgress			= "transfer_status_in_progress_type"
 	configExternalShareName     			= "external_share_name"
 	configMyExternalSharesName  			= "my_external_shares_name"
 	configVipService            			= "vip_service"
@@ -118,6 +119,7 @@ func init() {
 	viper.SetDefault(configPoolSize, 4)
 	viper.SetDefault(configTransferStatusSuccess, "success")
 	viper.SetDefault(configTransferStatusFailed, "failed")
+	viper.SetDefault(configTransferStatusInProgress, "in progress")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
