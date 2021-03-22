@@ -100,6 +100,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"bamSupportNumber":     	viper.GetString(configBamSupportNumber),
 				"statusSuccessType": 		viper.GetString(configTransferStatusSuccess),
 				"statusFailedType": 		viper.GetString(configTransferStatusFailed),
+				"statusInProgressType": 	viper.GetString(configTransferStatusInProgress),
 				"environment":          	os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 				"externalNetworkDests":		GetExternalNetworksConfiguration(),
 			},
