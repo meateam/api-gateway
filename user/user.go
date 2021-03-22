@@ -11,7 +11,6 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	"github.com/meateam/api-gateway/utils"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	uspb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
@@ -50,17 +49,17 @@ const (
 	TransactionUserLabel = "user"
 )
 
-type searchByEnum int
+type searchByEnum string
 
 const (
 	// SearchByName is an enum key for searching by name
-	SearchByName searchByEnum = iota
+	SearchByName searchByEnum = "SearchByName"
 
 	// FindByMail is an enum key for finding by mail
-	FindByMail
+	FindByMail searchByEnum = "FindByMail"
 
 	// FindByT is an enum key for finding by user T
-	FindByT
+	FindByT searchByEnum = "FindByT"
 )
 
 //Router is a structure that handles users requests.
@@ -84,6 +83,7 @@ type User struct {
 	Job         string `json:"job"`
 }
 
+// usersResponse is a structure of a the response returned from users search
 type usersResponse struct {
 	Users []*uspb.User `json:"users"`
 }
@@ -147,7 +147,7 @@ func (r *Router) GetUserByID(c *gin.Context) {
 
 // SearchByRouter is the search by request router for GET /users
 func (r *Router) SearchByRouter(c *gin.Context) {
-	searchBy := searchByEnum(utils.StringToInt64(c.Query(ParamSearchType)))
+	searchBy := searchByEnum((c.Query(ParamSearchType)))
 
 	switch searchBy {
 	case SearchByName:
@@ -181,7 +181,7 @@ func (r *Router) FindByMail(c *gin.Context) {
 		return
 	}
 
-	usersResponse := userResponseToUsersResponse(user)
+	usersResponse := encapsulateUserResponse(user)
 
 	c.JSON(http.StatusOK, usersResponse)
 }
@@ -207,7 +207,7 @@ func (r *Router) FindByUserT(c *gin.Context) {
 		return
 	}
 
-	usersResponse := userResponseToUsersResponse(user)
+	usersResponse := encapsulateUserResponse(user)
 
 	c.JSON(http.StatusOK, usersResponse)
 }
@@ -348,7 +348,8 @@ func SetApmUser(ctx *gin.Context, user User) {
 	}
 }
 
-func userResponseToUsersResponse(user *uspb.GetUserResponse) usersResponse {
+// encapulateUserResponse gets a user of type *uspb.GetUserResponse and encapsulate it to type usersResponse
+func encapsulateUserResponse(user *uspb.GetUserResponse) usersResponse {
 	var users []*uspb.User
 
 	users = append(users, user.GetUser())
