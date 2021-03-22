@@ -169,11 +169,11 @@ func (r *Router) FindByMail(c *gin.Context) {
 		return
 	}
 
-	findUserByMailRequest := &uspb.GetByMailRequest{
-		Mail: mail,
+	findUserByMailRequest := &uspb.GetByMailOrTRequest{
+		MailOrT: mail,
 	}
 
-	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByMailRequest)
+	user, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByMailRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -195,11 +195,11 @@ func (r *Router) FindByUserT(c *gin.Context) {
 	}
 
 	// User service accepts the same route for mails and userT - user search
-	findUserByTRequest := &uspb.GetByMailRequest{
-		Mail: userT,
+	findUserByTRequest := &uspb.GetByMailOrTRequest{
+		MailOrT: userT,
 	}
 
-	user, err := r.userClient().GetUserByMail(c.Request.Context(), findUserByTRequest)
+	user, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByTRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))

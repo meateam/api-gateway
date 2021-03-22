@@ -401,6 +401,10 @@ github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676 h1:iZEgLcC9
 github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676/go.mod h1:h0Xn5OLsm238+7/GZKxktHIBGtKLfZFyvv91VX+H3lA=
 github.com/meateam/user-service v2.1.1-0.20201224124158-ee5d834b0f10+incompatible h1:dlzVqg93UY0A1Rh+z6V+zpF2tIjnFhgdIUSV2HHdeQ4=
 github.com/meateam/user-service v2.1.1-0.20201224124158-ee5d834b0f10+incompatible/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
+github.com/meateam/user-service v2.1.1-0.20210322091743-927ea1705c10+incompatible h1:wuoROnig+Po5jw6MTfaQJrNzP08lMi/6vtBI0d+42s8=
+github.com/meateam/user-service v2.1.1-0.20210322091743-927ea1705c10+incompatible/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
+github.com/meateam/user-service v2.1.1-0.20210322112825-ac8d75df1e96+incompatible h1:V+hIleOlz/ASafVqhEmoBpRa+JMbAZtnFlRHhBK+G9I=
+github.com/meateam/user-service v2.1.1-0.20210322112825-ac8d75df1e96+incompatible/go.mod h1:34+8sk9iC5o/wHYXVkM/XbwbkZE4Af4wu2E88aq7O98=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/mitchellh/mapstructure v1.3.2 h1:mRS76wmkOn3KkKAyXDu42V+6ebnXWIztFSYGN7GeoRg=
 github.com/mitchellh/mapstructure v1.3.2/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
