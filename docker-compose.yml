@@ -115,8 +115,8 @@ services:
       - redis
     ports:
       - '8090:8080'
-  permit-service:
-    image: drivehub.azurecr.io/meateam/permit-service:develop
+  dropbox-service:
+    image: drivehub.azurecr.io/meateam/dropbox-service:develop
     env_file:
       - ../kdrive.env
     ports:
