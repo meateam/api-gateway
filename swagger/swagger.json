@@ -373,126 +373,6 @@
         }
       }
     },
-    "/files/{id}/permits": {
-      "get": {
-        "description": "This returns the permits of a given file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
-        "summary": "File permits",
-        "operationId": "getpermits",
-        "parameters": [
-          {
-            "type": "string",
-            "x-go-name": "ID",
-            "description": "The file id",
-            "name": "id",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/permitsResponse"
-          }
-        }
-      },
-      "put": {
-        "description": "This creates the permits of a given file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
-        "summary": "Create file permits",
-        "operationId": "putpermits",
-        "parameters": [
-          {
-            "type": "string",
-            "x-go-name": "ID",
-            "description": "The file id",
-            "name": "id",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header",
-            "required": true
-          },
-          {
-            "description": "The request body for creating a permit",
-            "name": "Details",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/PermitDetails"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/permitResponse"
-          }
-        }
-      },
-      "patch": {
-        "description": "This updates the permits to the file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
-        "summary": "Update file permits",
-        "operationId": "patchpermits",
-        "parameters": [
-          {
-            "type": "string",
-            "x-go-name": "ID",
-            "description": "The file id",
-            "name": "id",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header",
-            "required": true
-          },
-          {
-            "description": "The request body for update permit",
-            "name": "Details",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/UpdatePermitDetails"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/search": {
       "get": {
         "description": "This returns the file by search query",
@@ -921,28 +801,6 @@
     }
   },
   "definitions": {
-    "CreatePermitResponse": {
-      "type": "object",
-      "x-go-package": "github.com/meateam/permit-service/proto"
-    },
-    "DomainUser": {
-      "type": "object",
-      "properties": {
-        "adfsUID": {
-          "type": "string",
-          "x-go-name": "AdfsUID"
-        },
-        "dataSource": {
-          "type": "string",
-          "x-go-name": "DataSource"
-        },
-        "uniqueID": {
-          "type": "string",
-          "x-go-name": "UniqueID"
-        }
-      },
-      "x-go-package": "github.com/meateam/user-service/proto/users"
-    },
     "FileDetails": {
       "description": "FileDetails request body for upload resumable",
       "type": "object",
@@ -973,9 +831,8 @@
           "type": "boolean",
           "x-go-name": "IsBlocked"
         },
-        "unitName": {
-          "type": "string",
-          "x-go-name": "UnitName"
+        "unit": {
+          "$ref": "#/definitions/Unit"
         },
         "userId": {
           "type": "string",
@@ -1120,8 +977,7 @@
       },
       "x-go-package": "github.com/meateam/api-gateway/swagger"
     },
-    "PermitDetails": {
-      "description": "PermitDetails request body for creating a permit",
+    "Unit": {
       "type": "object",
       "properties": {
         "approvers": {
@@ -1131,46 +987,16 @@
           },
           "x-go-name": "Approvers"
         },
-        "classification": {
+        "name": {
           "type": "string",
-          "x-go-name": "Classification"
-        },
-        "fileName": {
-          "type": "string",
-          "x-go-name": "FileName"
-        },
-        "info": {
-          "type": "string",
-          "x-go-name": "Info"
-        },
-        "users": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/User"
-          },
-          "x-go-name": "Users"
+          "x-go-name": "Name"
         }
       },
-      "x-go-package": "github.com/meateam/api-gateway/swagger"
-    },
-    "UpdatePermitDetails": {
-      "description": "UpdatePermitDetails request body for updating a permit",
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string",
-          "x-go-name": "Status"
-        }
-      },
-      "x-go-package": "github.com/meateam/api-gateway/swagger"
+      "x-go-package": "github.com/meateam/dropbox-service/proto/dropbox"
     },
     "User": {
-      "description": "User details",
       "type": "object",
       "properties": {
-        "domainUser": {
-          "$ref": "#/definitions/DomainUser"
-        },
         "firstName": {
           "type": "string",
           "x-go-name": "FirstName"
@@ -1204,20 +1030,6 @@
         }
       },
       "x-go-package": "github.com/meateam/user-service/proto/users"
-    },
-    "UserStatus": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string",
-          "x-go-name": "Status"
-        },
-        "userId": {
-          "type": "string",
-          "x-go-name": "UserId"
-        }
-      },
-      "x-go-package": "github.com/meateam/permit-service/proto"
     }
   },
   "responses": {
@@ -1302,21 +1114,6 @@
         "type": "array",
         "items": {
           "$ref": "#/definitions/Permission"
-        }
-      }
-    },
-    "permitResponse": {
-      "description": "An array of permits",
-      "schema": {
-        "$ref": "#/definitions/CreatePermitResponse"
-      }
-    },
-    "permitsResponse": {
-      "description": "An array of permits",
-      "schema": {
-        "type": "array",
-        "items": {
-          "$ref": "#/definitions/UserStatus"
         }
       }
     },

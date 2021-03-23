@@ -63,6 +63,7 @@ const (
 	configShowSwaggerUI         			= "show_swagger_ui"
 	configPoolSize              			= "pool_size"
 	configLocalOfficeURL        			= "docs_local_office_url"
+)
 
 var (
 	logger = ilogger.NewLogger()
