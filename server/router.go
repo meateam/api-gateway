@@ -103,6 +103,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"statusInProgressType": 	viper.GetString(configTransferStatusInProgress),
 				"environment":          	os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 				"externalNetworkDests":		GetExternalNetworksConfiguration(),
+				"localOfficeUrl":       viper.GetString(configLocalOfficeURL),
 			},
 		)
 	})
