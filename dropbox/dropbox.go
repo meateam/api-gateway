@@ -10,6 +10,7 @@ import (
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
+	"github.com/meateam/api-gateway/file"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
@@ -80,6 +81,7 @@ type Router struct {
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 }
+
 
 // NewRouter creates a new Router, and initializes clients of the quota Service
 // with the given connection. If logger is non-nil then it will
@@ -164,8 +166,7 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 		return
 	}
 
-	transfersInfo := transfersResponse.GetTransfersInfo()
-	c.JSON(http.StatusOK, transfersInfo)
+	c.JSON(http.StatusOK, transfersResponse)
 }
 
 // CreateExternalShareRequest creates permits for a given file and users
