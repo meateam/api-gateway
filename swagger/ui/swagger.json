@@ -1,13 +1,7 @@
 {
-  "consumes": [
-    "application/json"
-  ],
-  "produces": [
-    "application/json"
-  ],
-  "schemes": [
-    "http"
-  ],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "schemes": ["http"],
   "swagger": "2.0",
   "info": {
     "title": "Drive API.",
@@ -21,86 +15,11 @@
   "host": "pandora.northeurope.cloudapp.azure.com",
   "basePath": "/api",
   "paths": {
-    "/delegators": {
-      "get": {
-        "description": "This will return a single delegator by its partial name",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "delegation"
-        ],
-        "summary": "Search delegator",
-        "operationId": "searchdelegator",
-        "parameters": [
-          {
-            "type": "string",
-            "x-go-name": "Partial",
-            "description": "The user name",
-            "name": "partial",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/delegatorResponse"
-          }
-        }
-      }
-    },
-    "/delegators/{id}": {
-      "get": {
-        "description": "This will return a single external user by its id from the phonebook",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "delegation"
-        ],
-        "summary": "User",
-        "operationId": "delegator",
-        "parameters": [
-          {
-            "uniqueItems": true,
-            "type": "string",
-            "x-go-name": "ID",
-            "description": "The delegator id",
-            "name": "id",
-            "in": "path",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/delegatorResponse"
-          }
-        }
-      }
-    },
     "/files": {
       "get": {
         "description": "This will return all files according to the requested folder",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "List of files",
         "operationId": "listFiles",
         "parameters": [
@@ -127,12 +46,8 @@
       },
       "put": {
         "description": "Updates many files with the same value.",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "Update files",
         "operationId": "updateFiles",
         "parameters": [
@@ -176,12 +91,8 @@
     "/files/{id}": {
       "get": {
         "description": "This returns a single file according to the requested folder",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "Single file",
         "operationId": "file",
         "parameters": [
@@ -211,12 +122,8 @@
       },
       "put": {
         "description": "This updates the file according to its id",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "Update file",
         "operationId": "updateFile",
         "parameters": [
@@ -254,12 +161,8 @@
       },
       "delete": {
         "description": "This deletes the file according to its id",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "Delete file",
         "operationId": "deleteFile",
         "parameters": [
@@ -291,12 +194,8 @@
     "/files/{id}/ancestors": {
       "get": {
         "description": "This returns all of the ancestors of a given file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "Returns the file's ancestors",
         "operationId": "fileAncestors",
         "parameters": [
@@ -328,12 +227,8 @@
     "/files/{id}/permissions": {
       "get": {
         "description": "This returns the permissions of a given file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "File permissions",
         "operationId": "getpermission",
         "parameters": [
@@ -362,12 +257,8 @@
       },
       "put": {
         "description": "This creates a permissions to a given file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "Create permissions",
         "operationId": "putpermission",
         "parameters": [
@@ -404,12 +295,8 @@
       },
       "delete": {
         "description": "This deletes the permission of a file by its id and user",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
+        "schemes": ["http"],
+        "tags": ["files"],
         "summary": "Delete permissions",
         "operationId": "deletepermission",
         "parameters": [
@@ -444,133 +331,11 @@
         }
       }
     },
-    "/files/{id}/permits": {
-      "get": {
-        "description": "This returns the permits of a given file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
-        "summary": "File permits",
-        "operationId": "getpermits",
-        "parameters": [
-          {
-            "type": "string",
-            "x-go-name": "ID",
-            "description": "The file id",
-            "name": "id",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/permitsResponse"
-          }
-        }
-      },
-      "put": {
-        "description": "This creates the permits of a given file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
-        "summary": "Create file permits",
-        "operationId": "putpermits",
-        "parameters": [
-          {
-            "type": "string",
-            "x-go-name": "ID",
-            "description": "The file id",
-            "name": "id",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header",
-            "required": true
-          },
-          {
-            "description": "The request body for creating a permit",
-            "name": "Details",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/PermitDetails"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/permitResponse"
-          }
-        }
-      },
-      "patch": {
-        "description": "This will update the permits to the file",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "files"
-        ],
-        "summary": "Update file permits",
-        "operationId": "patchpermits",
-        "parameters": [
-          {
-            "type": "string",
-            "x-go-name": "ID",
-            "description": "The file id",
-            "name": "id",
-            "in": "query",
-            "required": true
-          },
-          {
-            "type": "string",
-            "example": "Bearer \u0026{jwt}",
-            "description": "The jwt key",
-            "name": "Authorization",
-            "in": "header",
-            "required": true
-          },
-          {
-            "description": "The request body for update permit",
-            "name": "Details",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/UpdatePermitDetails"
-            }
-          }
-        ],
-        "responses": {
-          "200": {}
-        }
-      }
-    },
     "/search": {
       "get": {
         "description": "This returns the file by search query",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "search"
-        ],
+        "schemes": ["http"],
+        "tags": ["search"],
         "summary": "User quota by id",
         "operationId": "getSearchRequest",
         "parameters": [
@@ -601,12 +366,8 @@
     "/upload": {
       "post": {
         "description": "Uploads a folder.",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "upload"
-        ],
+        "schemes": ["http"],
+        "tags": ["upload"],
         "summary": "Upload folder",
         "operationId": "uploadfolder",
         "parameters": [
@@ -650,12 +411,8 @@
     "/upload/{id}": {
       "put": {
         "description": "This will Update the contents of the file according to its ID",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "upload"
-        ],
+        "schemes": ["http"],
+        "tags": ["upload"],
         "summary": "Update file content",
         "operationId": "updateFileContent",
         "parameters": [
@@ -693,12 +450,8 @@
     "/upload?UploadType=": {
       "post": {
         "description": "Initializes the resumable upload.",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "upload"
-        ],
+        "schemes": ["http"],
+        "tags": ["upload"],
         "summary": "Init resumable upload",
         "operationId": "initresumable",
         "parameters": [
@@ -739,12 +492,8 @@
     "/upload?UploadType=multipart": {
       "post": {
         "description": "Upload a small file under 5MB .",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "upload"
-        ],
+        "schemes": ["http"],
+        "tags": ["upload"],
         "summary": "Upload multipart",
         "operationId": "uploadmultipart",
         "parameters": [
@@ -784,12 +533,8 @@
     "/upload?UploadType=resumable": {
       "post": {
         "description": "Upload a big file over 5MB and up to 5TB .\nRuns after the init resumable upload",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "upload"
-        ],
+        "schemes": ["http"],
+        "tags": ["upload"],
         "summary": "Upload resumable",
         "operationId": "uploadresumable",
         "parameters": [
@@ -837,12 +582,8 @@
     "/user/quota": {
       "get": {
         "description": "This returns the current quota of a user by its jwt token",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "quota"
-        ],
+        "schemes": ["http"],
+        "tags": ["quota"],
         "summary": "My quota",
         "operationId": "getquota",
         "parameters": [
@@ -865,12 +606,8 @@
     "/users": {
       "get": {
         "description": "This searches a user by its partial name",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "users"
-        ],
+        "schemes": ["http"],
+        "tags": ["users"],
         "summary": "Search user",
         "operationId": "searchUserRequest",
         "parameters": [
@@ -901,12 +638,8 @@
     "/users/{id}": {
       "get": {
         "description": "This return a single user by its id",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "users"
-        ],
+        "schemes": ["http"],
+        "tags": ["users"],
         "summary": "Get user",
         "operationId": "getuser",
         "responses": {
@@ -919,12 +652,8 @@
     "/users/{id}/approverInfo": {
       "get": {
         "description": "This returns the approver info of a user by its id",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "users"
-        ],
+        "schemes": ["http"],
+        "tags": ["users"],
         "summary": "User approver info",
         "operationId": "approverinfo",
         "parameters": [
@@ -955,12 +684,8 @@
     "/users/{id}/quota": {
       "get": {
         "description": "This return the quota of the user by its id",
-        "schemes": [
-          "http"
-        ],
-        "tags": [
-          "users"
-        ],
+        "schemes": ["http"],
+        "tags": ["users"],
         "summary": "User quota",
         "operationId": "getquotabyid",
         "parameters": [
@@ -990,10 +715,6 @@
     }
   },
   "definitions": {
-    "CreatePermitResponse": {
-      "type": "object",
-      "x-go-package": "github.com/meateam/permit-service/proto"
-    },
     "FileDetails": {
       "description": "FileDetails request body for upload resumable",
       "type": "object",
@@ -1166,50 +887,6 @@
       },
       "x-go-package": "github.com/meateam/api-gateway/swagger"
     },
-    "PermitDetails": {
-      "description": "PermitDetails request body for creating a permit",
-      "type": "object",
-      "properties": {
-        "approvers": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "x-go-name": "Approvers"
-        },
-        "classification": {
-          "type": "string",
-          "x-go-name": "Classification"
-        },
-        "fileName": {
-          "type": "string",
-          "x-go-name": "FileName"
-        },
-        "info": {
-          "type": "string",
-          "x-go-name": "Info"
-        },
-        "users": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/User"
-          },
-          "x-go-name": "Users"
-        }
-      },
-      "x-go-package": "github.com/meateam/api-gateway/swagger"
-    },
-    "UpdatePermitDetails": {
-      "description": "UpdatePermitDetails request body for updating a permit",
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string",
-          "x-go-name": "Status"
-        }
-      },
-      "x-go-package": "github.com/meateam/api-gateway/swagger"
-    },
     "User": {
       "description": "User details",
       "type": "object",
@@ -1259,8 +936,7 @@
           "type": "string",
           "x-go-name": "UserId"
         }
-      },
-      "x-go-package": "github.com/meateam/permit-service/proto"
+      }
     }
   },
   "responses": {
@@ -1289,12 +965,6 @@
       "description": "The approver info object",
       "schema": {
         "$ref": "#/definitions/GetApproverInfoResponse"
-      }
-    },
-    "delegatorResponse": {
-      "description": "An array of delegators returned",
-      "schema": {
-        "$ref": "#/definitions/GetUserResponse"
       }
     },
     "fileAncestorsResponse": {
@@ -1351,21 +1021,6 @@
         "type": "array",
         "items": {
           "$ref": "#/definitions/Permission"
-        }
-      }
-    },
-    "permitResponse": {
-      "description": "An array of permits",
-      "schema": {
-        "$ref": "#/definitions/CreatePermitResponse"
-      }
-    },
-    "permitsResponse": {
-      "description": "An array of permits",
-      "schema": {
-        "type": "array",
-        "items": {
-          "$ref": "#/definitions/UserStatus"
         }
       }
     },

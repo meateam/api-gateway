@@ -14,7 +14,6 @@ import (
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
-	fpb "github.com/meateam/file-service/proto/file"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	"github.com/sirupsen/logrus"
@@ -47,6 +46,12 @@ const (
 
 	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
 	ConfigCtsDest = "cts_dest_value"
+
+	// ParamPageNum is a constant for the requested page num in the pagination.
+	ParamPageNum = "pageNum"
+
+	// ParamPageSize is a constant for the requested page size in the pagination.
+	ParamPageSize = "pageSize"
 )
 
 type createExternalShareRequest struct {
@@ -56,7 +61,7 @@ type createExternalShareRequest struct {
 	Info           string   `json:"info,omitempty"`
 	Approvers      []string `json:"approvers,omitempty"`
 	Destination    string   `json:"destination"`
-	OwnerID        string   `json:"ownerId"`
+	OwnerId        string   `json:"ownerId"`
 }
 
 // User struct
@@ -69,9 +74,6 @@ type User struct {
 type Router struct {
 	// DropboxClientFactory
 	dropboxClient factory.DropboxClientFactory
-
-	// FileClientFactory
-	fileClient factory.FileClientFactory
 
 	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
@@ -86,7 +88,6 @@ type Router struct {
 func NewRouter(
 	dropboxConn *grpcPoolTypes.ConnPool,
 	permissionConn *grpcPoolTypes.ConnPool,
-	fileConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
@@ -103,10 +104,6 @@ func NewRouter(
 
 	r.permissionClient = func() ppb.PermissionClient {
 		return ppb.NewPermissionClient((*permissionConn).Conn())
-	}
-
-	r.fileClient = func() fpb.FileServiceClient {
-		return fpb.NewFileServiceClient((*fileConn).Conn())
 	}
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -134,6 +131,8 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 
 	isGetAll := c.Query(QueryGetAll)
 	fileID := c.GetHeader(HeaderFileID)
+	pageNum := file.StringToInt64((c.Query(ParamPageNum)))
+	pageSize := file.StringToInt64(c.Query(ParamPageSize))
 
 	isAllUsers, err := strconv.ParseBool(isGetAll)
 	if isGetAll != "" && err != nil {
@@ -145,14 +144,17 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 		return
 	}
 
-	if fileID != "" && !r.GetUserFilePermission(c, fileID, permission.GetFilePermissionsRole) {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+	if fileID != ""{
+		permission, err := permission.IsPermitted(c, r.permissionClient(), fileID, reqUser.ID, permission.GetFilePermissionsRole)
+		if err != nil || !permission.GetPermitted() {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 	}
 
-	transferRequest := &drp.GetTransfersInfoRequest{FileID: fileID, SharerID: reqUser.ID}
+	transferRequest := &drp.GetTransfersInfoRequest{FileID: fileID, SharerID: reqUser.ID, PageNum: pageNum, PageSize: pageSize}
 	if isAllUsers {
-		transferRequest = &drp.GetTransfersInfoRequest{FileID: fileID}
+		transferRequest = &drp.GetTransfersInfoRequest{FileID: fileID, PageNum: pageNum, PageSize: pageSize}
 	}
 
 	transfersResponse, err := r.dropboxClient().GetTransfersInfo(c.Request.Context(), transferRequest)
@@ -193,7 +195,9 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		return
 	}
 
-	if !r.GetUserFilePermission(c, fileID, permission.CreateFilePermissionRole) {
+	permission, err := permission.IsPermitted(c, r.permissionClient(), fileID, reqUser.ID, permission.GetFilePermissionsRole)
+	if err != nil || !permission.GetPermitted() {
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -215,7 +219,7 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 		Info:           createRequest.Info,
 		Approvers:      createRequest.Approvers,
 		Destination:    createRequest.Destination,
-		OwnerID:        createRequest.OwnerID,
+		OwnerID:        createRequest.OwnerId,
 	})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -226,40 +230,8 @@ func (r *Router) CreateExternalShareRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, createRequestRes)
 }
 
-// GetUserFilePermission gets a gin context and the id of the requested file,
-// returns true if the user is permitted to operate on the file.
-// Returns false if the user isn't permitted to operate on it,
-// Returns false if any error occurred and logs the error.
-func (r *Router) GetUserFilePermission(c *gin.Context, fileID string, role ppb.Role) bool {
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-
-		return false
-	}
-
-	userFilePermission, _, err := file.CheckUserFilePermission(c.Request.Context(),
-		r.fileClient(),
-		r.permissionClient(),
-		reqUser.ID,
-		fileID,
-		role)
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return false
-	}
-
-	if userFilePermission == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-	}
-
-	return userFilePermission != ""
-}
-
 // CanApproveToUser is the request handler for GET /users/:userId/canApproveToUser/:approverID
-// must required a destination header
+// Requires a destination header
 func (r *Router) CanApproveToUser(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {

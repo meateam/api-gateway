@@ -51,6 +51,7 @@ const (
 	configCtsDestAppID						= "cts_dest_appid"
 	configTransferStatusSuccess				= "transfer_status_success_type"
 	configTransferStatusFailed				= "transfer_status_failed_type"
+	configTransferStatusInProgress			= "transfer_status_in_progress_type"
 	configExternalShareName     			= "external_share_name"
 	configMyExternalSharesName  			= "my_external_shares_name"
 	configVipService            			= "vip_service"
@@ -61,6 +62,7 @@ const (
 	configSwaggerPathFile       			= "swagger_path_file"
 	configShowSwaggerUI         			= "show_swagger_ui"
 	configPoolSize              			= "pool_size"
+	configLocalOfficeURL        			= "docs_local_office_url"
 )
 
 var (
@@ -82,6 +84,7 @@ func init() {
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configDocsURL, "http://localhost:3000")
+	viper.SetDefault(configLocalOfficeURL, "http://localhost:3000")
 	viper.SetDefault(configExternalApmURL, "http://localhost:8200")
 	viper.SetDefault(configAllowOrigins, "http://localhost*")
 	viper.SetDefault(configSupportLink, "https://open.rocket.chat")
@@ -118,6 +121,7 @@ func init() {
 	viper.SetDefault(configPoolSize, 4)
 	viper.SetDefault(configTransferStatusSuccess, "success")
 	viper.SetDefault(configTransferStatusFailed, "failed")
+	viper.SetDefault(configTransferStatusInProgress, "in progress")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
