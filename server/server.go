@@ -10,49 +10,59 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	envPrefix                   = "GW"
-	configPort                  = "port"
-	configUploadService         = "upload_service"
-	configDelegationService     = "delegation_service"
-	configDocsSecret            = "docs_secret"
-	configDownloadService       = "download_service"
-	configFileService           = "file_service"
-	configUserService           = "user_service"
-	configPermissionService     = "permission_service"
-	configPermitService         = "permit_service"
-	configSearchService         = "search_service"
-	configSpikeService          = "spike_service"
-	configGotenbergService      = "gotenberg_service"
-	configSecret                = "secret"
-	configAuthURL               = "auth_url"
-	configDocsURL               = "docs_url"
-	configLocalOfficeURL        = "docs_local_office_url"
-	configExternalApmURL        = "external_apm_url"
-	configAllowOrigins          = "allow_origins"
-	configSupportLink           = "support_link"
-	configDropboxSupportLink    = "dropbox_support_link"
-	configDownloadChromeURL     = "chrome_download_url"
-	configElasticsearchURL      = "elasticsearch_url"
-	configElasticsearchUser     = "elasticsearch_user"
-	configElasticsearchPassword = "elasticsearch_password"
-	configElasticsearchIndex    = "elasticsearch_index"
-	configTLSSkipVerify         = "tls_skip_verify"
-	configElasticsearchSniff    = "elasticsearch_sniff"
-	configHealthCheckInterval   = "health_check_interval"
-	configHealthCheckRPCTimeout = "health_check_rpc_timeout"
-	configApprovalServiceURL    = "approval_url"
-	configApprovalServiceUIURL  = "approval_ui_url"
-	configExternalShareName     = "external_share_name"
-	configMyExternalSharesName  = "my_external_shares_name"
-	configVipService            = "vip_service"
-	configEnableExternalShare   = "enable_external_share"
-	configWhiteListText         = "white_list_text"
-	configBereshitSupportLink   = "bereshit_support_link"
-	configBamSupportNumber      = "bam_support_number"
-	configSwaggerPathFile       = "swagger_path_file"
-	configShowSwaggerUI         = "show_swagger_ui"
-	configPoolSize              = "pool_size"
+const (	
+	envPrefix                   			= "GW"
+	configPort                  			= "port"
+	configUploadService         			= "upload_service"
+	configDocsSecret            			= "docs_secret"
+	configDownloadService       			= "download_service"
+	configFileService           			= "file_service"
+	configUserService           			= "user_service"
+	configPermissionService     			= "permission_service"
+	configDropboxService        			= "dropbox_service"
+	configSearchService         			= "search_service"
+	configSpikeService          			= "spike_service"
+	configGotenbergService      			= "gotenberg_service"
+	configSecret                			= "secret"
+	configAuthURL               			= "auth_url"
+	configDocsURL               			= "docs_url"
+	configExternalApmURL        			= "external_apm_url"
+	configAllowOrigins          			= "allow_origins"
+	configSupportLink           			= "support_link"
+	configDropboxSupportLink    			= "dropbox_support_link"
+	configDownloadChromeURL     			= "chrome_download_url"
+	configElasticsearchURL      			= "elasticsearch_url"
+	configElasticsearchUser     			= "elasticsearch_user"
+	configElasticsearchPassword 			= "elasticsearch_password"
+	configElasticsearchIndex    			= "elasticsearch_index"
+	configTLSSkipVerify         			= "tls_skip_verify"
+	configElasticsearchSniff    			= "elasticsearch_sniff"
+	configHealthCheckInterval   			= "health_check_interval"
+	configHealthCheckRPCTimeout 			= "health_check_rpc_timeout"
+	configApprovalServiceURL    			= "approval_url"
+	configApprovalServiceUIURL  			= "approval_ui_url"
+	configApprovalCtsServiceURL 			= "approval_cts_url"
+	configApprovalCtsServiceUIURL  			= "approval_cts_ui_url"
+	configTomcalDestName					= "tomcal_dest_name"
+	configTomcalDestValue					= "tomcal_dest_value"
+	configTomcalDestAppID					= "tomcal_dest_appid"
+	configCtsDestName						= "cts_dest_name"
+	configCtsDestValue						= "cts_dest_value"
+	configCtsDestAppID						= "cts_dest_appid"
+	configTransferStatusSuccess				= "transfer_status_success_type"
+	configTransferStatusFailed				= "transfer_status_failed_type"
+	configTransferStatusInProgress			= "transfer_status_in_progress_type"
+	configExternalShareName     			= "external_share_name"
+	configMyExternalSharesName  			= "my_external_shares_name"
+	configVipService            			= "vip_service"
+	configEnableExternalShare   			= "enable_external_share"
+	configWhiteListText         			= "white_list_text"
+	configBereshitSupportLink   			= "bereshit_support_link"
+	configBamSupportNumber      			= "bam_support_number"
+	configSwaggerPathFile       			= "swagger_path_file"
+	configShowSwaggerUI         			= "show_swagger_ui"
+	configPoolSize              			= "pool_size"
+	configLocalOfficeURL        			= "docs_local_office_url"
 )
 
 var (
@@ -62,13 +72,12 @@ var (
 func init() {
 	viper.SetDefault(configPort, 8080)
 	viper.SetDefault(configUploadService, "upload-service:8080")
-	viper.SetDefault(configDelegationService, "delegation-service:8080")
 	viper.SetDefault(configDocsSecret, "docs@drive")
 	viper.SetDefault(configDownloadService, "download-service:8080")
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
 	viper.SetDefault(configPermissionService, "permission-service:8080")
-	viper.SetDefault(configPermitService, "permit-service:8080")
+	viper.SetDefault(configDropboxService, "dropbox-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
 	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
@@ -90,6 +99,14 @@ func init() {
 	viper.SetDefault(configHealthCheckRPCTimeout, 5)
 	viper.SetDefault(configApprovalServiceURL, "http://approval.service")
 	viper.SetDefault(configApprovalServiceUIURL, "http://approval.service.ui")
+	viper.SetDefault(configApprovalCtsServiceURL, "http://approval.service")
+	viper.SetDefault(configApprovalCtsServiceUIURL, "http://approval.service.ui")
+	viper.SetDefault(configTomcalDestName, "תומכל")
+	viper.SetDefault(configTomcalDestValue, "TOMCAL")
+	viper.SetDefault(configTomcalDestAppID, "dropbox")
+	viper.SetDefault(configCtsDestName, "CTS")
+	viper.SetDefault(configCtsDestValue, "CTS")
+	viper.SetDefault(configCtsDestAppID, "cargo")
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
@@ -102,6 +119,9 @@ func init() {
 	viper.SetDefault(user.ConfigBucketPostfix, "")
 	viper.SetDefault(auth.ConfigWebUI, "http://localhost")
 	viper.SetDefault(configPoolSize, 4)
+	viper.SetDefault(configTransferStatusSuccess, "success")
+	viper.SetDefault(configTransferStatusFailed, "failed")
+	viper.SetDefault(configTransferStatusInProgress, "in progress")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
