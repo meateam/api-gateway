@@ -38,7 +38,7 @@ type Router struct {
 	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
 
-	logger          *logrus.Logger
+	logger *logrus.Logger
 }
 
 // NewRouter creates a new Router, and initializes clients of the quota Service
@@ -74,13 +74,13 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.POST(fmt.Sprintf("/producer/file/:%s/contentchange", ParamFileID), r.SendContentChange)
-	rg.POST(fmt.Sprintf("/producer/file/:%s/permissiondelete", ParamFileID), r.SendPermissionDelete)
+	rg.POST(fmt.Sprintf("/producer/file/:%s/contentchange", ParamFileID), r.SendContentChangeMsg)
+	rg.POST(fmt.Sprintf("/producer/file/:%s/permissiondelete", ParamFileID), r.SendPermissionDeleteMsg)
 }
 
 
 // SendContentChange - send msg to rabbit queue about content change
-func (r *Router) SendContentChange(c *gin.Context) {
+func (r *Router) SendContentChangeMsg(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -125,7 +125,7 @@ func (r *Router) SendContentChange(c *gin.Context) {
 }
 
 // SendPermissionDelete - send msg to rabbit queue about permission change
-func (r *Router) SendPermissionDelete(c *gin.Context) {
+func (r *Router) SendPermissionDeleteMsg(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
