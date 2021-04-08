@@ -73,7 +73,7 @@ services:
     env_file:
       - ../kdrive.env
   user-service:
-    image: 'drivehub.azurecr.io/meateam/user-service:develop'
+    image: 'drivehub.azurecr.io/meateam/user-service:search-by-mail-or-t'
     ports:
       - '8086:8080'
     env_file:
@@ -115,14 +115,8 @@ services:
       - redis
     ports:
       - '8090:8080'
-  delegation-service:
-    image: drivehub.azurecr.io/meateam/delegation-service:develop
-    ports:
-      - '8091:8080'
-    env_file:
-      - ../kdrive.env
-  permit-service:
-    image: drivehub.azurecr.io/meateam/permit-service:develop
+  dropbox-service:
+    image: drivehub.azurecr.io/meateam/dropbox-service:add-cts-intergation
     env_file:
       - ../kdrive.env
     ports:
