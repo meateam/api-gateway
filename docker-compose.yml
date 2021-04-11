@@ -73,7 +73,7 @@ services:
     env_file:
       - ../kdrive.env
   user-service:
-    image: 'drivehub.azurecr.io/meateam/user-service:search-by-mail-or-t'
+    image: 'drivehub.azurecr.io/meateam/user-service:develop'
     ports:
       - '8086:8080'
     env_file:
