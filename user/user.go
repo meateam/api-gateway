@@ -306,7 +306,7 @@ func SetApmUser(ctx *gin.Context, user User) {
 	}
 }
 
-// encapulateUserResponse gets a user of type *uspb.GetUserResponse and encapsulate it to type usersResponse
+// encapsulateUserResponse gets a user of type *uspb.GetUserResponse and encapsulate it to type usersResponse
 func encapsulateUserResponse(user *uspb.GetUserResponse) usersResponse {
 	var users []*uspb.User
 
