@@ -116,7 +116,7 @@ services:
     ports:
       - '8090:8080'
   dropbox-service:
-    image: drivehub.azurecr.io/meateam/dropbox-service:add-cts-intergation
+    image: drivehub.azurecr.io/meateam/dropbox-service:develop
     env_file:
       - ../kdrive.env
     ports:
