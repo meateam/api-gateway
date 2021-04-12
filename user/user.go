@@ -27,9 +27,6 @@ const (
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
 
-	// ParamApproverID is the name of the approver id param in the URL.
-	ParamApproverID = "approverID"
-
 	// ParamPartialName is the name of the partial user name param in URL.
 	ParamPartialName = "partial"
 
@@ -44,6 +41,15 @@ const (
 
 	// TransactionUserLabel is the label of the custom transaction field : user.
 	TransactionUserLabel = "user"
+
+	// HeaderDestionation is the header used to get and set the external destination.
+	HeaderDestionation = "destination"
+
+	// ConfigTomcalDest is the name of the environment variable containing the tomcal dest name.
+	ConfigTomcalDest = "tomcal_dest_value"
+
+	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
+	ConfigCtsDest = "cts_dest_value"
 )
 
 //Router is a structure that handles users requests.
@@ -92,8 +98,6 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
 	rg.GET("/users", r.SearchByName)
-	rg.GET(fmt.Sprintf("/users/:%s/canApproveToUser/:approverID", ParamUserID), r.CanApproveToUser)
-	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -109,8 +113,15 @@ func (r *Router) GetUserByID(c *gin.Context) {
 		return
 	}
 
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+
 	getUserByIDRequest := &uspb.GetByIDRequest{
-		Id: userID,
+		Id:          userID,
+		Destination: destination,
 	}
 
 	user, err := r.userClient().GetUserByID(c.Request.Context(), getUserByIDRequest)
@@ -132,8 +143,15 @@ func (r *Router) SearchByName(c *gin.Context) {
 		return
 	}
 
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+	
 	findUserByNameRequest := &uspb.FindUserByNameRequest{
-		Name: partialName,
+		Name:        partialName,
+		Destination: destination,
 	}
 
 	user, err := r.userClient().FindUserByName(c.Request.Context(), findUserByNameRequest)
@@ -145,69 +163,6 @@ func (r *Router) SearchByName(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
-}
-
-// GetApproverInfo is the request handler for GET /users/:id/approverInfo
-func (r *Router) GetApproverInfo(c *gin.Context) {
-	reqUser := ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	userID := c.Param(ParamUserID)
-	if userID == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
-		return
-	}
-
-	getApproverInfoRequest := &uspb.GetApproverInfoRequest{
-		Id: userID,
-	}
-
-	info, err := r.userClient().GetApproverInfo(c.Request.Context(), getApproverInfoRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	c.JSON(http.StatusOK, info)
-}
-
-// CanApproveToUser is the request handler for GET /users/:id/canApproveToUser/:approverID
-func (r *Router) CanApproveToUser(c *gin.Context) {
-	reqUser := ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	userID := c.Param(ParamUserID)
-	if userID == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
-		return
-	}
-
-	approverID := c.Param(ParamApproverID)
-	if approverID == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamApproverID))
-		return
-	}
-
-	canApproveToUserRequest := &uspb.CanApproveToUserRequest{
-		ApproverID: approverID,
-		UserID:     userID,
-	}
-
-	canApproveToUserInfo, err := r.userClient().CanApproveToUser(c.Request.Context(), canApproveToUserRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	c.JSON(http.StatusOK, canApproveToUserInfo)
 }
 
 // ExtractRequestUser gets a context.Context and extracts the user's details from c.
