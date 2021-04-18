@@ -334,14 +334,14 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest{
 			ApprovalUIURL: viper.GetString(configApprovalServiceUIURL),
 			IsDefault: true,
 		},
-		{
-			Value: viper.GetString(configCtsDestValue),
-			Label: viper.GetString(configCtsDestName),
-			AppID: viper.GetString(configCtsDestAppID),
-			ApprovalURL: viper.GetString(configApprovalCtsServiceURL),
-			ApprovalUIURL: viper.GetString(configApprovalCtsServiceUIURL),
-			IsDefault: false,
-		},
+		// {
+		// 	Value: viper.GetString(configCtsDestValue),
+		// 	Label: viper.GetString(configCtsDestName),
+		// 	AppID: viper.GetString(configCtsDestAppID),
+		// 	ApprovalURL: viper.GetString(configApprovalCtsServiceURL),
+		// 	ApprovalUIURL: viper.GetString(configApprovalCtsServiceUIURL),
+		// 	IsDefault: false,
+		// },
 	}
 
 	return externalNetworkDests
