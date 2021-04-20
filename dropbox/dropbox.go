@@ -10,9 +10,9 @@ import (
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
-	"github.com/meateam/api-gateway/file"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/api-gateway/utils"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
@@ -82,7 +82,6 @@ type Router struct {
 	logger          *logrus.Logger
 }
 
-
 // NewRouter creates a new Router, and initializes clients of the quota Service
 // with the given connection. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
@@ -132,8 +131,8 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 
 	isGetAll := c.Query(QueryGetAll)
 	fileID := c.GetHeader(HeaderFileID)
-	pageNum := file.StringToInt64((c.Query(ParamPageNum)))
-	pageSize := file.StringToInt64(c.Query(ParamPageSize))
+	pageNum := utils.StringToInt64((c.Query(ParamPageNum)))
+	pageSize := utils.StringToInt64(c.Query(ParamPageSize))
 
 	isAllUsers, err := strconv.ParseBool(isGetAll)
 	if isGetAll != "" && err != nil {
@@ -145,7 +144,7 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 		return
 	}
 
-	if fileID != ""{
+	if fileID != "" {
 		permission, err := permission.IsPermitted(c, r.permissionClient(), fileID, reqUser.ID, permission.GetFilePermissionsRole)
 		if err != nil || !permission.GetPermitted() {
 			c.AbortWithStatus(http.StatusUnauthorized)
