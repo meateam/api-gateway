@@ -189,6 +189,8 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
+	fmt.Printf("user: %s \n", reqUser)
+
 	if reqUser == nil {
 		loggermiddleware.LogError(
 			r.logger,
@@ -479,8 +481,13 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 // UploadFile uploads file from fileReader of type contentType with name filename to
 // upload service and creates it in file service.
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
+	fmt.Printf("UploadFile, filename: %s \n", filename)
+
 	reqUser := user.ExtractRequestUser(c)
+	fmt.Printf("UploadFile, file: %s \n", reqUser)
+
 	parent := c.Query(ParentQueryKey)
+	fmt.Printf("UploadFile, parent: %s \n", parent)
 
 	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
 	if err != nil || !isPermitted {
@@ -501,6 +508,8 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 		return
 	}
+	fmt.Printf("UploadFile, parent: %s \n", parent)
+
 
 	key := keyResp.GetKey()
 	ureq := &upb.UploadMediaRequest{
@@ -508,6 +517,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		Bucket: reqUser.Bucket,
 		File:   fileBytes,
 	}
+	fmt.Printf("UploadFile, key: %s \n", key)
 
 	if contentType != "" {
 		ureq.ContentType = contentType
@@ -524,8 +534,10 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	if filename != "" {
 		fileFullName = filename
 	}
+	fmt.Printf("UploadFile, fileFullName: %s \n", fileFullName)
 
 	appID := c.Value(oauth.ContextAppKey).(string)
+	fmt.Printf("UploadFile, appID: %s \n", appID)
 
 	createFileResp, err := r.fileClient().CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
 		Key:     key,
