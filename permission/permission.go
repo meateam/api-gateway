@@ -236,7 +236,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 	}
 
 	userID := permission.UserID
-	if strings.Contains(permission.UserID, "@") {
+	if IsDomainUserID(permission.UserID) {
 		findUserByMailRequest := &upb.GetByMailOrTRequest{MailOrT: permission.UserID}
 		userRes, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByMailRequest)
 
@@ -381,6 +381,11 @@ func (r *Router) HandleUserFilePermission(
 	}
 
 	return userFilePermission, foundPermission
+}
+
+// IsDomainUserID checks if the userID is domainuser
+func IsDomainUserID(userID string) (bool) {
+	return 	strings.Contains(userID, "@")
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.
