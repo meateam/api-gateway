@@ -189,7 +189,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
-	fmt.Printf("user: %s \n", reqUser)
 
 	if reqUser == nil {
 		loggermiddleware.LogError(
