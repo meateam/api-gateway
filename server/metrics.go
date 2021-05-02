@@ -25,7 +25,7 @@ const (
 	UnknownAppID = "UnknownAppID"
 
 	// ClientNameLabel is the claim name of the client name of the requesting external application
-	ClientNameLabel = "currentUnit"
+	ClientNameLabel = "clientName"
 )
 
 type extractedTokenInfo struct {
@@ -66,7 +66,7 @@ func NewMetricsLogger() gin.HandlerFunc {
 			User:      user.ExtractRequestUser(c),
 			Path:      c.Request.URL.Path,
 			Method:    c.Request.Method,
-			TimeStamp: time.Now(),
+			TimeStamp: t,
 			Date:      roundedDate,
 			TraceID:   currentTransaction.TraceContext().Trace.String(),
 			AuthType:  reqInfo.authType,
@@ -109,7 +109,7 @@ func extractRequestInfo(c *gin.Context) *extractedTokenInfo {
 	authType := c.GetHeader(oauth.AuthTypeHeader)
 
 	if authType == "" {
-		authType = "NoneAuthType"
+		authType = NoAuthType
 	} else {
 		spikeToken, err := oauth.ExtractTokenFromHeader(c)
 		if err != nil {
@@ -129,10 +129,16 @@ func extractRequestInfo(c *gin.Context) *extractedTokenInfo {
 	switch authType {
 	case oauth.DropboxAuthTypeValue:
 		appID = oauth.DropboxAppID
-	case oauth.CTSAuthTypeValue:
-		appID = oauth.CTSAppID
+	case oauth.CargoAuthTypeValue:
+		appID = oauth.CargoAuthTypeValue
 	case oauth.ServiceAuthCodeTypeValue:
-		appID, _ = claims["clientName"].(string) // get the appID from the claims
+		claimAppID, ok := claims[ClientNameLabel].(string) // get the appID from the claims
+		if !ok {
+			fmt.Printf("metrics token parsing error: ClientNameLabel returned not ok")
+			appID = UnknownAppID
+		} else {
+			appID = claimAppID
+		}
 	}
 	finalInfo := &extractedTokenInfo{appID: appID, authType: authType}
 
