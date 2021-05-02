@@ -5,17 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 ## Unreleased
 
 ### Added
 
 - hotfix:([223](https://github.com/meateam/api-gateway/pull/223)): added authType and appID to metrics.
-## [v3.1.0] - 2021-03-14
+
+## [v4.2.1] - 2021-04-27
 
 ### Added
 
+- hotfix: ([229](https://github.com/meateam/api-gateway/pull/229)): add env variables
+
+## [v4.1.0] - 2021-04-11
+
+### Added
+
+- minor: ([218](https://github.com/meateam/api-gateway/pull/218)): add advance search by mail/T.
+
+## [v4.0.0] - 2021-03-25
+
+### Added
+
+- major:([215](https://github.com/meateam/api-gateway/issues/215)): add cts integration
+
 - minor:([221](https://github.com/meateam/api-gateway/pull/221)): added url for local office
+
 ## [v3.0.1] - 2021-02-28
 
 ### Added
@@ -29,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - major:([199](https://github.com/meateam/api-gateway/pull/199)): added pagination for shared files.
+
 ### Fixed
 
 - hotfix:(BUG)([208](https://github.com/meateam/api-gateway/pull/208)): fix connection pool pointer bug.
@@ -44,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - FEAT([185](https://github.com/meateam/api-gateway/pull/185)): Swagger documentation go to /api/docs
 - FEAT([167](https://github.com/meateam/api-gateway/pull/167)): add a mime type update option.
-- FEAT([195](https://github.com/meateam/api-gateway/issues/195)): call with grpc to user service method to get if user can approve 
+- FEAT([195](https://github.com/meateam/api-gateway/issues/195)): call with grpc to user service method to get if user can approve
 - FEAT: add new envs: bam_support_number, bereshit_support_link for approver support
 
 ## [v2.2.0] - 2020-11-18
@@ -71,8 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The actions will be granted by scopes and may include: `upload`, `download`, `get-metadata`, `share`, `delete`.
   - New files will be created with the new `appID` field of the external app.
   - All of the actions, except `upload` will only be permitted on fiels with corresponding `appID` (the ID of the external app).
-  - The new created files will not be visible in the main client's pages, but only by search. 
- 
+  - The new created files will not be visible in the main client's pages, but only by search.
 
 ### Changed
 
@@ -87,7 +102,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
-[v3.1.0]: https://github.com/meateam/api-gateway/compare/v3.0.1...v3.1.0
+[v4.2.1]: https://github.com/meateam/api-gateway/compare/v4.1.0...v4.2.1
+[v4.1.0]: https://github.com/meateam/api-gateway/compare/v4.0.0...v4.1.0
+[v4.0.0]: https://github.com/meateam/api-gateway/compare/v3.0.1...v4.0.0
 [v3.0.1]: https://github.com/meateam/api-gateway/compare/v3.0.0...v3.0.1
 [v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0
 [v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.3.0
