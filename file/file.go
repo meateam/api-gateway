@@ -15,6 +15,7 @@ import (
 	auth "github.com/meateam/api-gateway/oauth"
 	oauth "github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/api-gateway/utils"
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
@@ -362,15 +363,6 @@ func queryParamsToMap(c *gin.Context, paramNames ...string) map[string]string {
 	return paramMap
 }
 
-// Converts a string to int64, 0 is returned on failure
-func StringToInt64(s string) int64 {
-	n, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		n = 0
-	}
-	return n
-}
-
 // GetFilesByFolder is the request handler for GET /files request.
 func (r *Router) GetFilesByFolder(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -430,9 +422,9 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		Name:        paramMap[ParamFileName],
 		Type:        paramMap[ParamFileType],
 		Description: paramMap[ParamFileDescription],
-		Size:        StringToInt64(paramMap[ParamFileSize]),
-		CreatedAt:   StringToInt64(paramMap[ParamFileCreatedAt]),
-		UpdatedAt:   StringToInt64(paramMap[ParamFileUpdatedAt]),
+		Size:        utils.StringToInt64(paramMap[ParamFileSize]),
+		CreatedAt:   utils.StringToInt64(paramMap[ParamFileCreatedAt]),
+		UpdatedAt:   utils.StringToInt64(paramMap[ParamFileUpdatedAt]),
 		Float:       false,
 		AppID:       queryAppID,
 	}
@@ -488,8 +480,8 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 		return
 	}
 
-	pageNum := StringToInt64(c.Query(ParamPageNum))
-	pageSize := StringToInt64(c.Query(ParamPageSize))
+	pageNum := utils.StringToInt64(c.Query(ParamPageNum))
+	pageSize := utils.StringToInt64(c.Query(ParamPageSize))
 
 	// Return a page of all shared files' permissions which belong to the user,
 	// filtered by appID. If queryAppID = "", it will not filter by apps

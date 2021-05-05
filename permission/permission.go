@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -18,6 +19,7 @@ import (
 	upb "github.com/meateam/user-service/proto/users"
 	prdcr "github.com/meateam/listener-service/proto/producer"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -227,6 +229,11 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
+	var dest string
+	if (ctxAppID == oauth.CargoAppID) {
+		dest = viper.GetString(oauth.ConfigCtsDest)
+	}
+
 	// Forbid changing the file owner's permission.
 	if file.GetOwnerID() == permission.UserID {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -237,24 +244,42 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	userExists, err := r.userClient().GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
+	userID := permission.UserID
+	if IsDomainUserID(permission.UserID) {
+		findUserByMailRequest := &upb.GetByMailOrTRequest{MailOrT: permission.UserID}
+		userRes, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByMailRequest)
 
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			return
+		}
+		
+		if userRes.GetUser() == nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		userID = userRes.GetUser().GetId()
+	} else {
+		userExists, err := r.userClient().GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID, Destination: dest})
+	
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			return
+		}
+	
+		if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
 	}
-
-	if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
+	
 	appID := c.Value(oauth.ContextAppKey).(string)
 
 	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient(), Permission{
 		FileID:  fileID,
-		UserID:  permission.UserID,
+		UserID:  userID,
 		Role:    permission.Role,
 		Creator: reqUser.ID,
 	}, appID, permission.Override)
@@ -373,6 +398,11 @@ func (r *Router) HandleUserFilePermission(
 	}
 
 	return userFilePermission, foundPermission
+}
+
+// IsDomainUserID checks if the userID is domainuser
+func IsDomainUserID(userID string) (bool) {
+	return 	strings.Contains(userID, "@")
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.

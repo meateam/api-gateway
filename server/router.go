@@ -49,6 +49,8 @@ type ExternalNetworkDest struct{
 	ApprovalURL 	string				`json:"approvalUrl"`
 	ApprovalUIURL 	string				`json:"approvalUIUrl"`
 	IsDefault 		bool				`json:"isDefault"`
+	IsEnabled		bool 				`json:"isEnabled"`
+	IsOnlyApprover 	bool 				`json:"isOnlyApprover"`
 }
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
@@ -349,6 +351,8 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest{
 			ApprovalURL: viper.GetString(configApprovalServiceURL),
 			ApprovalUIURL: viper.GetString(configApprovalServiceUIURL),
 			IsDefault: true,
+			IsEnabled: viper.GetBool(configTomcalDestEnabled),
+			IsOnlyApprover: viper.GetBool(configTomcalDestOnlyApprover),
 		},
 		{
 			Value: viper.GetString(configCtsDestValue),
@@ -357,6 +361,8 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest{
 			ApprovalURL: viper.GetString(configApprovalCtsServiceURL),
 			ApprovalUIURL: viper.GetString(configApprovalCtsServiceUIURL),
 			IsDefault: false,
+			IsEnabled: viper.GetBool(configCtsDestEnabled),
+			IsOnlyApprover: viper.GetBool(configCtsDestOnlyApprover),
 		},
 	}
 

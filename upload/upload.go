@@ -189,6 +189,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
+
 	if reqUser == nil {
 		loggermiddleware.LogError(
 			r.logger,
@@ -480,6 +481,7 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 // upload service and creates it in file service.
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	reqUser := user.ExtractRequestUser(c)
+
 	parent := c.Query(ParentQueryKey)
 
 	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
