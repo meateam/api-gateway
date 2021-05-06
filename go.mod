@@ -13,7 +13,7 @@ require (
 	github.com/go-swagger/go-swagger v0.26.1 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.4 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.12.1
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
 	github.com/meateam/dropbox-service v0.0.0-20210323125524-40aa0b34499c
@@ -21,9 +21,8 @@ require (
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8
-	github.com/meateam/listener-service v0.0.0-20210201132618-0b1f55c2cced
+	github.com/meateam/listener-service v0.0.0-20210505070025-03d8823f9f0b
 	github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d
-	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676

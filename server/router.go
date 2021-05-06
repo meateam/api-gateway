@@ -232,6 +232,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, listenerConn, om, logger)
 	sr := search.NewRouter(searchConn, advancedSearchConn, fileConn, permissionConn, logger)
 	drp := dropbox.NewRouter(dropboxConn, permissionConn, om, logger)
+	prdcr := producer.NewRouter(listenerConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 

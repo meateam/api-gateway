@@ -24,6 +24,7 @@ const (
 	configSearchService         			= "search_service"
 	configSpikeService          			= "spike_service"
 	configGotenbergService      			= "gotenberg_service"
+	configListenerService 					= "listener_service"
 	configSecret                			= "secret"
 	configAuthURL               			= "auth_url"
 	configDocsURL               			= "docs_url"
@@ -87,6 +88,7 @@ func init() {
 	viper.SetDefault(configAdvancedSearchService, "advanced-search-service:8080")
 	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
+	viper.SetDefault(configListenerService, "listener-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configDocsURL, "http://localhost:3000")
