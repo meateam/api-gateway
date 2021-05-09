@@ -62,8 +62,8 @@ const (
 	// UploadIDCustomHeader upload id custom header name.
 	UploadIDCustomHeader = "x-uploadid"
 
-	// DefaultContentLength the default content length of a file.
-	DefaultContentLength = "application/octet-stream"
+	// DefaultContentType the default content type of a file.
+	DefaultContentType = "application/octet-stream"
 
 	// FolderContentType is the custom content type of a folder.
 	FolderContentType = "application/vnd.drive.folder"
@@ -633,7 +633,7 @@ func (r *Router) UploadInit(c *gin.Context) {
 
 	uploadInitReq.ContentType = reqBody.MimeType
 	if reqBody.MimeType == "" {
-		uploadInitReq.ContentType = DefaultContentLength
+		uploadInitReq.ContentType = DefaultContentType
 	}
 
 	resp, err := r.uploadClient().UploadInit(c.Request.Context(), uploadInitReq)

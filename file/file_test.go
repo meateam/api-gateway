@@ -76,6 +76,32 @@ func uploadFolder(folderName string, parentId string) (string, error) {
 	return w.Body.String(), nil
 }
 
+// uploadFile uploads a file
+// Returns the server's response for uploading a file
+func uploadFile(fileName string, parentId string) (string, error) {
+	req, err := http.NewRequest(http.MethodPost, "/api/upload", nil)
+	if err != nil {
+		return "", fmt.Errorf("Couldn't create request: %v", err)
+	}
+
+	req.Header.Set(upload.ContentDispositionHeader, fmt.Sprintf("filename=%s", fileName))
+	req.Header.Set(upload.ContentTypeHeader, upload.DefaultContentType)
+	req.AddCookie(&http.Cookie{Name: "kd-token", Value: authToken})
+
+	params := req.URL.Query()
+	params.Set(file.ParamFileParent, parentId)
+	req.URL.RawQuery = params.Encode()
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		return "", fmt.Errorf("Expected to get status %d but instead got %d", http.StatusOK, w.Code)
+	}
+
+	return w.Body.String(), nil
+}
+
 func TestRouter_GetFilesByFolder(t *testing.T) {
 	type args struct {
 		params map[string]string
@@ -132,6 +158,46 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			},
 			wantStatusCode: http.StatusOK,
 		},
+		{
+			name: "Get files of root folder filtered by description",
+			args: args{
+				params: map[string]string{
+					file.ParamFileParent:      rootFolderId,
+					file.ParamFileDescription: "",
+				},
+			},
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name: "Get files of root folder filtered by size",
+			args: args{
+				params: map[string]string{
+					file.ParamFileParent: rootFolderId,
+					file.ParamFileName:   folderName,
+				},
+			},
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name: "Get files of root folder filtered by date created",
+			args: args{
+				params: map[string]string{
+					file.ParamFileParent: rootFolderId,
+					file.ParamFileName:   folderName,
+				},
+			},
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name: "Get files of root folder filtered by date modified",
+			args: args{
+				params: map[string]string{
+					file.ParamFileParent: rootFolderId,
+					file.ParamFileName:   folderName,
+				},
+			},
+			wantStatusCode: http.StatusOK,
+		},
 		// TODO: filter by description
 		// Below TODOs may be considered to be treated as range
 		// TODO: filter by size
@@ -155,7 +221,7 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			r.ServeHTTP(w, req)
 
 			if w.Code != tt.wantStatusCode {
-				t.Fatalf("Expected to get status %d but instead got %d\n", http.StatusOK, w.Code)
+				t.Fatalf("Expected to get status %d but instead got %d\n", tt.wantStatusCode, w.Code)
 			}
 		})
 	}
