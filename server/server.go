@@ -85,7 +85,7 @@ func init() {
 	viper.SetDefault(configPermissionService, "permission-service:8080")
 	viper.SetDefault(configDropboxService, "dropbox-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
-	viper.SetDefault(configAdvancedSearchService, "advanced-search-service:8080")
+	viper.SetDefault(configAdvancedSearchService, "indexing-search-service:8005")
 	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
 	viper.SetDefault(configListenerService, "listener-service:8080")
