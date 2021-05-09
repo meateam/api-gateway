@@ -107,16 +107,10 @@ services:
       - redis
     ports:
       - "8090:8080"
-  delegation-service:
-    image: drivehub.azurecr.io/meateam/delegation-service:develop
-    ports:
-      - "8091:8080"
+  dropbox-service:
+    image: drivehub.azurecr.io/meateam/dropbox-service:develop
     env_file:
-      - ./kdrive.env
-  permit-service:
-    image: drivehub.azurecr.io/meateam/permit-service:develop
-    env_file:
-      - ./kdrive.env
+      - ../kdrive.env
     ports:
       - 8092:8080
     depends_on:

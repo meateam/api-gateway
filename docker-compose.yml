@@ -115,14 +115,12 @@ services:
       - redis
     ports:
       - '8090:8080'
-  delegation-service:
-    image: drivehub.azurecr.io/meateam/delegation-service:develop
+  redis:
+    image: 'redis:alpine'
     ports:
-      - '8091:8080'
-    env_file:
-      - ../kdrive.env
-  permit-service:
-    image: drivehub.azurecr.io/meateam/permit-service:develop
+      - '6379:6379'
+  dropbox-service:
+    image: drivehub.azurecr.io/meateam/dropbox-service:develop
     env_file:
       - ../kdrive.env
     ports:
@@ -130,10 +128,6 @@ services:
     depends_on:
       - mongo
       - spike-service
-  redis:
-    image: 'redis:alpine'
-    ports:
-      - '6379:6379'
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
     environment: 
