@@ -1,6 +1,7 @@
 package upload_test
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"github.com/meateam/api-gateway/internal/test"
 	"github.com/meateam/api-gateway/server"
 	"github.com/meateam/api-gateway/upload"
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -90,26 +92,17 @@ func TestRouter_UploadFolder(t *testing.T) {
 
 func TestRouter_UploadMedia(t *testing.T) {
 	type args struct {
-		filename              string
-		setContentDisposition bool
-		setAuthToken          bool
-		body                  []byte
-		setContentType        bool
+		filename                 string
+		parentFolder             string
+		removeParentQueryKey     bool
+		removeContentType        bool
+		removeContentDisposition bool
+		body                     []byte
 	}
 
-	newArgs := func(a args) args {
-		defaultArgs := args{}
-
-		defaultArgs.body = a.body
-		defaultArgs.setContentDisposition = a.setContentDisposition || true
-		defaultArgs.setAuthToken = a.setAuthToken || true
-		defaultArgs.setContentType = a.setContentType || true
-
-		return defaultArgs
-	}
-
-	fileName := "TestFileName"
-	csvBody := []byte("h1,h2,h3\n,a1,a2,a3,b1,b2,b3")
+	generateFileName := func() string { return uuid.NewV4().String() }
+	csvContentType := "text/csv"
+	csvBody := []byte("h1,h2,h3\n,a1,a2,a3\nb1,b2,b3")
 
 	tests := []struct {
 		name           string
@@ -119,7 +112,7 @@ func TestRouter_UploadMedia(t *testing.T) {
 		{
 			name: "create file",
 			args: args{
-				filename: fileName,
+				filename: generateFileName(),
 				body:     csvBody,
 			},
 			wantStatusCode: http.StatusOK,
@@ -127,38 +120,38 @@ func TestRouter_UploadMedia(t *testing.T) {
 		{
 			name: "create empty file",
 			args: args{
-				filename: fileName,
+				filename: generateFileName(),
 			},
 			wantStatusCode: http.StatusOK,
 		},
 		{
-			name: "create file with everything except filename",
+			name: "create file without parent folder",
+			args: args{
+				filename:             generateFileName(),
+				body:                 csvBody,
+				removeParentQueryKey: true,
+			},
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			name: "create file with empty filename",
 			args: args{
 				body: csvBody,
 			},
-			wantStatusCode: http.StatusBadRequest,
+			wantStatusCode: http.StatusOK,
 		},
 		{
-			name: "create file without auth token",
+			name: "create file without content disposition (filename)",
 			args: args{
-				filename:     fileName,
-				setAuthToken: false,
+				removeContentDisposition: true,
 			},
-			wantStatusCode: http.StatusForbidden,
-		},
-		{
-			name: "create file without content disposition",
-			args: args{
-				filename:              fileName,
-				setContentDisposition: false,
-			},
-			wantStatusCode: http.StatusBadRequest,
+			wantStatusCode: http.StatusOK,
 		},
 		{
 			name: "create file without content type",
 			args: args{
-				filename:       fileName,
-				setContentType: false,
+				filename:          generateFileName(),
+				removeContentType: true,
 			},
 			wantStatusCode: http.StatusBadRequest,
 		},
@@ -166,30 +159,33 @@ func TestRouter_UploadMedia(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodPost, "/api/upload", nil)
+			req, err := http.NewRequest(http.MethodPost, "/api/upload", bytes.NewReader(tt.args.body))
 			if err != nil {
 				t.Fatalf("Couldn't create request: %v\n", err)
 			}
 
-			args := newArgs(tt.args)
-
-			if args.setContentDisposition {
+			if !tt.args.removeContentDisposition {
 				req.Header.Set(upload.ContentDispositionHeader, fmt.Sprintf("filename=%s", tt.args.filename))
 			}
 
-			if args.setContentType {
-				req.Header.Set(upload.ContentTypeHeader, upload.FolderContentType)
+			if !tt.args.removeContentType {
+				req.Header.Set(upload.ContentTypeHeader, csvContentType)
 			}
 
-			if args.setAuthToken {
-				req.AddCookie(&http.Cookie{Name: "kd-token", Value: authToken})
+			if !tt.args.removeParentQueryKey {
+				query := req.URL.Query()
+				query.Set(upload.UploadTypeQueryKey, upload.MediaUploadType)
+				query.Set(upload.ParentQueryKey, tt.args.parentFolder)
+				req.URL.RawQuery = query.Encode()
 			}
+
+			req.AddCookie(&http.Cookie{Name: "kd-token", Value: authToken})
 
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 
 			if w.Code != tt.wantStatusCode {
-				t.Fatalf("Expected to get status %d but instead got %d\n", tt.wantStatusCode, w.Code)
+				t.Fatalf("Expected to get status %d but instead got %d, body: %s\n", tt.wantStatusCode, w.Code, w.Body)
 			}
 		})
 	}
