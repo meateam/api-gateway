@@ -12,12 +12,11 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/meateam/api-gateway/delegation"
+	"github.com/meateam/api-gateway/dropbox"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
-	"github.com/meateam/api-gateway/permit"
 	"github.com/meateam/api-gateway/quota"
 	"github.com/meateam/api-gateway/search"
 	"github.com/meateam/api-gateway/server/auth"
@@ -39,6 +38,19 @@ const (
 	healthcheckRoute  = "/api/healthcheck"
 	uploadRouteRegexp = "/api/upload.+"
 )
+
+
+// ExternalNetworkDest configuration of external network
+type ExternalNetworkDest struct{
+	Label       	string				`json:"label"`
+	Value       	string				`json:"value"`
+	AppID			string				`json:"appID"`
+	ApprovalURL 	string				`json:"approvalUrl"`
+	ApprovalUIURL 	string				`json:"approvalUIUrl"`
+	IsDefault 		bool				`json:"isDefault"`
+	IsEnabled		bool 				`json:"isEnabled"`
+	IsOnlyApprover 	bool 				`json:"isOnlyApprover"`
+}
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
 func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
@@ -69,36 +81,36 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	apiRoutesGroup := r.Group("/api")
 
+
 	// Frontend configuration route.
 	apiRoutesGroup.GET("/config", func(c *gin.Context) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"chromeDownloadLink":   viper.GetString(configDownloadChromeURL),
-				"apmServerUrl":         viper.GetString(configExternalApmURL),
-				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"authUrl":              viper.GetString(configAuthURL),
-				"docsUrl":              viper.GetString(configDocsURL),
-				"supportLink":          viper.GetString(configSupportLink),
-				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
-				"approvalServiceUrl":   viper.GetString(configApprovalServiceURL),
-				"externalShareName":    viper.GetString(configExternalShareName),
-				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
-				"vipServiceUrl":        viper.GetString(configVipService),
-				"enableExternalShare":  viper.GetString(configEnableExternalShare),
-				"whiteListText":        viper.GetString(configWhiteListText),
-				"bereshitSupportLink":  viper.GetString(configBereshitSupportLink),
-				"bamSupportNumber":     viper.GetString(configBamSupportNumber),
+				"chromeDownloadLink":   	viper.GetString(configDownloadChromeURL),
+				"apmServerUrl":         	viper.GetString(configExternalApmURL),
+				"authUrl":              	viper.GetString(configAuthURL),
+				"docsUrl":              	viper.GetString(configDocsURL),
+				"supportLink":          	viper.GetString(configSupportLink),
+				"dropboxSupportLink":   	viper.GetString(configDropboxSupportLink),
+				"externalShareName":    	viper.GetString(configExternalShareName),
+				"myExternalSharesName": 	viper.GetString(configMyExternalSharesName),
+				"vipServiceUrl":        	viper.GetString(configVipService),
+				"enableExternalShare":  	viper.GetString(configEnableExternalShare),
+				"whiteListText":        	viper.GetString(configWhiteListText),
+				"bereshitSupportLink":  	viper.GetString(configBereshitSupportLink),
+				"bamSupportNumber":     	viper.GetString(configBamSupportNumber),
+				"statusSuccessType": 		viper.GetString(configTransferStatusSuccess),
+				"statusFailedType": 		viper.GetString(configTransferStatusFailed),
+				"statusInProgressType": 	viper.GetString(configTransferStatusInProgress),
+				"environment":          	os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+				"externalNetworkDests":		GetExternalNetworksConfiguration(),
+				"localOfficeUrl":       viper.GetString(configLocalOfficeURL),
 			},
 		)
 	})
 
 	// Initiate services gRPC connections.
-	delegateConn, err := initServiceConn(viper.GetString(configDelegationService))
-	if err != nil {
-		logger.Fatalf("couldn't setup delegation service connection: %v", err)
-	}
-
 	fileConn, err := initServiceConn(viper.GetString(configFileService))
 	if err != nil {
 		logger.Fatalf("couldn't setup file service connection: %v", err)
@@ -124,9 +136,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		logger.Fatalf("couldn't setup permission service connection: %v", err)
 	}
 
-	permitConn, err := initServiceConn(viper.GetString(configPermitService))
+	dropboxConn, err := initServiceConn(viper.GetString(configDropboxService))
 	if err != nil {
-		logger.Fatalf("couldn't setup permit service connection: %v", err)
+		logger.Fatalf("couldn't setup dropbox service connection: %v", err)
 	}
 
 	searchConn, err := initServiceConn(viper.GetString(configSearchService))
@@ -142,11 +154,10 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// initiate middlewares
-	om := oauth.NewOAuthMiddleware(spikeConn, delegateConn, logger)
+	om := oauth.NewOAuthMiddleware(spikeConn, userConn, logger)
 
 	nonFatalConns := []*grpcPoolTypes.ConnPool{
-		permitConn,
-		delegateConn,
+		dropboxConn,
 		userConn,
 		spikeConn,
 	}
@@ -199,15 +210,14 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	}
 
 	// Initiate routers.
-	dr := delegation.NewRouter(delegateConn, logger)
-	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, permitConn,
+	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, dropboxConn,
 		searchConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
-	ptr := permit.NewRouter(permitConn, permissionConn, fileConn, om, logger)
+	drp := dropbox.NewRouter(dropboxConn, permissionConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
@@ -226,9 +236,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// Authentication middleware on routes group.
 	authRequiredRoutesGroup := apiRoutesGroup.Group("/", middlewares...)
 
-	// Initiate client connection to delegation service.
-	dr.Setup(authRequiredRoutesGroup)
-
 	// Initiate client connection to file service.
 	fr.Setup(authRequiredRoutesGroup)
 
@@ -244,8 +251,8 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// Initiate client connection to permission service.
 	pr.Setup(authRequiredRoutesGroup)
 
-	// Initiate client connection to permit service.
-	ptr.Setup(authRequiredRoutesGroup)
+	// Initiate client connection to dropbox service.
+	drp.Setup(authRequiredRoutesGroup)
 
 	// Initiate client connection to search service.
 	sr.Setup(authRequiredRoutesGroup)
@@ -269,6 +276,8 @@ func corsRouterConfig() cors.Config {
 		"x-requested-with",
 		"content-disposition",
 		"content-range",
+		"destination",
+		"fileID",
 		apmhttp.TraceparentHeader,
 	)
 
@@ -314,4 +323,32 @@ func reviveConns(badConns <-chan *grpcPoolTypes.ConnPool) {
 			*pool = *newPool
 		}(pool)
 	}
+}
+
+// GetExternalNetworksConfiguration get network object configuration
+func GetExternalNetworksConfiguration() []ExternalNetworkDest{
+	var externalNetworkDests = []ExternalNetworkDest {
+		{
+			Value: viper.GetString(configTomcalDestValue),
+			Label: viper.GetString(configTomcalDestName),
+			AppID: viper.GetString(configTomcalDestAppID),
+			ApprovalURL: viper.GetString(configApprovalServiceURL),
+			ApprovalUIURL: viper.GetString(configApprovalServiceUIURL),
+			IsDefault: true,
+			IsEnabled: viper.GetBool(configTomcalDestEnabled),
+			IsOnlyApprover: viper.GetBool(configTomcalDestOnlyApprover),
+		},
+		{
+			Value: viper.GetString(configCtsDestValue),
+			Label: viper.GetString(configCtsDestName),
+			AppID: viper.GetString(configCtsDestAppID),
+			ApprovalURL: viper.GetString(configApprovalCtsServiceURL),
+			ApprovalUIURL: viper.GetString(configApprovalCtsServiceUIURL),
+			IsDefault: false,
+			IsEnabled: viper.GetBool(configCtsDestEnabled),
+			IsOnlyApprover: viper.GetBool(configCtsDestOnlyApprover),
+		},
+	}
+
+	return externalNetworkDests
 }
