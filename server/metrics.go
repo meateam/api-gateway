@@ -72,7 +72,6 @@ func NewMetricsLogger() gin.HandlerFunc {
 			AuthType:  reqInfo.authType,
 			AppID:     reqInfo.appID,
 		}
-
 		_, _ = client.Index().
 			Index(index).
 			BodyJson(matricsBson).
@@ -100,6 +99,7 @@ func initESConfig() ([]es.ClientOptionFunc, string) {
 	if elasticUser != "" && elasticPassword != "" {
 		elasticOpts = append(elasticOpts, es.SetBasicAuth(elasticUser, elasticPassword))
 	}
+	fmt.Printf("*************** metrics index: %v \n", viper.GetString(configElasticsearchIndex))
 
 	return elasticOpts, viper.GetString(configElasticsearchIndex)
 }
