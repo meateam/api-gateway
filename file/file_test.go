@@ -158,46 +158,6 @@ func TestRouter_GetFilesByFolder(t *testing.T) {
 			},
 			wantStatusCode: http.StatusOK,
 		},
-		{
-			name: "Get files of root folder filtered by description",
-			args: args{
-				params: map[string]string{
-					file.ParamFileParent:      rootFolderId,
-					file.ParamFileDescription: "",
-				},
-			},
-			wantStatusCode: http.StatusOK,
-		},
-		{
-			name: "Get files of root folder filtered by size",
-			args: args{
-				params: map[string]string{
-					file.ParamFileParent: rootFolderId,
-					file.ParamFileName:   folderName,
-				},
-			},
-			wantStatusCode: http.StatusOK,
-		},
-		{
-			name: "Get files of root folder filtered by date created",
-			args: args{
-				params: map[string]string{
-					file.ParamFileParent: rootFolderId,
-					file.ParamFileName:   folderName,
-				},
-			},
-			wantStatusCode: http.StatusOK,
-		},
-		{
-			name: "Get files of root folder filtered by date modified",
-			args: args{
-				params: map[string]string{
-					file.ParamFileParent: rootFolderId,
-					file.ParamFileName:   folderName,
-				},
-			},
-			wantStatusCode: http.StatusOK,
-		},
 		// TODO: filter by description
 		// Below TODOs may be considered to be treated as range
 		// TODO: filter by size
