@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v4.2.2] - 2021-05-14
+### Fixed
+- hotfix: ([231](https://github.com/meateam/api-gateway/pull/231)): allow cargo->drive transfer with identical `from` and `to` 
+
 ## [v4.2.1] - 2021-04-27
 ### Added
 - hotfix: ([229](https://github.com/meateam/api-gateway/pull/229)): add env variables
@@ -95,6 +99,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
+[v4.2.2]: https://github.com/meateam/api-gateway/compare/v4.2.1...v4.2.2
+[v4.2.1]: https://github.com/meateam/api-gateway/compare/v4.1.0...v4.2.1
+[v4.1.0]: https://github.com/meateam/api-gateway/compare/v4.0.0...v4.1.0
 [v4.0.0]: https://github.com/meateam/api-gateway/compare/v3.0.1...v4.0.0
 [v3.0.1]: https://github.com/meateam/api-gateway/compare/v3.0.0...v3.0.1
 [v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0

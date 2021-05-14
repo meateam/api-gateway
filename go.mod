@@ -10,7 +10,6 @@ require (
 	github.com/go-openapi/runtime v0.19.26
 	github.com/go-openapi/validate v0.20.2 // indirect
 	github.com/go-swagger/go-swagger v0.26.1 // indirect
-	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/mailru/easyjson v0.7.7 // indirect
