@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Fixed
-- hotfix: ([230](https://github.com/meateam/api-gateway/pull/230)): allow cargo->drive transfer with identical `from` and `to` 
+- hotfix: ([231](https://github.com/meateam/api-gateway/pull/231)): allow cargo->drive transfer with identical `from` and `to` 
 
 ## [v4.2.1] - 2021-04-27
 ### Added
