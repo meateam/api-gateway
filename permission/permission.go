@@ -230,6 +230,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 			return
 		}
+
 		if userRes.GetUser() == nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
@@ -266,7 +267,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-
+	
 	appID := c.Value(oauth.ContextAppKey).(string)
 
 	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient(), Permission{
