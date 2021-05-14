@@ -46,9 +46,13 @@ const (
 	configTomcalDestName					= "tomcal_dest_name"
 	configTomcalDestValue					= "tomcal_dest_value"
 	configTomcalDestAppID					= "tomcal_dest_appid"
+	configTomcalDestEnabled 				= "tomcal_dest_enabled"
+	configTomcalDestOnlyApprover 			= "tomcal_dest_only_approver"
 	configCtsDestName						= "cts_dest_name"
 	configCtsDestValue						= "cts_dest_value"
 	configCtsDestAppID						= "cts_dest_appid"
+	configCtsDestEnabled 					= "cts_dest_enabled"
+	configCtsDestOnlyApprover 				= "cts_dest_only_approver"
 	configTransferStatusSuccess				= "transfer_status_success_type"
 	configTransferStatusFailed				= "transfer_status_failed_type"
 	configTransferStatusInProgress			= "transfer_status_in_progress_type"
@@ -104,9 +108,13 @@ func init() {
 	viper.SetDefault(configTomcalDestName, "תומכל")
 	viper.SetDefault(configTomcalDestValue, "TOMCAL")
 	viper.SetDefault(configTomcalDestAppID, "dropbox")
+	viper.SetDefault(configTomcalDestEnabled, true)
+	viper.SetDefault(configTomcalDestOnlyApprover, false)
 	viper.SetDefault(configCtsDestName, "CTS")
 	viper.SetDefault(configCtsDestValue, "CTS")
 	viper.SetDefault(configCtsDestAppID, "cargo")
+	viper.SetDefault(configCtsDestEnabled, true)
+	viper.SetDefault(configCtsDestOnlyApprover, false)
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")

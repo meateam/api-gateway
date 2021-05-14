@@ -27,8 +27,14 @@ const (
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
 
-	// ParamPartialName is the name of the partial user name param in URL.
-	ParamPartialName = "partial"
+	// ParamApproverID is the name of the approver id param in the URL.
+	ParamApproverID = "approverID"
+
+	// ParamRequestContent is the name of the partial user name param in URL.
+	ParamRequestContent = "content"
+
+	// ParamSearchType is the name of the flag that determines which search to execute.
+	ParamSearchType = "searchBy"
 
 	// ExternalUserSource is the value of the source field of user that indicated that the user is external
 	ExternalUserSource = "external"
@@ -52,6 +58,19 @@ const (
 	ConfigCtsDest = "cts_dest_value"
 )
 
+type searchByEnum string
+
+const (
+	// SearchByName is an enum key for searching by name
+	SearchByName searchByEnum = "SearchByName"
+
+	// FindByMail is an enum key for finding by mail
+	FindByMail searchByEnum = "FindByMail"
+
+	// FindByT is an enum key for finding by user T
+	FindByT searchByEnum = "FindByT"
+)
+
 //Router is a structure that handles users requests.
 type Router struct {
 	// UserClientFactory
@@ -71,6 +90,11 @@ type User struct {
 	CurrentUnit string `json:"currentUnit"`
 	Rank        string `json:"rank"`
 	Job         string `json:"job"`
+}
+
+// usersResponse is a structure of a the response returned from users search
+type usersResponse struct {
+	Users []*uspb.User `json:"users"`
 }
 
 // NewRouter creates a new Router, and initializes clients of User Service
@@ -97,7 +121,7 @@ func NewRouter(
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
-	rg.GET("/users", r.SearchByName)
+	rg.GET("/users", r.SearchByRouter)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -135,9 +159,76 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+// SearchByRouter is the search by request router for GET /users
+func (r *Router) SearchByRouter(c *gin.Context) {
+	searchBy := searchByEnum((c.Query(ParamSearchType)))
+
+	switch searchBy {
+	case SearchByName:
+		r.SearchByName(c)
+	case FindByMail:
+		r.FindByMail(c)
+	case FindByT:
+		r.FindByUserT(c)
+	default:
+		r.SearchByName(c)
+	}
+}
+
+// FindByMail is the request handler for GET /users with flag FindByMailFlag
+func (r *Router) FindByMail(c *gin.Context) {
+	mail := c.Query(ParamRequestContent)
+	if mail == "" {
+		c.String(http.StatusBadRequest, "mail required")
+		return
+	}
+
+	findUserByMailRequest := &uspb.GetByMailOrTRequest{
+		MailOrT: mail,
+	}
+
+	user, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByMailRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	usersResponse := encapsulateUserResponse(user)
+
+	c.JSON(http.StatusOK, usersResponse)
+}
+
+// FindByUserT is the request handler for GET /users with flag FindByTFlag
+func (r *Router) FindByUserT(c *gin.Context) {
+	userT := c.Query(ParamRequestContent)
+	if userT == "" {
+		c.String(http.StatusBadRequest, "userT required")
+		return
+	}
+
+	// User service accepts the same route for mails and userT - user search
+	findUserByTRequest := &uspb.GetByMailOrTRequest{
+		MailOrT: userT,
+	}
+
+	user, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByTRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	usersResponse := encapsulateUserResponse(user)
+
+	c.JSON(http.StatusOK, usersResponse)
+}
+
 // SearchByName is the request handler for GET /users
 func (r *Router) SearchByName(c *gin.Context) {
-	partialName := c.Query(ParamPartialName)
+	partialName := c.Query(ParamRequestContent)
 	if partialName == "" {
 		c.String(http.StatusBadRequest, "partial name required")
 		return
@@ -148,7 +239,7 @@ func (r *Router) SearchByName(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
 		return
 	}
-	
+
 	findUserByNameRequest := &uspb.FindUserByNameRequest{
 		Name:        partialName,
 		Destination: destination,
@@ -213,4 +304,15 @@ func SetApmUser(ctx *gin.Context, user User) {
 	if user.DisplayName != "" {
 		currentTransaction.Context.SetUserEmail(user.DisplayName)
 	}
+}
+
+// encapsulateUserResponse gets a user of type *uspb.GetUserResponse and encapsulate it to type usersResponse
+func encapsulateUserResponse(user *uspb.GetUserResponse) usersResponse {
+	var users []*uspb.User
+
+	users = append(users, user.GetUser())
+
+	usersResponse := usersResponse{Users: users}
+
+	return usersResponse
 }
