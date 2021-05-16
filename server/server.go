@@ -67,6 +67,8 @@ const (
 	configShowSwaggerUI         			= "show_swagger_ui"
 	configPoolSize              			= "pool_size"
 	configLocalOfficeURL        			= "docs_local_office_url"
+	configCTSSuffix        		        	= "cts_suffix"
+
 )
 
 var (
@@ -130,6 +132,7 @@ func init() {
 	viper.SetDefault(configTransferStatusSuccess, "success")
 	viper.SetDefault(configTransferStatusFailed, "failed")
 	viper.SetDefault(configTransferStatusInProgress, "in progress")
+	viper.SetDefault(configCTSSuffix, "@gmail.com")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
