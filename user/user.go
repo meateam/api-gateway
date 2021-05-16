@@ -56,6 +56,9 @@ const (
 
 	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
 	ConfigCtsDest = "cts_dest_value"
+
+	ConfigCTSSuffix = "cts_suffix"
+
 )
 
 type searchByEnum string
@@ -181,6 +184,10 @@ func (r *Router) FindByMail(c *gin.Context) {
 	if mail == "" {
 		c.String(http.StatusBadRequest, "mail required")
 		return
+	}
+
+	if !strings.Contains(mail, "@") {
+		mail = mail + viper.GetString(ConfigCTSSuffix)
 	}
 
 	findUserByMailRequest := &uspb.GetByMailOrTRequest{
