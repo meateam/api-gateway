@@ -186,12 +186,20 @@ func (r *Router) FindByMail(c *gin.Context) {
 		return
 	}
 
-	if !strings.Contains(mail, "@") {
+	
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+
+	if destination != "" && destination == viper.GetString(ConfigCtsDest) && !strings.Contains(mail, "@") {
 		mail = mail + viper.GetString(ConfigCTSSuffix)
 	}
 
 	findUserByMailRequest := &uspb.GetByMailOrTRequest{
 		MailOrT: mail,
+		Destination: destination,
 	}
 
 	user, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByMailRequest)
