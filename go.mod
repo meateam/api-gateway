@@ -24,7 +24,7 @@ require (
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
-	github.com/meateam/user-service v3.1.1-0.20210411073203-bea27fb51d1a+incompatible
+	github.com/meateam/user-service v3.1.1-0.20210518081330-33212ed397cb+incompatible
 	github.com/olivere/elastic/v7 v7.0.22
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
