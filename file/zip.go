@@ -202,6 +202,11 @@ func hasStringSuffixInSlice(str string, list []string) bool {
 
 // Returns true if any of the given wildcard patterns match the matchStr.
 func hasPattern(patterns []string, matchStr string) bool {
+	for _, pattern := range patterns {
+		if ok := matchSimple(pattern, matchStr); ok {
+			return true
+		}
+	}
 	return false
 }
 
@@ -209,9 +214,44 @@ func hasPattern(patterns []string, matchStr string) bool {
 // supports only '*' wildcard in the pattern.
 // considers a file system path as a flat name space.
 func matchSimple(pattern, name string) bool {
-	return false
+	if pattern == "" {
+		return name == pattern
+	}
+	if pattern == "*" {
+		return true
+	}
+	rname := make([]rune, 0, len(name))
+	rpattern := make([]rune, 0, len(pattern))
+	for _, r := range name {
+		rname = append(rname, r)
+	}
+	for _, r := range pattern {
+		rpattern = append(rpattern, r)
+	}
+	simple := true // Does only wildcard '*' match.
+	return deepMatchRune(rname, rpattern, simple)
 }
 
+// Recursively matches the pattern given to the string.
+// Simple means '*'.
+// returns 'true' for a match and 'false' otherwise
 func deepMatchRune(str, pattern []rune, simple bool) bool {
-	return false
+	for len(pattern) > 0 {
+		switch pattern[0] {
+		default:
+			if len(str) == 0 || str[0] != pattern[0] {
+				return false
+			}
+		case '?':
+			if len(str) == 0 && !simple {
+				return false
+			}
+		case '*':
+			return deepMatchRune(str, pattern[1:], simple) ||
+				(len(str) > 0 && deepMatchRune(str[1:], pattern, simple))
+		}
+		str = str[1:]
+		pattern = pattern[1:]
+	}
+	return len(str) == 0 && len(pattern) == 0
 }
