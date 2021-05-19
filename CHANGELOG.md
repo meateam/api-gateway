@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- hotfix([236](https://github.com/meateam/api-gateway/pull/236)): fix delete file in shared folder & fix transfer info premission
+
 ## [v4.4.0] - 2021-05-18
 
 - minor([185](https://github.com/meateam/api-gateway/pull/185)): Added CTS upn transfer -fix

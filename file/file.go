@@ -12,7 +12,6 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	auth "github.com/meateam/api-gateway/oauth"
 	oauth "github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/api-gateway/utils"
@@ -288,8 +287,8 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(auth.GetFileScope)
-	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(auth.DeleteScope)
+	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.GetFileScope)
+	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.DeleteScope)
 
 	rg.GET("/files", checkGetFileScope, r.GetFilesByFolder)
 	rg.GET("/files/:id", checkGetFileScope, r.GetFileByID)
@@ -560,6 +559,20 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	if role, _ := r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole); role == "" {
 		return
+	}
+
+	// Check if the user has an direct permission to the file
+	hasDirectPermission, err := r.permissionClient().IsPermitted(
+		c,&ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole}); 
+	if err != nil && status.Code(err) != codes.NotFound {
+		loggermiddleware.LogError(r.logger, err)
+		return
+	}
+
+	// If the user doesn't have direct premission, then he can't delete the file
+	if !hasDirectPermission.GetPermitted() {
+		c.AbortWithStatus(http.StatusForbidden)
+		return	
 	}
 
 	ids, err := DeleteFile(
