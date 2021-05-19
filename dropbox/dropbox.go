@@ -155,7 +155,6 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	}
 
 	if fileID != "" {
-		r.logger.Info("fileId", fileID)
 		if permission, _ := r.HandleUserFilePermission(c, fileID, permission.GetFilePermissionsRole); permission == "" {
 			return
 		}
@@ -347,8 +346,6 @@ func (r *Router) HandleUserFilePermission(
 		reqUser.ID,
 		fileID,
 		role)
-	r.logger.Info("userStringRole ", userStringRole)
-	r.logger.Info("foundPermission ", foundPermission)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
