@@ -8,12 +8,14 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
+	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/api-gateway/utils"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
+	fpb "github.com/meateam/file-service/proto/file"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	"github.com/sirupsen/logrus"
@@ -78,6 +80,9 @@ type Router struct {
 	// PermissionClientFactory
 	permissionClient factory.PermissionClientFactory
 
+	// FileClientFactory
+	fileClient factory.FileClientFactory
+
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 }
@@ -88,6 +93,7 @@ type Router struct {
 func NewRouter(
 	dropboxConn *grpcPoolTypes.ConnPool,
 	permissionConn *grpcPoolTypes.ConnPool,
+	fileConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
@@ -104,6 +110,10 @@ func NewRouter(
 
 	r.permissionClient = func() ppb.PermissionClient {
 		return ppb.NewPermissionClient((*permissionConn).Conn())
+	}
+
+	r.fileClient = func() fpb.FileServiceClient {
+		return fpb.NewFileServiceClient((*fileConn).Conn())
 	}
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -145,9 +155,8 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	}
 
 	if fileID != "" {
-		permission, err := permission.IsPermitted(c, r.permissionClient(), fileID, reqUser.ID, permission.GetFilePermissionsRole)
-		if err != nil || !permission.GetPermitted() {
-			c.AbortWithStatus(http.StatusUnauthorized)
+		r.logger.Info("fileId", fileID)
+		if permission, _ := r.HandleUserFilePermission(c, fileID, permission.GetFilePermissionsRole); permission == "" {
 			return
 		}
 	}
@@ -314,4 +323,43 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, info)
+}
+
+
+// HandleUserFilePermission gets the id of the requested file, and the required role.
+// Returns the user role as a string, and the permission if the user is permitted
+// to operate on the file, and `"", nil` if not.
+func (r *Router) HandleUserFilePermission(
+	c *gin.Context,
+	fileID string,
+	role ppb.Role) (string, *ppb.PermissionObject) {
+	reqUser := user.ExtractRequestUser(c)
+
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+
+		return "", nil
+	}
+
+	userStringRole, foundPermission, err := file.CheckUserFilePermission(c.Request.Context(),
+		r.fileClient(),
+		r.permissionClient(),
+		reqUser.ID,
+		fileID,
+		role)
+	r.logger.Info("userStringRole ", userStringRole)
+	r.logger.Info("foundPermission ", foundPermission)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return "", nil
+	}
+
+	if userStringRole == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+	}
+
+	return userStringRole, foundPermission
 }
