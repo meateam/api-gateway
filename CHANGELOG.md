@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- minor([238](https://github.com/meateam/api-gateway/pull/238)): add pagination for shared files
 - hotfix([237](https://github.com/meateam/api-gateway/pull/237)): add pending status for transfer
 - hotfix([236](https://github.com/meateam/api-gateway/pull/236)): fix delete file in shared folder & fix transfer info premission
 
