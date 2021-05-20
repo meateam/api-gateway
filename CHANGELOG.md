@@ -6,10 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
 ### Fixed
 
 - hotfix([237](https://github.com/meateam/api-gateway/pull/237)): add pending status for transfer
 - hotfix([236](https://github.com/meateam/api-gateway/pull/236)): fix delete file in shared folder & fix transfer info premission
+- hotfix([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
 
 ## [v4.4.0] - 2021-05-18
 
@@ -64,8 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - hotfix:(BUG)([208](https://github.com/meateam/api-gateway/pull/208)): fix connection pool pointer bug.
-- FIX([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
-
 
 ## [v2.3.0] - 2020-12-24
 

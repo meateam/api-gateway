@@ -1,12 +1,7 @@
-version: "2.1"
+version: "3"
 services:
-  drive-ui:
-    image: "drivehub.azurecr.io/meateam/drive-ui:v3.0.0"
-    ports:
-      - "80:80"
-    depends_on:
-      - api-gateway
   api-gateway:
+    image: api-gateway
     build: .
     env_file:
       - ../kdrive.env
@@ -26,11 +21,12 @@ services:
       - "./data:/data"
     ports:
       - "9000:9000"
-    env_file:
-      - ../kdrive.env
+    environment:
+      MINIO_ACCESS_KEY: "F6WUUG27HBUFSIXVZL59"
+      MINIO_SECRET_KEY: "BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR"
     command: server /data
   upload-service:
-    image: 'drivehub.azurecr.io/meateam/upload-service:develop'
+    image: "drivehub.azurecr.io/meateam/upload-service:develop"
     env_file:
       - ../kdrive.env
     depends_on:
@@ -38,7 +34,7 @@ services:
     ports:
       - "8081:8080"
   download-service:
-    image: 'drivehub.azurecr.io/meateam/download-service:develop'
+    image: "drivehub.azurecr.io/meateam/download-service:develop"
     env_file:
       - ../kdrive.env
     ports:
@@ -46,7 +42,7 @@ services:
     depends_on:
       - minio
   file-service:
-    image: 'drivehub.azurecr.io/meateam/file-service:develop'
+    image: "drivehub.azurecr.io/meateam/file-service:develop"
     env_file:
       - ../kdrive.env
     ports:
@@ -62,7 +58,7 @@ services:
     depends_on:
       - minio
   authentication-service:
-    image: 'drivehub.azurecr.io/meateam/authentication-service:develop'
+    image: "drivehub.azurecr.io/meateam/authentication-service:develop"
     ports:
       - "8084:8080"
     env_file:
@@ -71,13 +67,13 @@ services:
       - saml-idp
       - user-service
   saml-idp:
-    image: 'drivehub.azurecr.io/meateam/test-saml-idp:latest'
+    image: "drivehub.azurecr.io/meateam/test-saml-idp:latest"
     ports:
       - "8085:8080"
     env_file:
       - ../kdrive.env
   user-service:
-    image: 'drivehub.azurecr.io/meateam/user-service:develop'
+    image: "drivehub.azurecr.io/meateam/user-service:develop"
     ports:
       - "8086:8080"
     env_file:
@@ -85,12 +81,8 @@ services:
     depends_on:
       - mongo
       - redis
-  redis:
-    image: "redis:alpine"
-    ports:
-      - "6379:6379"
   permission-service:
-    image: 'drivehub.azurecr.io/meateam/permission-service:develop'
+    image: "drivehub.azurecr.io/meateam/permission-service:develop"
     ports:
       - "8087:8080"
     env_file:
@@ -98,11 +90,11 @@ services:
     depends_on:
       - mongo
   search-service:
-    image: 'drivehub.azurecr.io/meateam/search-service:develop'
+    image: "drivehub.azurecr.io/meateam/search-service:develop"
     env_file:
       - ../kdrive.env
     ports:
-      - '8088:8080'
+      - "8088:8080"
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -114,30 +106,7 @@ services:
       - /tmp
       - /gotenberg/tmp
     ports:
-      - "8089:8080"
-  elasticsearch:
-    image: "docker.elastic.co/elasticsearch/elasticsearch:7.5.0"
-    environment:
-      - discovery.type=single-node
-    container_name: elasticsearch
-    ports:
-      - "9200:9200"
-    healthcheck:
-      test:
-        - CMD
-        - curl
-        - "-f"
-        - "http://localhost:9200"
-      interval: 5s
-      timeout: 10s
-      retries: 5
-  kibana:
-    image: "docker.elastic.co/kibana/kibana:7.5.0"
-    container_name: kibana
-    ports:
-      - "5601:5601"
-    depends_on:
-      - elasticsearch
+      - 8089:8080
   spike-service:
     image: drivehub.azurecr.io/meateam/spike-service:develop
     env_file:
@@ -145,13 +114,33 @@ services:
     depends_on:
       - redis
     ports:
-      - '8090:8080'
+      - "8090:8080"
   dropbox-service:
     image: drivehub.azurecr.io/meateam/dropbox-service:develop
     env_file:
       - ../kdrive.env
     ports:
-      - "8092:8080"
+      - 8092:8080
     depends_on:
       - mongo
       - spike-service
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
+    environment:
+      - discovery.type=single-node
+    container_name: elasticsearch
+    ports: ["9200:9200"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.5.0
+    container_name: kibana
+    ports: ["5601:5601"]
+    depends_on: ["elasticsearch"]

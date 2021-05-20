@@ -13,6 +13,7 @@ import (
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -86,7 +87,7 @@ func DeleteFile(ctx *gin.Context,
 	// Only the owner of the file can delete the file instance.
 	// If the user requesting to delete isn't the owner- delete it's permission to this file
 	if file.GetOwnerID() == userID {
-		deletedFile := deleteFileAndPrem(ctx, logger, fileClient, permissionClient, fileID)
+		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, fileID)
 		if deletedFile != nil {
 			deletedFiles = append(deletedFiles, deletedFile)
 		}
@@ -108,7 +109,7 @@ func DeleteFile(ctx *gin.Context,
 		parent := descendants[i].GetParent()
 
 		if file.GetOwnerID() == userID {
-			deletedFile := deleteFileAndPrem(ctx, logger, fileClient, permissionClient, file.GetId())
+			deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, file.GetId())
 			if deletedFile != nil {
 				deletedFiles = append(deletedFiles, deletedFile)
 			}
