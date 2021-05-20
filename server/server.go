@@ -43,19 +43,20 @@ const (
 	configApprovalServiceUIURL  			= "approval_ui_url"
 	configApprovalCtsServiceURL 			= "approval_cts_url"
 	configApprovalCtsServiceUIURL  			= "approval_cts_ui_url"
-	configTomcalDestName					= "tomcal_dest_name"
-	configTomcalDestValue					= "tomcal_dest_value"
-	configTomcalDestAppID					= "tomcal_dest_appid"
-	configTomcalDestEnabled 				= "tomcal_dest_enabled"
+	configTomcalDestName				= "tomcal_dest_name"
+	configTomcalDestValue				= "tomcal_dest_value"
+	configTomcalDestAppID				= "tomcal_dest_appid"
+	configTomcalDestEnabled 			= "tomcal_dest_enabled"
 	configTomcalDestOnlyApprover 			= "tomcal_dest_only_approver"
-	configCtsDestName						= "cts_dest_name"
-	configCtsDestValue						= "cts_dest_value"
-	configCtsDestAppID						= "cts_dest_appid"
-	configCtsDestEnabled 					= "cts_dest_enabled"
-	configCtsDestOnlyApprover 				= "cts_dest_only_approver"
-	configTransferStatusSuccess				= "transfer_status_success_type"
-	configTransferStatusFailed				= "transfer_status_failed_type"
+	configCtsDestName				= "cts_dest_name"
+	configCtsDestValue				= "cts_dest_value"
+	configCtsDestAppID				= "cts_dest_appid"
+	configCtsDestEnabled 				= "cts_dest_enabled"
+	configCtsDestOnlyApprover 			= "cts_dest_only_approver"
+	configTransferStatusSuccess			= "transfer_status_success_type"
+	configTransferStatusFailed			= "transfer_status_failed_type"
 	configTransferStatusInProgress			= "transfer_status_in_progress_type"
+	configTransferStatusPending			= "transfer_status_pending_type"
 	configExternalShareName     			= "external_share_name"
 	configMyExternalSharesName  			= "my_external_shares_name"
 	configVipService            			= "vip_service"
@@ -132,6 +133,7 @@ func init() {
 	viper.SetDefault(configTransferStatusSuccess, "success")
 	viper.SetDefault(configTransferStatusFailed, "failed")
 	viper.SetDefault(configTransferStatusInProgress, "in progress")
+	viper.SetDefault(configTransferStatusPending, "pending")
 	viper.SetDefault(configCTSSuffix, "@gmail.com")
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
