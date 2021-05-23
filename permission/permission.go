@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -17,6 +18,7 @@ import (
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -178,14 +180,6 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	// Forbid a user to give himself any permission.
-	if permission.UserID == reqUser.ID {
-		loggermiddleware.LogError(r.logger,
-			c.AbortWithError(http.StatusBadRequest,
-				fmt.Errorf("a user cannot give himself permissions")))
-		return
-	}
-
 	// Forbid creating a permission of NONE.
 	switch ppb.Role(ppb.Role_value[permission.Role]) {
 	case ppb.Role_NONE:
@@ -217,36 +211,71 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
 		return
 	}
-
-	// Forbid changing the file owner's permission.
-	if file.GetOwnerID() == permission.UserID {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+	var dest string
+	if ctxAppID == oauth.CargoAppID {
+		dest = viper.GetString(oauth.ConfigCtsDest)
 	}
 
 	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole); role == "" {
 		return
 	}
 
-	userExists, err := r.userClient().GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID})
+	userID := permission.UserID
+	if IsDomainUserID(permission.UserID) {
+		findUserByMailRequest := &upb.GetByMailOrTRequest{MailOrT: permission.UserID}
+		userRes, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByMailRequest)
 
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			return
+		}
+
+		if userRes.GetUser() == nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		// userID is now the Kartoffel ID
+		userID = userRes.GetUser().GetId()
+	} else {
+		userExists, err := r.userClient().GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID, Destination: dest})
+
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			return
+		}
+
+		if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Forbid a user to give himself any permission.
+	// Only an external user can give himself one (comparing reqUser.ID to the Kartoffel ID)
+	if userID == reqUser.ID {
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("a user cannot give himself permissions")))
 		return
 	}
 
-	if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
-		c.AbortWithStatus(http.StatusBadRequest)
+	// Forbid changing the file owner's permission.
+	// Only an external user can give himself a Kartoffel permission
+	if file.GetOwnerID() == userID {
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
+	
+	appID := c.Value(oauth.ContextAppKey).(string)
 
 	createdPermission, err := CreatePermission(c.Request.Context(), r.permissionClient(), Permission{
 		FileID:  fileID,
-		UserID:  permission.UserID,
+		UserID:  userID,
 		Role:    permission.Role,
 		Creator: reqUser.ID,
-	}, permission.Override)
+	}, appID, permission.Override)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -356,6 +385,11 @@ func (r *Router) HandleUserFilePermission(
 	return userFilePermission, foundPermission
 }
 
+// IsDomainUserID checks if the userID is domainuser
+func IsDomainUserID(userID string) bool {
+	return strings.Contains(userID, "@")
+}
+
 // IsPermitted checks if the userID has a permission with role for fileID.
 func IsPermitted(ctx context.Context,
 	permissionClient ppb.PermissionClient,
@@ -378,10 +412,11 @@ func IsPermitted(ctx context.Context,
 // CreatePermission creates permission in the permission-service.
 func CreatePermission(ctx context.Context,
 	permissionClient ppb.PermissionClient,
-	permission Permission, override bool) (*ppb.PermissionObject, error) {
+	permission Permission, appID string, override bool) (*ppb.PermissionObject, error) {
 	permissionRequest := &ppb.CreatePermissionRequest{
 		FileID:   permission.FileID,
 		UserID:   permission.UserID,
+		AppID:    appID,
 		Role:     ppb.Role(ppb.Role_value[permission.Role]),
 		Creator:  permission.Creator,
 		Override: override,

@@ -189,6 +189,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // Upload is the request handler for /upload request.
 func (r *Router) Upload(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
+
 	if reqUser == nil {
 		loggermiddleware.LogError(
 			r.logger,
@@ -296,6 +297,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 	newPermission := ppb.PermissionObject{
 		FileID:  createFolderResp.GetId(),
 		UserID:  reqUser.ID,
+		AppID:   appID,
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}
@@ -407,6 +409,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	newPermission := ppb.PermissionObject{
 		FileID:  createFileResp.GetId(),
 		UserID:  reqUser.ID,
+		AppID:   appID,
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}
@@ -478,6 +481,7 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 // upload service and creates it in file service.
 func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentType string, filename string) {
 	reqUser := user.ExtractRequestUser(c)
+
 	parent := c.Query(ParentQueryKey)
 
 	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
@@ -558,6 +562,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 	newPermission := ppb.PermissionObject{
 		FileID:  createFileResp.GetId(),
 		UserID:  reqUser.ID,
+		AppID:   appID,
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}
@@ -920,7 +925,7 @@ func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
 		return
 	}
 
-	_, deleteErr := file.DeleteFile(c.Request.Context(),
+	_, deleteErr := file.DeleteFile(c,
 		r.logger,
 		r.fileClient(),
 		r.uploadClient(),
