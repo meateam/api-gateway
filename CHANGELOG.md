@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - hotfix([237](https://github.com/meateam/api-gateway/pull/237)): add pending status for transfer
 - hotfix([236](https://github.com/meateam/api-gateway/pull/236)): fix delete file in shared folder & fix transfer info premission
+- hotfix([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
 
 ## [v4.4.0] - 2021-05-18
 

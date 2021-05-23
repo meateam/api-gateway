@@ -576,7 +576,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	}
 
 	ids, err := DeleteFile(
-		c.Request.Context(),
+		c,
 		r.logger,
 		r.fileClient(),
 		r.uploadClient(),
