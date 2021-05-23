@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-version: "2.1"
-=======
 version: "3"
->>>>>>> origin/develop
 services:
   drive-ui:
     image: drive-ui
@@ -31,20 +27,12 @@ services:
       - "./data:/data"
     ports:
       - "9000:9000"
-<<<<<<< HEAD
-    env_file:
-      - ../kdrive.env
-    command: server /data
-  upload-service:
-    image: 'drivehub.azurecr.io/meateam/upload-service:develop'
-=======
     environment:
       MINIO_ACCESS_KEY: "F6WUUG27HBUFSIXVZL59"
       MINIO_SECRET_KEY: "BPlIUU6SX0ZxiCMo3tIpCMAUdnmkN9Eo9K42NsRR"
     command: server /data
   upload-service:
     image: "drivehub.azurecr.io/meateam/upload-service:develop"
->>>>>>> origin/develop
     env_file:
       - ../kdrive.env
     depends_on:
@@ -52,11 +40,7 @@ services:
     ports:
       - "8081:8080"
   download-service:
-<<<<<<< HEAD
-    image: 'drivehub.azurecr.io/meateam/download-service:develop'
-=======
     image: "drivehub.azurecr.io/meateam/download-service:develop"
->>>>>>> origin/develop
     env_file:
       - ../kdrive.env
     ports:
@@ -64,11 +48,7 @@ services:
     depends_on:
       - minio
   file-service:
-<<<<<<< HEAD
-    image: 'drivehub.azurecr.io/meateam/file-service:develop'
-=======
     image: "drivehub.azurecr.io/meateam/file-service:develop"
->>>>>>> origin/develop
     env_file:
       - ../kdrive.env
     ports:
@@ -84,11 +64,7 @@ services:
     depends_on:
       - minio
   authentication-service:
-<<<<<<< HEAD
-    image: 'drivehub.azurecr.io/meateam/authentication-service:develop'
-=======
     image: "drivehub.azurecr.io/meateam/authentication-service:develop"
->>>>>>> origin/develop
     ports:
       - "8084:8080"
     env_file:
@@ -97,21 +73,13 @@ services:
       - saml-idp
       - user-service
   saml-idp:
-<<<<<<< HEAD
-    image: 'drivehub.azurecr.io/meateam/test-saml-idp:latest'
-=======
     image: "drivehub.azurecr.io/meateam/test-saml-idp:latest"
->>>>>>> origin/develop
     ports:
       - "8085:8080"
     env_file:
       - ../kdrive.env
   user-service:
-<<<<<<< HEAD
-    image: 'drivehub.azurecr.io/meateam/user-service:develop'
-=======
     image: "drivehub.azurecr.io/meateam/user-service:develop"
->>>>>>> origin/develop
     ports:
       - "8086:8080"
     env_file:
@@ -124,11 +92,7 @@ services:
     ports:
       - "6379:6379"
   permission-service:
-<<<<<<< HEAD
-    image: 'drivehub.azurecr.io/meateam/permission-service:develop'
-=======
     image: "drivehub.azurecr.io/meateam/permission-service:develop"
->>>>>>> origin/develop
     ports:
       - "8087:8080"
     env_file:
@@ -136,19 +100,11 @@ services:
     depends_on:
       - mongo
   search-service:
-<<<<<<< HEAD
-    image: 'drivehub.azurecr.io/meateam/search-service:develop'
-    env_file:
-      - ../kdrive.env
-    ports:
-      - '8088:8080'
-=======
     image: "drivehub.azurecr.io/meateam/search-service:develop"
     env_file:
       - ../kdrive.env
     ports:
       - "8088:8080"
->>>>>>> origin/develop
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -192,19 +148,8 @@ services:
       - redis
     ports:
       - "8090:8080"
-<<<<<<< HEAD
-  delegation-service:
-    image: drivehub.azurecr.io/meateam/delegation-service:develop
-    ports:
-      - "8091:8080"
-    env_file:
-      - ../kdrive.env
-  permit-service:
-    image: drivehub.azurecr.io/meateam/permit-service:develop
-=======
   dropbox-service:
     image: drivehub.azurecr.io/meateam/dropbox-service:develop
->>>>>>> origin/develop
     env_file:
       - ../kdrive.env
     ports:
@@ -212,8 +157,6 @@ services:
     depends_on:
       - mongo
       - spike-service
-<<<<<<< HEAD
-=======
   redis:
     image: "redis:alpine"
     ports:
@@ -234,4 +177,3 @@ services:
     container_name: kibana
     ports: ["5601:5601"]
     depends_on: ["elasticsearch"]
->>>>>>> origin/develop
