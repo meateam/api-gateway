@@ -486,8 +486,8 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	}
 
 	// Defining pagination variables
-	pageNum := stringToInt64(c.Query(ParamPageNum))
-	pageSize := stringToInt64(c.Query(ParamPageSize))
+	pageNum := utils.StringToInt64(c.Query(ParamPageNum))
+	pageSize := utils.StringToInt64(c.Query(ParamPageSize))
 
 	// Return a page of all shared files' permissions which belong to the user,
 	// filtered by appID. If queryAppID = "", it will not filter by apps
@@ -511,12 +511,7 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	filesSuccesful := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	filesFailed := make([]string, 0, len(permissions.GetPermissions()))
 
-	for _, permission := range permissions.GetPermissions() {
-		file, err := r.fileClient().GetFileByID(c.Request.Context(),
-			&fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
-
 	// Go over the permissions and get the files metadata related to them
-	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
 	for _, permission := range permissions.GetPermissions() {
 		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
@@ -524,17 +519,6 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 
 			filesFailed = append(filesFailed, permission.GetFileID())
 			continue
-		}
-
-		// If a specific appID was requested, return only its files.
-		// Otherwise, return shared files of dropbox and drive.
-		if isSpecificApp && file.GetAppID() != queryAppID {
-			continue
-		} else {
-			// Show only drive and dropbox shared files - exclude different apps.
-			if file.GetAppID() != oauth.DropboxAppID && file.GetAppID() != oauth.DriveAppID {
-				continue
-			}
 		}
 
 		// If the user isn't the owner of the file, it means that the file is shared with him
