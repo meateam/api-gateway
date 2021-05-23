@@ -1,13 +1,7 @@
 version: "3"
 services:
-  drive-ui:
-    image: drive-ui
-    build : ../drive-ui
-    ports:
-      - "80:80"
-    depends_on:
-      - api-gateway
   api-gateway:
+    image: api-gateway
     build: .
     env_file:
       - ../kdrive.env
@@ -87,10 +81,6 @@ services:
     depends_on:
       - mongo
       - redis
-  redis:
-    image: "redis:alpine"
-    ports:
-      - "6379:6379"
   permission-service:
     image: "drivehub.azurecr.io/meateam/permission-service:develop"
     ports:
@@ -116,30 +106,7 @@ services:
       - /tmp
       - /gotenberg/tmp
     ports:
-      - "8089:8080"
-  elasticsearch:
-    image: "docker.elastic.co/elasticsearch/elasticsearch:7.5.0"
-    environment:
-      - discovery.type=single-node
-    container_name: elasticsearch
-    ports:
-      - "9200:9200"
-    healthcheck:
-      test:
-        - CMD
-        - curl
-        - "-f"
-        - "http://localhost:9200"
-      interval: 5s
-      timeout: 10s
-      retries: 5
-  kibana:
-    image: "docker.elastic.co/kibana/kibana:7.5.0"
-    container_name: kibana
-    ports:
-      - "5601:5601"
-    depends_on:
-      - elasticsearch
+      - 8089:8080
   spike-service:
     image: drivehub.azurecr.io/meateam/spike-service:develop
     env_file:
@@ -153,7 +120,7 @@ services:
     env_file:
       - ../kdrive.env
     ports:
-      - "8092:8080"
+      - 8092:8080
     depends_on:
       - mongo
       - spike-service
