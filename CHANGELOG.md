@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- major: ([238](https://github.com/meateam/api-gateway/pull/238)) : Fix the fetching of GetSharedFiles bug that returns 404. Instead of returning only the successful files, it returns the successful files, the failed files and the error (if any) (breaking changes)
+- major: ([239](https://github.com/meateam/api-gateway/pull/239)) : Fix the fetching of GetSharedFiles bug that returns 404. Instead of returning only the successful files, it returns the successful files, the failed files and the error (if any) (breaking changes)
 
 ## [v4.4.1] - 2021-05-23
 
