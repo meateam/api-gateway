@@ -101,6 +101,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"statusSuccessType":    viper.GetString(configTransferStatusSuccess),
 				"statusFailedType":     viper.GetString(configTransferStatusFailed),
 				"statusInProgressType": viper.GetString(configTransferStatusInProgress),
+				"statusPendingType": 	viper.GetString(configTransferStatusPending),
 				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 				"externalNetworkDests": GetExternalNetworksConfiguration(),
 				"localOfficeUrl":       viper.GetString(configLocalOfficeURL),
@@ -216,7 +217,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
-	drp := dropbox.NewRouter(dropboxConn, permissionConn, om, logger)
+	drp := dropbox.NewRouter(dropboxConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
