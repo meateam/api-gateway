@@ -111,7 +111,7 @@ func (r *Router) zipFolderToWriter(
 		Method: zip.Deflate,
 	}
 
-	folderHeader.SetModTime(time.Unix(folder.GetUpdatedAt()/time.Second.Milliseconds(), 0))
+	folderHeader.Modified = time.Unix(folder.GetUpdatedAt()/time.Second.Milliseconds(), 0)
 	if _, err := archive.CreateHeader(folderHeader); err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (r *Router) zipFolderToWriter(
 				Method:             zip.Deflate,
 				UncompressedSize64: uint64(descendant.GetFile().GetSize()),
 			}
-			header.SetModTime(time.Unix(descendant.GetFile().GetUpdatedAt()/time.Second.Milliseconds(), 0))
+			header.Modified = time.Unix(descendant.GetFile().GetUpdatedAt()/time.Second.Milliseconds(), 0)
 
 			_, err := archive.CreateHeader(header)
 			if err != nil {
@@ -147,7 +147,7 @@ func (r *Router) zipFolderToWriter(
 				UncompressedSize64: uint64(descendant.GetFile().GetSize()),
 			}
 
-			header.SetModTime(time.Unix(descendant.GetFile().GetUpdatedAt()/time.Second.Milliseconds(), 0))
+			header.Modified = time.Unix(descendant.GetFile().GetUpdatedAt()/time.Second.Milliseconds(), 0)
 
 			if hasStringSuffixInSlice(mappedPaths[descendant.GetFile().GetId()], standardExcludeCompressExtensions) ||
 				hasPattern(standardExcludeCompressContentTypes, descendant.GetFile().GetType()) {
