@@ -311,6 +311,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.DELETE("/files/:id", checkDeleteFileScope, r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
+	rg.POST("/files/zip", r.DownloadZip)
 }
 
 // GetFileByID is the request handler for GET /files/:id
@@ -944,6 +945,59 @@ func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 		}
 
 		c.Writer.Flush()
+	}
+}
+
+type downloadZipBody struct {
+	Files []string `json:"files"`
+}
+
+// DownloadZip is the request handler for downloading multiple files as a zip file.
+func (r *Router) DownloadZip(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	body := &downloadZipBody{}
+	if err := c.ShouldBindJSON(body); err != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(
+				http.StatusBadRequest,
+				fmt.Errorf("unexpected body format, should be {files: [string]}")),
+		)
+	}
+
+	files := make([]*fpb.File, 0, len(body.Files))
+	for _, fileID := range body.Files {
+		if role, _ := r.HandleUserFilePermission(c, fileID, DownloadRole); role == "" {
+			return
+		}
+
+		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+
+		if err == nil {
+			loggermiddleware.LogError(
+				r.logger,
+				c.AbortWithError(
+					gwruntime.HTTPStatusFromCode(status.Code(err)),
+					err),
+			)
+		}
+
+		files = append(files, file)
+	}
+
+	if err := r.zipMulipleFiles(c, files); err != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(
+				gwruntime.HTTPStatusFromCode(status.Code(err)),
+				err),
+		)
+		return
 	}
 }
 
