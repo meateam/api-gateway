@@ -166,7 +166,54 @@ func (r *Router) zipFolderToWriter(
 	return nil
 }
 
-func (r *Router) zipMulipleFiles(c *gin.Context, files []*fpb.File) error {
+// zipMulipleFiles goes over an array of files and adds to a zip.Writer
+func (r *Router) zipMultipleFiles(c *gin.Context, files []*fpb.File) error {
+	archive := zip.NewWriter(c.Writer)
+	defer archive.Close()
+
+	for _, file := range files {
+		if file.GetType() == FolderContentType {
+			mappedPaths, permittedDescendants, err := r.getPermittedDescendantsMapPath(c, file)
+			if err != nil {
+				return err
+			}
+
+			err = r.zipFolderToWriter(c, mappedPaths, permittedDescendants, file, archive)
+			if err != nil {
+				return err
+			}
+		} else {
+			stream, err := r.downloadClient().Download(c.Request.Context(), &dpb.DownloadRequest{
+				Key:    file.GetKey(),
+				Bucket: file.GetBucket(),
+			})
+
+			if err != nil {
+				return err
+			}
+
+			readCloser := download.NewStreamReadCloser(stream)
+			header := &zip.FileHeader{
+				Name:               file.GetName(),
+				Method:             zip.Deflate,
+				UncompressedSize64: uint64(file.GetSize()),
+			}
+			header.Modified = time.Unix(file.GetUpdatedAt()/time.Second.Milliseconds(), 0)
+
+			// Strictly disable compression for standard extensions/content-types.
+			if hasStringSuffixInSlice(file.GetName(), standardExcludeCompressExtensions) ||
+				hasPattern(standardExcludeCompressContentTypes, file.GetName()) {
+
+				header.Method = zip.Store
+			}
+
+			buffer := make([]byte, download.PartSize)
+
+			if err := zipFileToWriter(readCloser, archive, header, buffer); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

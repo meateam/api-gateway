@@ -978,7 +978,7 @@ func (r *Router) DownloadZip(c *gin.Context) {
 
 		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 
-		if err == nil {
+		if err != nil {
 			loggermiddleware.LogError(
 				r.logger,
 				c.AbortWithError(
@@ -990,7 +990,7 @@ func (r *Router) DownloadZip(c *gin.Context) {
 		files = append(files, file)
 	}
 
-	if err := r.zipMulipleFiles(c, files); err != nil {
+	if err := r.zipMultipleFiles(c, files); err != nil {
 		loggermiddleware.LogError(
 			r.logger,
 			c.AbortWithError(
