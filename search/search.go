@@ -33,9 +33,17 @@ type AdvancedSearchRequest struct {
 }
 
 // AdvancedSearchResponse is the response from the advancedSearch
+type AdvancedSearchFileResponse struct {
+	File			*file.GetFileByIDResponse	`json:"file"`
+	HighlightedContent	string				`json:"highlightedContent"`
+	HighlightedFileName	string				`json:"highlightedFileName"`
+}
+
+
+// AdvancedSearchResponse is the response from the advancedSearch
 type AdvancedSearchResponse struct {
-	File				*file.GetFileByIDResponse	`json:"file"`
-	HighlightedContent	string						`json:"highlightedContent"`
+	Files		[]*AdvancedSearchFileResponse `json:"files"`
+	ItemCount 	int64                  	`json:"itemCount"`
 }
 
 // Router is a structure that handles upload requests.
@@ -201,8 +209,7 @@ func (r *Router) AdvancedSearch(c *gin.Context) {
 	}
 
 	// Create response files
-	var responseFiles []AdvancedSearchResponse
-
+	var responseFiles []*AdvancedSearchFileResponse
 	for _, result := range searchResponse.GetResults() {
 		// Get user permission
 		userFilePermission, foundPermission, err := file.CheckUserFilePermission(
@@ -230,15 +237,18 @@ func (r *Router) AdvancedSearch(c *gin.Context) {
 				return
 			}
 
-			responseFiles = append(
-				responseFiles,
-				AdvancedSearchResponse{
-					file.CreateGetFileResponse(res, userFilePermission, foundPermission),
-					result.HighlightedContent,
-				},
-			)
+			fileRes := &AdvancedSearchFileResponse{
+				file.CreateGetFileResponse(res, userFilePermission, foundPermission),
+				result.GetHighlightedContent(),
+				result.GetHighlightedFileName(),
+			}
+			responseFiles = append(responseFiles,fileRes)
 		}
 	}
 
-	c.JSON(http.StatusOK, responseFiles)
+	advancedSearchResponse := &AdvancedSearchResponse{
+		Files:     responseFiles,
+		ItemCount: searchResponse.GetItemCount(),
+	}
+	c.JSON(http.StatusOK, advancedSearchResponse)
 }
