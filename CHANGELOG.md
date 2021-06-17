@@ -7,13 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v4.4.1] - 2021-05-30
+
+### Fixed
+
+- hotfix([237](https://github.com/meateam/api-gateway/pull/237)): add pending status for transfer
+- hotfix([236](https://github.com/meateam/api-gateway/pull/236)): fix delete file in shared folder & fix transfer info premission
+- hotfix([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
+
+## [v4.4.0] - 2021-05-18
+
+- minor([185](https://github.com/meateam/api-gateway/pull/185)): Added CTS upn transfer -fix
+
+## [v4.3.0] - 2021-05-16
+
+### Fixed
+
+- minor: ([234](https://github.com/meateam/api-gateway/pull/234)): Added CTS upn transfer
+
+## [v4.2.2] - 2021-05-14
+
+### Fixed
+
+- hotfix: ([231](https://github.com/meateam/api-gateway/pull/231)): allow cargo->drive transfer with identical `from` and `to`
+
 ## [v4.2.1] - 2021-04-27
+
 ### Added
+
 - hotfix: ([229](https://github.com/meateam/api-gateway/pull/229)): add env variables
 
-
 ## [v4.1.0] - 2021-04-11
+
 ### Added
+
 - minor: ([218](https://github.com/meateam/api-gateway/pull/218)): add advance search by mail/T.
 
 ## [v4.0.0] - 2021-03-25
@@ -95,6 +122,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
+[v4.4.1]: https://github.com/meateam/api-gateway/compare/v4.4.0...v4.4.1
+[v4.4.0]: https://github.com/meateam/api-gateway/compare/v4.3.0...v4.4.0
+[v4.3.0]: https://github.com/meateam/api-gateway/compare/v4.2.2...v4.3.0
+[v4.2.2]: https://github.com/meateam/api-gateway/compare/v4.2.1...v4.2.2
+[v4.2.1]: https://github.com/meateam/api-gateway/compare/v4.1.0...v4.2.1
+[v4.1.0]: https://github.com/meateam/api-gateway/compare/v4.0.0...v4.1.0
 [v4.0.0]: https://github.com/meateam/api-gateway/compare/v3.0.1...v4.0.0
 [v3.0.1]: https://github.com/meateam/api-gateway/compare/v3.0.0...v3.0.1
 [v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0

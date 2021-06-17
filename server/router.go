@@ -39,17 +39,16 @@ const (
 	uploadRouteRegexp = "/api/upload.+"
 )
 
-
 // ExternalNetworkDest configuration of external network
-type ExternalNetworkDest struct{
-	Label       	string				`json:"label"`
-	Value       	string				`json:"value"`
-	AppID			string				`json:"appID"`
-	ApprovalURL 	string				`json:"approvalUrl"`
-	ApprovalUIURL 	string				`json:"approvalUIUrl"`
-	IsDefault 		bool				`json:"isDefault"`
-	IsEnabled		bool 				`json:"isEnabled"`
-	IsOnlyApprover 	bool 				`json:"isOnlyApprover"`
+type ExternalNetworkDest struct {
+	Label          string `json:"label"`
+	Value          string `json:"value"`
+	AppID          string `json:"appID"`
+	ApprovalURL    string `json:"approvalUrl"`
+	ApprovalUIURL  string `json:"approvalUIUrl"`
+	IsDefault      bool   `json:"isDefault"`
+	IsEnabled      bool   `json:"isEnabled"`
+	IsOnlyApprover bool   `json:"isOnlyApprover"`
 }
 
 // NewRouter creates new gin.Engine for the api-gateway server and sets it up.
@@ -81,31 +80,32 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	apiRoutesGroup := r.Group("/api")
 
-
 	// Frontend configuration route.
 	apiRoutesGroup.GET("/config", func(c *gin.Context) {
 		c.JSON(
 			http.StatusOK,
 			gin.H{
-				"chromeDownloadLink":   	viper.GetString(configDownloadChromeURL),
-				"apmServerUrl":         	viper.GetString(configExternalApmURL),
-				"authUrl":              	viper.GetString(configAuthURL),
-				"docsUrl":              	viper.GetString(configDocsURL),
-				"supportLink":          	viper.GetString(configSupportLink),
-				"dropboxSupportLink":   	viper.GetString(configDropboxSupportLink),
-				"externalShareName":    	viper.GetString(configExternalShareName),
-				"myExternalSharesName": 	viper.GetString(configMyExternalSharesName),
-				"vipServiceUrl":        	viper.GetString(configVipService),
-				"enableExternalShare":  	viper.GetString(configEnableExternalShare),
-				"whiteListText":        	viper.GetString(configWhiteListText),
-				"bereshitSupportLink":  	viper.GetString(configBereshitSupportLink),
-				"bamSupportNumber":     	viper.GetString(configBamSupportNumber),
-				"statusSuccessType": 		viper.GetString(configTransferStatusSuccess),
-				"statusFailedType": 		viper.GetString(configTransferStatusFailed),
-				"statusInProgressType": 	viper.GetString(configTransferStatusInProgress),
-				"environment":          	os.Getenv("ELASTIC_APM_ENVIRONMENT"),
-				"externalNetworkDests":		GetExternalNetworksConfiguration(),
+				"chromeDownloadLink":   viper.GetString(configDownloadChromeURL),
+				"apmServerUrl":         viper.GetString(configExternalApmURL),
+				"authUrl":              viper.GetString(configAuthURL),
+				"docsUrl":              viper.GetString(configDocsURL),
+				"supportLink":          viper.GetString(configSupportLink),
+				"dropboxSupportLink":   viper.GetString(configDropboxSupportLink),
+				"externalShareName":    viper.GetString(configExternalShareName),
+				"myExternalSharesName": viper.GetString(configMyExternalSharesName),
+				"vipServiceUrl":        viper.GetString(configVipService),
+				"enableExternalShare":  viper.GetString(configEnableExternalShare),
+				"whiteListText":        viper.GetString(configWhiteListText),
+				"bereshitSupportLink":  viper.GetString(configBereshitSupportLink),
+				"bamSupportNumber":     viper.GetString(configBamSupportNumber),
+				"statusSuccessType":    viper.GetString(configTransferStatusSuccess),
+				"statusFailedType":     viper.GetString(configTransferStatusFailed),
+				"statusInProgressType": viper.GetString(configTransferStatusInProgress),
+				"statusPendingType": 	viper.GetString(configTransferStatusPending),
+				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
+				"externalNetworkDests": GetExternalNetworksConfiguration(),
 				"localOfficeUrl":       viper.GetString(configLocalOfficeURL),
+				"CTSSuffix":            viper.GetString(configCTSSuffix),
 			},
 		)
 	})
@@ -217,7 +217,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
-	drp := dropbox.NewRouter(dropboxConn, permissionConn, om, logger)
+	drp := dropbox.NewRouter(dropboxConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
@@ -326,26 +326,26 @@ func reviveConns(badConns <-chan *grpcPoolTypes.ConnPool) {
 }
 
 // GetExternalNetworksConfiguration get network object configuration
-func GetExternalNetworksConfiguration() []ExternalNetworkDest{
-	var externalNetworkDests = []ExternalNetworkDest {
+func GetExternalNetworksConfiguration() []ExternalNetworkDest {
+	var externalNetworkDests = []ExternalNetworkDest{
 		{
-			Value: viper.GetString(configTomcalDestValue),
-			Label: viper.GetString(configTomcalDestName),
-			AppID: viper.GetString(configTomcalDestAppID),
-			ApprovalURL: viper.GetString(configApprovalServiceURL),
-			ApprovalUIURL: viper.GetString(configApprovalServiceUIURL),
-			IsDefault: true,
-			IsEnabled: viper.GetBool(configTomcalDestEnabled),
+			Value:          viper.GetString(configTomcalDestValue),
+			Label:          viper.GetString(configTomcalDestName),
+			AppID:          viper.GetString(configTomcalDestAppID),
+			ApprovalURL:    viper.GetString(configApprovalServiceURL),
+			ApprovalUIURL:  viper.GetString(configApprovalServiceUIURL),
+			IsDefault:      true,
+			IsEnabled:      viper.GetBool(configTomcalDestEnabled),
 			IsOnlyApprover: viper.GetBool(configTomcalDestOnlyApprover),
 		},
 		{
-			Value: viper.GetString(configCtsDestValue),
-			Label: viper.GetString(configCtsDestName),
-			AppID: viper.GetString(configCtsDestAppID),
-			ApprovalURL: viper.GetString(configApprovalCtsServiceURL),
-			ApprovalUIURL: viper.GetString(configApprovalCtsServiceUIURL),
-			IsDefault: false,
-			IsEnabled: viper.GetBool(configCtsDestEnabled),
+			Value:          viper.GetString(configCtsDestValue),
+			Label:          viper.GetString(configCtsDestName),
+			AppID:          viper.GetString(configCtsDestAppID),
+			ApprovalURL:    viper.GetString(configApprovalCtsServiceURL),
+			ApprovalUIURL:  viper.GetString(configApprovalCtsServiceUIURL),
+			IsDefault:      false,
+			IsEnabled:      viper.GetBool(configCtsDestEnabled),
 			IsOnlyApprover: viper.GetBool(configCtsDestOnlyApprover),
 		},
 	}
