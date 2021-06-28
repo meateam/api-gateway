@@ -72,6 +72,8 @@ const (
 	configCTSSuffix                = "cts_suffix"
 	configMaxUploadedFiles         = "max_uploaded_files"
 	configMaxUploadedFolders       = "max_uploaded_folders"
+	configMaxZippingSize           = "max_zipping_size"
+	configMaxZippingAmount         = "max_zipping_amount"
 )
 
 var (
@@ -140,6 +142,8 @@ func init() {
 	viper.SetDefault(configCTSSuffix, "@gmail.com")
 	viper.SetDefault(configMaxUploadedFiles, 100)
 	viper.SetDefault(configMaxUploadedFolders, 100)
+	viper.SetDefault(configMaxZippingSize, 1<<30)
+	viper.SetDefault(configMaxZippingAmount, 200)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

@@ -776,9 +776,12 @@ func (r *Router) Download(c *gin.Context) {
 	filename := fileMeta.GetName()
 	contentType := fileMeta.GetType()
 
+	// You cannot download a folder using this format
 	if contentType == FolderContentType {
-		r.downloadFolder(c, fileMeta)
-
+		c.AbortWithError(
+			http.StatusBadRequest,
+			fmt.Errorf("you cannot download a folder using this format. Use POST on /files/zip instead"),
+		)
 		return
 	}
 
