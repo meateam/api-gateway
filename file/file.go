@@ -578,7 +578,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	// Check if the user has an direct permission to the file
 	hasDirectPermission, err := r.permissionClient().IsPermitted(
-		c,&ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole}); 
+		c, &ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole})
 	if err != nil && status.Code(err) != codes.NotFound {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -587,7 +587,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	// If the user doesn't have direct premission, then he can't delete the file
 	if !hasDirectPermission.GetPermitted() {
 		c.AbortWithStatus(http.StatusForbidden)
-		return	
+		return
 	}
 
 	ids, err := DeleteFile(
@@ -635,9 +635,12 @@ func (r *Router) Download(c *gin.Context) {
 	filename := fileMeta.GetName()
 	contentType := fileMeta.GetType()
 
+	// You cannot download a folder using this format
 	if contentType == FolderContentType {
-		r.downloadFolder(c, fileMeta)
-
+		c.AbortWithError(
+			http.StatusBadRequest,
+			fmt.Errorf("you cannot download a folder using this format. Use POST on /files/zip instead"),
+		)
 		return
 	}
 
