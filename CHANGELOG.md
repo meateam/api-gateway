@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- minor([245](https://github.com/meateam/api-gateway/pull/245)): add the ability to download multiple files and folders
+
 - minor([246](https://github.com/meateam/api-gateway/pull/246)) : add fav service
 ## [v5.0.2] - 2021-08-26
 
