@@ -131,8 +131,14 @@ const (
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
 
-	// fileIDIsRequiredMessage is the error message for missing fileID
-	fileIDIsRequiredMessage = "fileID is required"
+	// FileIDIsRequiredMessage is the error message for missing fileID
+	FileIDIsRequiredMessage = "fileID is required"
+
+	// ContentDispositionHeader content-disposition header name.
+	ContentDispositionHeader = "Content-Disposition"
+
+	// FolderContentType is the custom content type of a folder.
+	FolderContentType = "application/vnd.drive.folder"
 )
 
 var (
@@ -156,6 +162,13 @@ var (
 	// AllowedDownloadApps are the applications which are only allowed to download
 	// files which are not theirs
 	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID, oauth.CargoAppID}
+
+	// Some standard object extensions which we strictly dis-allow for compression.
+	standardExcludeCompressExtensions = []string{".gz", ".bz2", ".rar", ".zip", ".7z", ".xz", ".mp4", ".mkv", ".mov"}
+
+	// Some standard content-types which we strictly dis-allow for compression.
+	standardExcludeCompressContentTypes = []string{"video/*", "audio/*", "application/zip", "application/x-gzip",
+		"application/x-zip-compressed", " application/x-compress", "application/x-spoon"}
 )
 
 // Router is a structure that handles upload requests.
@@ -209,7 +222,8 @@ type GetFileByIDResponse struct {
 	AppID       string      `json:"appID,omitempty"`
 }
 
-type getSharedFilesResponse struct {
+// GetSharedFilesResponse is a structure used for the response of getSharedFiles.
+type GetSharedFilesResponse struct {
 	Files     []*GetFileByIDResponse `json:"files"`
 	PageNum   int64                  `json:"pageNum"`
 	ItemCount int64                  `json:"itemCount"`
@@ -296,13 +310,14 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.DELETE("/files/:id", checkDeleteFileScope, r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
+	rg.POST("/files/zip", r.DownloadZip)
 }
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -528,7 +543,7 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 		}
 	}
 
-	sharedFilesResponse := &getSharedFilesResponse{
+	sharedFilesResponse := &GetSharedFilesResponse{
 		Files:     files,
 		PageNum:   permissions.PageNum,
 		ItemCount: permissions.ItemCount,
@@ -547,7 +562,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -563,7 +578,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	// Check if the user has an direct permission to the file
 	hasDirectPermission, err := r.permissionClient().IsPermitted(
-		c,&ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole}); 
+		c, &ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole})
 	if err != nil && status.Code(err) != codes.NotFound {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -572,7 +587,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	// If the user doesn't have direct premission, then he can't delete the file
 	if !hasDirectPermission.GetPermitted() {
 		c.AbortWithStatus(http.StatusForbidden)
-		return	
+		return
 	}
 
 	ids, err := DeleteFile(
@@ -619,6 +634,16 @@ func (r *Router) Download(c *gin.Context) {
 
 	filename := fileMeta.GetName()
 	contentType := fileMeta.GetType()
+
+	// You cannot download a folder using this format
+	if contentType == FolderContentType {
+		c.AbortWithError(
+			http.StatusBadRequest,
+			fmt.Errorf("you cannot download a folder using this format. Use POST on /files/zip instead"),
+		)
+		return
+	}
+
 	contentLength := fmt.Sprintf("%d", fileMeta.GetSize())
 
 	downloadRequest := &dpb.DownloadRequest{
@@ -658,7 +683,7 @@ func (r *Router) Download(c *gin.Context) {
 func (r *Router) UpdateFile(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -703,7 +728,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 func (r *Router) GetFileAncestors(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -936,6 +961,59 @@ func HandleStream(c *gin.Context, stream dpb.Download_DownloadClient) error {
 		}
 
 		c.Writer.Flush()
+	}
+}
+
+type downloadZipBody struct {
+	Files []string `json:"files"`
+}
+
+// DownloadZip is the request handler for downloading multiple files as a zip file.
+func (r *Router) DownloadZip(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	body := &downloadZipBody{}
+	if err := c.ShouldBindJSON(body); err != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(
+				http.StatusBadRequest,
+				fmt.Errorf("unexpected body format, should be {files: [string]}")),
+		)
+	}
+
+	files := make([]*fpb.File, 0, len(body.Files))
+	for _, fileID := range body.Files {
+		if role, _ := r.HandleUserFilePermission(c, fileID, DownloadRole); role == "" {
+			return
+		}
+
+		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+
+		if err != nil {
+			loggermiddleware.LogError(
+				r.logger,
+				c.AbortWithError(
+					gwruntime.HTTPStatusFromCode(status.Code(err)),
+					err),
+			)
+		}
+
+		files = append(files, file)
+	}
+
+	if err := r.zipMultipleFiles(c, files); err != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(
+				gwruntime.HTTPStatusFromCode(status.Code(err)),
+				err),
+		)
+		return
 	}
 }
 
