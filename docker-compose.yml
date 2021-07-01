@@ -115,6 +115,12 @@ services:
       - redis
     ports:
       - "8090:8080"
+  fav-service:
+    image: "drivehub.azurecr.io/meateam/fav-service:develop"
+    port:
+      - "8091:8080"
+    depends_on: 
+      - mongo
   dropbox-service:
     image: drivehub.azurecr.io/meateam/dropbox-service:develop
     env_file:

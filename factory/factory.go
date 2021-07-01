@@ -10,6 +10,8 @@ import (
 	spkpb "github.com/meateam/spike-service/proto/spike-service"
 	upb "github.com/meateam/upload-service/proto"
 	usrpb "github.com/meateam/user-service/proto/users"
+	fvpb "github.com/meateam/fav-service/proto"
+	
 )
 
 // SpikeClientFactory is a factory for the Spike GRPC client
@@ -38,3 +40,6 @@ type QuotaClientFactory = func() qpb.QuotaServiceClient
 
 // DropboxClientFactory is a factory for the Dropbox GRPC client
 type DropboxClientFactory = func() drp.DropboxClient
+
+//FavClientFactory is a factory for the fav GRPC client
+type FavClientFactory = func() fvpb.FavoriteClient

@@ -32,6 +32,8 @@ import (
 	"go.elastic.co/apm/module/apmgrpc"
 	"go.elastic.co/apm/module/apmhttp"
 	"google.golang.org/grpc"
+	"github.com/meateam/api-gateway/fav"
+
 )
 
 const (
@@ -151,6 +153,11 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		logger.Fatalf("couldn't setup spike service connection: %v", err)
 	}
 
+	favConn, err := initServiceConn(viper.GetString(configFavService))
+	if err != nil {
+		logger.Fatalf("couldn't setup fav service connection: %v", err)
+	}
+
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// initiate middlewares
@@ -168,6 +175,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		permissionConn,
 		uploadConn,
 		searchConn,
+		favConn,
 	}
 
 	conns := append(fatalConns, nonFatalConns...)
@@ -219,6 +227,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
 	drp := dropbox.NewRouter(dropboxConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
+	fv := fav.NewRouter(favConn,fileConn, om, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 
@@ -256,6 +265,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	// Initiate client connection to search service.
 	sr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to fav service.
+	fv.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
 	return r, conns
