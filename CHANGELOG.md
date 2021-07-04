@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- minor([246](https://github.com/meateam/api-gateway/pull/246)) : add fav service
+
 ## [v4.4.1] - 2021-05-30
 
 ### Fixed
