@@ -21,9 +21,13 @@ import (
 const (
 	// ParamFileID is the name of the file id param in URL.
 	ParamFileID = "id"
+
+	// fileIDIsRequiredMessage is the error message for missing fileID
+	fileIDIsRequiredMessage = "fileID is required"
+
 )
 
-// Fav is a struct that describes a user's request to a favorite file.
+// Fav is a struct of favorite file
 type Fav struct {
 	UserID string `json:"userID,omitempty"`
 	FileID string `json:"fileID,omitempty"`
@@ -69,8 +73,8 @@ func NewRouter(
 
 //Setup sets up r and intializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	rg.POST(fmt.Sprintf("/:%s/fav", ParamFileID), r.CreateFav)
-	rg.DELETE(fmt.Sprintf("/:%s/fav", ParamFileID), r.DeleteFav)
+	rg.POST(fmt.Sprintf("/fav/:id"), r.CreateFav)
+	rg.DELETE(fmt.Sprintf("/fav/:id"), r.DeleteFav)
 	rg.GET("/fav", r.GetAll)
 
 }
@@ -86,11 +90,9 @@ func (r *Router) CreateFav(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
-
-	userID := reqUser.ID
 
 	file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID}) 
 	if err != nil {
@@ -99,15 +101,13 @@ func (r *Router) CreateFav(c *gin.Context) {
 		return
 	}
 
-	// An app cannot create a permission for a file that does not belong to it.
-	// Unless the app is Drive.
 	ctxAppID := c.Value(oauth.ContextAppKey).(string)
 	if (ctxAppID != file.GetAppID()) && (ctxAppID != oauth.DriveAppID) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
 		return
 	}
 
-	createReq := &fvpb.CreateFavoriteRequest{FileID: fileID, UserID: userID}
+	createReq := &fvpb.CreateFavoriteRequest{FileID: fileID, UserID: reqUser.ID}
 	createdResponse, err := r.favClient().CreateFavorite(c.Request.Context(), createReq)
 
 	if err != nil {
@@ -135,13 +135,11 @@ func (r *Router) DeleteFav(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.AbortWithStatus(http.StatusBadRequest)
+		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
 		return
 	}
 
-	userID := reqUser.ID
-
-	deleteRequest := &fvpb.DeleteFavoriteRequest{FileID: fileID, UserID: userID}
+	deleteRequest := &fvpb.DeleteFavoriteRequest{FileID: fileID, UserID: reqUser.ID}
 	fav, err := r.favClient().DeleteFavorite(c.Request.Context(), deleteRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -166,14 +164,29 @@ func (r *Router) GetAll(c *gin.Context) {
 		return
 	}
 
-	userID := reqUser.ID
-	getAllRequest := &fvpb.GetAllFavoritesRequest{UserID: userID}
+	getAllRequest := &fvpb.GetAllFavoritesRequest{UserID: reqUser.ID}
 	favList, err := r.favClient().GetAllFavorites(c.Request.Context(), getAllRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
 		return
+	}
+
+	
+	for _, fileID := range favList.FavFileIDList {
+		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
+		if err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+			return
+		}
+		
+		ctxAppID := c.Value(oauth.ContextAppKey).(string)
+		if (ctxAppID != file.GetAppID()) && (ctxAppID != oauth.DriveAppID) {
+			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, favList)
