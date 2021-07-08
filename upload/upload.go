@@ -119,6 +119,9 @@ type Router struct {
 	// SearchClientFactory
 	searchClient factory.SearchClientFactory
 
+	//FavoriteClientFactory
+	favoriteClient factory.FavClientFactory
+
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 	mu              sync.Mutex
@@ -931,6 +934,7 @@ func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
 		r.uploadClient(),
 		r.searchClient(),
 		r.permissionClient(),
+		r.favoriteClient(),
 		fileID,
 		reqUser.ID)
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))

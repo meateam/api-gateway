@@ -117,7 +117,7 @@ services:
       - "8090:8080"
   fav-service:
     image: "drivehub.azurecr.io/meateam/fav-service:develop"
-    port:
+    ports:
       - "8091:8080"
     depends_on: 
       - mongo

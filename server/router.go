@@ -167,6 +167,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		dropboxConn,
 		userConn,
 		spikeConn,
+		favConn,
 	}
 
 	fatalConns := []*grpcPoolTypes.ConnPool{
@@ -175,7 +176,6 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		permissionConn,
 		uploadConn,
 		searchConn,
-		favConn,
 	}
 
 	conns := append(fatalConns, nonFatalConns...)
@@ -219,7 +219,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, dropboxConn,
-		searchConn, gotenbergClient, om, logger)
+		searchConn, favConn, gotenbergClient, om, logger)
 	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
@@ -227,7 +227,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
 	drp := dropbox.NewRouter(dropboxConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
-	fv := fav.NewRouter(favConn,fileConn, om, logger)
+	fv := fav.NewRouter(favConn,fileConn,permissionConn, om, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 

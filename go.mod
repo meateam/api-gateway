@@ -17,7 +17,7 @@ require (
 	github.com/meateam/download-service v0.0.0-20210214143255-2b7c813e14ef
 	github.com/meateam/dropbox-service v0.0.0-20210323125524-40aa0b34499c
 	github.com/meateam/elasticsearch-logger v1.2.0
-	github.com/meateam/fav-service v0.0.0-20210629074359-47da745e47dc // indirect
+	github.com/meateam/fav-service v0.0.0-20210708060836-b3c77ee67d77 // indirect
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8

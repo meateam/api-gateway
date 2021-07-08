@@ -12,6 +12,7 @@ import (
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	fvpb "github.com/meateam/fav-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,6 +23,7 @@ func deleteFileAndPremission(ctx *gin.Context,
 	logger *logrus.Logger,
 	fileClient fpb.FileServiceClient,
 	permissionClient ppb.PermissionClient,
+	favClient fvpb.FavoriteClient,
 	fileID string) *fpb.File {
 	filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
 	if err != nil {
@@ -49,7 +51,14 @@ func deleteFileAndPremission(ctx *gin.Context,
 		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file: %v", err)))
 		return nil
 	} 
-	
+
+	//Delete file from favorites
+	if _, err := favClient.DeleteAllfileFav(ctx, &fvpb.DeleteAllfileFavRequest{FileID: fileID}); err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file's %s from favorites: %v", fileID, err)))
+		return nil
+	}
+
 	return deletedFile.GetFile()
 }
 
@@ -62,6 +71,7 @@ func DeleteFile(ctx *gin.Context,
 	uploadClient upb.UploadClient,
 	searchClient spb.SearchClient,
 	permissionClient ppb.PermissionClient,
+	favClient fvpb.FavoriteClient,
 	fileID string,
 	userID string) ([]string, error) {
 	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
@@ -87,7 +97,7 @@ func DeleteFile(ctx *gin.Context,
 	// Only the owner of the file can delete the file instance.
 	// If the user requesting to delete isn't the owner- delete it's permission to this file
 	if file.GetOwnerID() == userID {
-		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, fileID)
+		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, favClient, fileID)
 		if deletedFile != nil {
 			deletedFiles = append(deletedFiles, deletedFile)
 		}
@@ -109,7 +119,7 @@ func DeleteFile(ctx *gin.Context,
 		parent := descendants[i].GetParent()
 
 		if file.GetOwnerID() == userID {
-			deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, file.GetId())
+			deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, favClient, file.GetId())
 			if deletedFile != nil {
 				deletedFiles = append(deletedFiles, deletedFile)
 			}

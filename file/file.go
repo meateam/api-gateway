@@ -24,6 +24,7 @@ import (
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	fvpb "github.com/meateam/fav-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -178,6 +179,9 @@ type Router struct {
 	// SearchClientFactory
 	searchClient factory.SearchClientFactory
 
+	//FavoriteClientFactory
+	favoriteClient factory.FavClientFactory
+
 	gotenbergClient *gotenberg.Client
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
@@ -243,6 +247,7 @@ func NewRouter(
 	permissionConn *grpcPoolTypes.ConnPool,
 	dropboxConn *grpcPoolTypes.ConnPool,
 	searchConn *grpcPoolTypes.ConnPool,
+	favConn *grpcPoolTypes.ConnPool,
 	gotenbergClient *gotenberg.Client,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
@@ -276,6 +281,10 @@ func NewRouter(
 
 	r.searchClient = func() spb.SearchClient {
 		return spb.NewSearchClient((*searchConn).Conn())
+	}
+
+	r.favoriteClient = func() fvpb.FavoriteClient {
+		return fvpb.NewFavoriteClient((*favConn).Conn())
 	}
 
 	r.gotenbergClient = gotenbergClient
@@ -582,6 +591,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		r.uploadClient(),
 		r.searchClient(),
 		r.permissionClient(),
+		r.favoriteClient(),
 		fileID,
 		reqUser.ID)
 	if err != nil {
@@ -590,6 +600,9 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 		return
 	}
+
+
+	
 
 	c.JSON(http.StatusOK, ids)
 }
