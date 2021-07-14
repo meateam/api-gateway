@@ -183,8 +183,8 @@ func (r *Router) GetAll(c *gin.Context) {
 		return
 	}
 
-	getAllRequest := &fvpb.GetAllFavoritesRequest{UserID: reqUser.ID}
-	favList, err := r.favClient().GetAllFavoritesByUserID(c.Request.Context(), getAllRequest)
+	getAllRequest := &fvpb.GetManyFavoritesRequest{UserID: reqUser.ID}
+	favList, err := r.favClient().GetManyFavoritesByUserID(c.Request.Context(), getAllRequest)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -192,11 +192,11 @@ func (r *Router) GetAll(c *gin.Context) {
 		return
 	}
 
-	favoriteList := &fvpb.GetAllFavoritesResponse{}
+	favoriteList := &fvpb.GetManyFavoritesResponse{}
 
 	for _, fileID := range favList.FavFileIDList {
 
-		if role, _ := r.HandleUserFilePermission(c, fileID, GetAllFilesByIDRole); role != "" {
+		if role, _ := r.HandleUserFilePermission(c, fileID.FileID, GetAllFilesByIDRole); role != "" {
 			favoriteList.FavFileIDList = append(favoriteList.FavFileIDList, fileID)
 		}
 	}

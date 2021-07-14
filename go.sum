@@ -470,6 +470,8 @@ github.com/meateam/fav-service v0.0.0-20210707091741-d980980784b5 h1:/CRtxjTaHxH
 github.com/meateam/fav-service v0.0.0-20210707091741-d980980784b5/go.mod h1:VO1ophmFMERxLSep96Rkb2p2D8XXWLEqweOBU8sag4M=
 github.com/meateam/fav-service v0.0.0-20210708060836-b3c77ee67d77 h1:cKa//Jz64dASLOnjXRoeglpZUZwYfwTOKvhTs/x/5fg=
 github.com/meateam/fav-service v0.0.0-20210708060836-b3c77ee67d77/go.mod h1:VO1ophmFMERxLSep96Rkb2p2D8XXWLEqweOBU8sag4M=
+github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904 h1:GeRVh03g4srFVlOFdcJNr4VI+K+LQpHTte2oN7m2RPQ=
+github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904/go.mod h1:VO1ophmFMERxLSep96Rkb2p2D8XXWLEqweOBU8sag4M=
 github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e h1:8yz3Qan6aYtBe2gHHVxAqgUoFlR25wHtG9zueRwmqlw=
 github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e/go.mod h1:NOdhFDgEF8KJAH52BbdPBrFMFvYUSJHWUBN7eziwUWw=
 github.com/meateam/gotenberg-go-client/v6 v6.0.7 h1:9De2v5f6LPo92nzVjBbAlwyrMmqmPhQLIDZLP5qNHYo=
