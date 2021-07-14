@@ -205,6 +205,20 @@ func (r *Router) GetAll(c *gin.Context) {
 
 }
 
+// IsFavorite returns true if the favorite exist otherwise false
+func (r *Router) IsFavorite(c *gin.Context, fileID string, userID string) (bool, error){
+	isFav, err := r.favClient().IsFavorite(c.Request.Context(), &fvpb.IsFavoriteRequest{FileID: fileID, UserID: userID } )
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return false, err
+	}
+
+	return isFav.IsFavorite, nil
+}
+
+
 // HandleUserFilePermission gets the id of the requested file, and the required role.
 // Returns the user role as a string, and the permission if the user is permitted
 // to operate on the file, and `"", nil` if not.
