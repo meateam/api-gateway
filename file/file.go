@@ -211,6 +211,7 @@ type GetFileByIDResponse struct {
 	Permission  *Permission `json:"permission,omitempty"`
 	IsExternal  bool        `json:"isExternal"`
 	AppID       string      `json:"appID,omitempty"`
+	IsFavorite 	bool 		`json:"isFavorite"`
 }
 
 type getSharedFilesResponse struct {
@@ -286,7 +287,7 @@ func NewRouter(
 	r.favoriteClient = func() fvpb.FavoriteClient {
 		return fvpb.NewFavoriteClient((*favConn).Conn())
 	}
-
+	
 	r.gotenbergClient = gotenbergClient
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -472,6 +473,20 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 
 		if userFilePermission != "" {
 			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission))
+		}
+
+		for _, responsefile := range responseFiles {
+			favObject := &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: responsefile.ID}
+			res, err := r.favoriteClient().IsFavorite(c.Request.Context(), favObject)
+			if err != nil {
+				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+				loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+				return
+			}
+
+			if res.IsFavorite {
+				responsefile.IsFavorite = true
+			}
 		}
 	}
 
@@ -1178,7 +1193,7 @@ func (r *Router) HandleUserFilePermit(
 }
 
 // CreateGetFileResponse Creates a file grpc response to http response struct.
-func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.PermissionObject) *GetFileByIDResponse {
+func  CreateGetFileResponse(file *fpb.File, role string, permission *ppb.PermissionObject) *GetFileByIDResponse {
 	if file == nil {
 		return nil
 	}
@@ -1200,6 +1215,7 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 		Shared:      false,
 		IsExternal:  isExternal,
 		AppID:       file.GetAppID(),
+		IsFavorite:  false,
 	}
 
 	if permission != nil {

@@ -10,19 +10,17 @@ require (
 	github.com/go-openapi/errors v0.20.0 // indirect
 	github.com/go-openapi/runtime v0.19.29
 	github.com/go-openapi/validate v0.20.2 // indirect
-	github.com/go-swagger/go-swagger v0.26.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/meateam/download-service v0.0.0-20210214143255-2b7c813e14ef
 	github.com/meateam/dropbox-service v0.0.0-20210323125524-40aa0b34499c
 	github.com/meateam/elasticsearch-logger v1.2.0
-	github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904 // indirect
+	github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904
 	github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8
 	github.com/meateam/permission-service v0.0.0-20210119152530-568b1a266ded
-	github.com/meateam/permit-service v0.0.0-20200205134633-2b7d9a5433c9
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
@@ -42,10 +40,8 @@ require (
 	go.elastic.co/apm/module/apmhttp v1.7.0
 	go.mongodb.org/mongo-driver v1.5.1
 	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
-	golang.org/x/mod v0.4.1 // indirect
 	golang.org/x/net v0.0.0-20210220033124-5f55cee0dc0d // indirect
 	golang.org/x/sys v0.0.0-20210220050731-9a76102bfb43 // indirect
-	golang.org/x/tools v0.1.0 // indirect
 	google.golang.org/genproto v0.0.0-20201211151036-40ec1c210f7a // indirect
 	google.golang.org/grpc v1.37.0
 	google.golang.org/grpc/examples v0.0.0-20201212000604-81b95b1854d7 // indirect
@@ -63,5 +59,7 @@ replace github.com/meateam/api-gateway/file => ./file
 replace github.com/meateam/api-gateway/quota => ./quota
 
 replace github.com/meateam/api-gateway/factory => ./factory
+
+replace github.com/meateam/api-gateway/fav => ./fav
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
