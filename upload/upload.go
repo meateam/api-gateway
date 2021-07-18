@@ -932,7 +932,8 @@ func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
 		r.searchClient(),
 		r.permissionClient(),
 		fileID,
-		reqUser.ID)
+		reqUser.ID,
+		file.OwnerRole)
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 	if deleteErr != nil {
 		err = fmt.Errorf("%v: %v", err, deleteErr)

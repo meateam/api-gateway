@@ -23,13 +23,6 @@ func deleteFileAndPremission(ctx *gin.Context,
 	fileClient fpb.FileServiceClient,
 	permissionClient ppb.PermissionClient,
 	fileID string) *fpb.File {
-	filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to get file's  %s permission to delete: %v", fileID, err)))
-		return nil
-	}
-
 	// Delete file's permissions
 	if _, err := permissionClient.DeleteFilePermissions(ctx, &ppb.DeleteFilePermissionsRequest{FileID: fileID}); err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -42,6 +35,13 @@ func deleteFileAndPremission(ctx *gin.Context,
 	if err != nil || deletedFile == nil {
 		if status.Code(err) != codes.NotFound {
 			// Add permission rollback
+			filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
+			if err != nil {
+				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+				loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to get file's  %s permission to delete: %v", fileID, err)))
+				return nil
+			}
+
 			AddPermissionsOnError(ctx, err, fileID, filePermissions.GetPermissions(), permissionClient, logger)
 		}
 
@@ -63,15 +63,10 @@ func DeleteFile(ctx *gin.Context,
 	searchClient spb.SearchClient,
 	permissionClient ppb.PermissionClient,
 	fileID string,
-	userID string) ([]string, error) {
+	userID string,
+	role string) ([]string, error) {
 	var wg sync.WaitGroup
 	mu := sync.RWMutex{}
-	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID}) // Has already role in file.go
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed getting file to delete: %v", err)))
-		return nil, err
-	}
 
 	getDescendantsByIDRes, err := fileClient.GetDescendantsByID(ctx, &fpb.GetDescendantsByIDRequest{Id: fileID})
 	if err != nil {
@@ -88,7 +83,7 @@ func DeleteFile(ctx *gin.Context,
 	// Deleting the file and permissions from db
 	// Only the owner of the file can delete the file instance.
 	// If the user requesting to delete isn't the owner- delete it's permission to this file
-	if file.GetOwnerID() == userID {
+	if role == OwnerRole {
 		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, fileID)
 		if deletedFile != nil {
 			deletedFiles = append(deletedFiles, deletedFile)
