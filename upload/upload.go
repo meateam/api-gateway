@@ -19,6 +19,7 @@ import (
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
+	fvpb "github.com/meateam/fav-service/proto"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
@@ -149,6 +150,7 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 	fileConn *grpcPoolTypes.ConnPool,
 	permissionConn *grpcPoolTypes.ConnPool,
 	searchConn *grpcPoolTypes.ConnPool,
+	favConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
@@ -172,6 +174,10 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 
 	r.searchClient = func() spb.SearchClient {
 		return spb.NewSearchClient((*searchConn).Conn())
+	}
+
+	r.favoriteClient = func() fvpb.FavoriteClient {
+		return fvpb.NewFavoriteClient((*favConn).Conn())
 	}
 
 	r.oAuthMiddleware = oAuthMiddleware

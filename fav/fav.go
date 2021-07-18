@@ -119,6 +119,7 @@ func (r *Router) CreateFav(c *gin.Context) {
 	}
 
 	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFileByIDRole); role == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
