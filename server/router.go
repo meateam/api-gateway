@@ -224,7 +224,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
-	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
+	pr := permission.NewRouter(permissionConn, fileConn, userConn, favConn, om, logger)
 	drp := dropbox.NewRouter(dropboxConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
 	fv := fav.NewRouter(favConn,fileConn,permissionConn, om, logger)

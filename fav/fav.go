@@ -18,37 +18,24 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"github.com/meateam/api-gateway/file"
+
 )
 
 const (
-	// ParamFileID is the name of the file id param in URL.
-	ParamFileID = "id"
-
-	// fileIDIsRequiredMessage is the error message for missing fileID
-	fileIDIsRequiredMessage = "fileID is required"
-
-
 	// CreateFileByIDRole is the role that is required of the of the authenticated requester to have to be
 	// permitted to make the CreateFavorite action.
 	CreateFileByIDRole = ppb.Role_READ
-
-	// DeleteFileByIDRole is the role that is required of the of the authenticated requester to have to be
-	// permitted to make the CreateFavorite action.
-	DeleteFileByIDRole = ppb.Role_READ
-
-	// GetAllFilesByIDRole is the role that is required of the of the authenticated requester to have to be
-	// permitted to make the CreateFavorite action.
-	GetAllFilesByIDRole = ppb.Role_READ
-
-	// OwnerRole is the owner role name when referred to as a permission.
-	OwnerRole = "OWNER"
-
 )
 
 // Fav is a struct of favorite file
 type Fav struct {
 	UserID string `json:"userID,omitempty"`
 	FileID string `json:"fileID,omitempty"`
+}
+// GetAllUserFavoritesFileIDsResponse is a struct of fileID
+type GetAllUserFavoritesFileIDsResponse struct {
+	FileID []string `json:"fileID,omitempty"`
 }
 
 // Router is a structure that handles favorite requests.
@@ -99,8 +86,6 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.POST(fmt.Sprintf("/fav/:id"), r.CreateFav)
 	rg.DELETE(fmt.Sprintf("/fav/:id"), r.DeleteFav)
-	rg.GET("/fav", r.GetAll)
-
 }
 
 // CreateFav creates a favorite for a given file.
@@ -112,9 +97,9 @@ func (r *Router) CreateFav(c *gin.Context) {
 		return
 	}
 
-	fileID := c.Param(ParamFileID)
+	fileID := c.Param(file.ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, file.FileIDIsRequiredMessage)
 		return
 	}
 
@@ -123,8 +108,17 @@ func (r *Router) CreateFav(c *gin.Context) {
 		return
 	}
 
+	// An app cannot create a favorite for a file that does not belong to the app Drive.
+	ctxAppID := c.Value(oauth.ContextAppKey).(string)
+	if (ctxAppID != oauth.DriveAppID) {
+		// loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
+		return
+	}
+
 	createReq := &fvpb.CreateFavoriteRequest{FileID: fileID, UserID: reqUser.ID}
 	createdResponse, err := r.favClient().CreateFavorite(c.Request.Context(), createReq)
+
+
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -149,13 +143,15 @@ func (r *Router) DeleteFav(c *gin.Context) {
 		return
 	}
 
-	fileID := c.Param(ParamFileID)
+	fileID := c.Param(file.ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, file.FileIDIsRequiredMessage)
 		return
 	}
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole); role == "" {
+
+	if role, _ := r.HandleUserFilePermission(c, fileID, file.DeleteFileByIDRole); role == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -175,39 +171,9 @@ func (r *Router) DeleteFav(c *gin.Context) {
 
 }
 
-// GetAll gets all user's favorites
-func (r *Router) GetAll(c *gin.Context) {
-
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	getAllRequest := &fvpb.GetManyFavoritesRequest{UserID: reqUser.ID}
-	favList, err := r.favClient().GetManyFavoritesByUserID(c.Request.Context(), getAllRequest)
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-	}
-
-	favoriteList := &fvpb.GetManyFavoritesResponse{}
-
-	for _, fileID := range favList.FavFileIDList {
-
-		if role, _ := r.HandleUserFilePermission(c, fileID.FileID, GetAllFilesByIDRole); role != "" {
-			favoriteList.FavFileIDList = append(favoriteList.FavFileIDList, fileID)
-		}
-	}
-
-	c.JSON(http.StatusOK, favoriteList)
-
-}
-
 // IsFavorite returns true if the favorite exist otherwise false
-func (r *Router) IsFavorite(c *gin.Context, fileID string, userID string) (bool, error){
+func IsFavorite(c *gin.Context, r *Router, fileID string, userID string) (bool, error){
+
 	isFav, err := r.favClient().IsFavorite(c.Request.Context(), &fvpb.IsFavoriteRequest{FileID: fileID, UserID: userID } )
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -218,7 +184,6 @@ func (r *Router) IsFavorite(c *gin.Context, fileID string, userID string) (bool,
 
 	return isFav.IsFavorite, nil
 }
-
 
 // HandleUserFilePermission gets the id of the requested file, and the required role.
 // Returns the user role as a string, and the permission if the user is permitted
@@ -270,6 +235,8 @@ func CheckUserFilePermission(ctx context.Context,
 	if userID == "" {
 		return "", nil, fmt.Errorf("userID is required")
 	}
+
+	OwnerRole := file.OwnerRole
 
 	// Everyone is permitted to their root, since all actions on root are authenticated,
 	// and it's impossible to create a permission for root (aka sharing a user's whole drive).
