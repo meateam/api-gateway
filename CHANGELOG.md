@@ -128,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
+[v5.0.0]: https://github.com/meateam/api-gateway/compare/v4.4.1...v5.0.0
 [v4.4.1]: https://github.com/meateam/api-gateway/compare/v4.4.0...v4.4.1
 [v4.4.0]: https://github.com/meateam/api-gateway/compare/v4.3.0...v4.4.0
 [v4.3.0]: https://github.com/meateam/api-gateway/compare/v4.2.2...v4.3.0
