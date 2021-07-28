@@ -26,6 +26,7 @@ require (
 	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
 	github.com/meateam/user-service v3.1.1-0.20210518081330-33212ed397cb+incompatible
 	github.com/olivere/elastic/v7 v7.0.22
+	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/afero v1.5.1 // indirect

@@ -12,6 +12,7 @@ import (
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	"github.com/remeh/sizedwaitgroup"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,7 +66,8 @@ func DeleteFile(ctx *gin.Context,
 	fileID string,
 	userID string,
 	role string) ([]string, error) {
-	var wg sync.WaitGroup
+	swg := sizedwaitgroup.New(10)
+	wg := &sync.WaitGroup{}
 	mu := sync.RWMutex{}
 
 	getDescendantsByIDRes, err := fileClient.GetDescendantsByID(ctx, &fpb.GetDescendantsByIDRequest{Id: fileID})
@@ -102,10 +104,10 @@ func DeleteFile(ctx *gin.Context,
 
 	// Delete file's descendants
 	for _, descendant := range descendants {
-		wg.Add(1)
+		swg.Add()
 
 		go func(descendant *fpb.GetDescendantsByIDResponse_Descendant, deletedFiles *[]*fpb.File, floatFiles *[]string) {
-			defer wg.Done()
+			defer swg.Done()
 			file := descendant.GetFile()
 			parent := descendant.GetParent()
 
@@ -124,7 +126,7 @@ func DeleteFile(ctx *gin.Context,
 			}
 		}(descendant, &deletedFiles, &floatFiles)
 	}
-	wg.Wait()
+	swg.Wait()
 	root := ""
 	failedFloatFiles, err := HandleUpdate(
 		ctx,
@@ -145,9 +147,9 @@ func DeleteFile(ctx *gin.Context,
 	bucketKeysMap := make(map[string][]string)
 	ids := make([]string, 0, len(deletedFiles))
 	for _, file := range deletedFiles {
-		wg.Add(1)
+		swg.Add()
 		go func(file *fpb.File, bucketKeysMap *map[string][]string, ids *[]string) {
-			defer wg.Done()
+			defer swg.Done()
 			mu.Lock()
 			(*bucketKeysMap)[file.GetBucket()] = append((*bucketKeysMap)[file.GetBucket()], file.GetKey())
 			*ids = append(*ids, file.GetId())
@@ -158,7 +160,7 @@ func DeleteFile(ctx *gin.Context,
 			}
 		}(file, &bucketKeysMap, &ids)
 	}
-	wg.Wait()
+	swg.Wait()
 	mu.RLock()
 
 	for bucket, keys := range bucketKeysMap {
