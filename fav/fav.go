@@ -111,14 +111,14 @@ func (r *Router) CreateFav(c *gin.Context) {
 	// An app cannot create a favorite for a file that does not belong to the app Drive.
 	ctxAppID := c.Value(oauth.ContextAppKey).(string)
 	if (ctxAppID != oauth.DriveAppID) {
+		// what error is given here ?
 		// loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
 	createReq := &fvpb.CreateFavoriteRequest{FileID: fileID, UserID: reqUser.ID}
 	createdResponse, err := r.favClient().CreateFavorite(c.Request.Context(), createReq)
-
-
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -169,20 +169,6 @@ func (r *Router) DeleteFav(c *gin.Context) {
 		FileID: fav.FileID,
 	})
 
-}
-
-// IsFavorite returns true if the favorite exist otherwise false
-func IsFavorite(c *gin.Context, r *Router, fileID string, userID string) (bool, error){
-
-	isFav, err := r.favClient().IsFavorite(c.Request.Context(), &fvpb.IsFavoriteRequest{FileID: fileID, UserID: userID } )
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return false, err
-	}
-
-	return isFav.IsFavorite, nil
 }
 
 // HandleUserFilePermission gets the id of the requested file, and the required role.

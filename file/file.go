@@ -220,6 +220,16 @@ type getSharedFilesResponse struct {
 	ItemCount int64                  `json:"itemCount"`
 }
 
+type getFavFilesResponse struct {
+	Files     *filesResponse `json:"files"`
+	ErrMsg    string         `json:"errMsg,omitempty"`
+}
+
+type filesResponse struct {
+	Successful []*GetFileByIDResponse `json:"successful"`
+	Failed     []string               `json:"failed"`
+}
+
 type partialFile struct {
 	ID          string  `json:"id,omitempty"`
 	Name        string  `json:"name,omitempty"`
@@ -324,17 +334,21 @@ func (r *Router) GetAllUserFavorites(c *gin.Context) {
 		return
 	}
 
+	filesSuccesful := make([]*GetFileByIDResponse, 0, len(favfiles.FavFileIDList))
+	filesFailed := make([]string, 0, len(favfiles.FavFileIDList))
+
 	var files []*fpb.File
 	for _, favfile := range favfiles.FavFileIDList {
 		result, err := r.fileClient().GetFileByID(c, &fpb.GetByFileByIDRequest{Id: favfile.FileID})
 		if err != nil {
+			filesFailed = append(filesFailed, favfile.FileID)
 			loggermiddleware.LogError(r.logger, err)
-			return
 		}
 		files = append(files, result)
 	}
 
-	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
+	FavFilesResponse := &getFavFilesResponse{}
+
 	for _, file := range files {
 		userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
 			r.fileClient(),
@@ -343,22 +357,33 @@ func (r *Router) GetAllUserFavorites(c *gin.Context) {
 			file.GetId(),
 			GetFilesByFolderRole)
 		if err != nil {
+			filesFailed = append(filesFailed, file.GetId())
 			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
+			continue
 		}
 
 		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
 		if err != nil {
+			filesFailed = append(filesFailed, file.GetId())
 			loggermiddleware.LogError(r.logger, err)
-			return
+			continue
 		}
 
 		if userFilePermission != "" {
-			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission, res.IsFavorite))
+			filesSuccesful = append(filesSuccesful, CreateGetFileResponse(file, userFilePermission, foundPermission, res.IsFavorite))
 		}
+
+		var errMsg string
+		if len(filesFailed) > 0 {
+			errMsg = "file not found"
+		}
+
+		filesResp := &filesResponse{Successful: filesSuccesful, Failed: filesFailed}
+		FavFilesResponse = &getFavFilesResponse{Files: filesResp, ErrMsg: errMsg}
 
 	}
 
-	c.JSON(http.StatusOK, responseFiles)
+	c.JSON(http.StatusOK, FavFilesResponse)
 
 }
 
