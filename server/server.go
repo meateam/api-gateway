@@ -19,7 +19,7 @@ const (
 	configFileService              = "file_service"
 	configUserService              = "user_service"
 	configPermissionService        = "permission_service"
-	configFavService 			   = "fav_service"
+	configFavService 	       = "fav_service"
 	configDropboxService           = "dropbox_service"
 	configSearchService            = "search_service"
 	configSpikeService             = "spike_service"
