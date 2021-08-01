@@ -9,12 +9,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	uspb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.elastic.co/apm"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
@@ -25,8 +27,14 @@ const (
 	// ParamUserID is the name of the user id param in URL.
 	ParamUserID = "id"
 
-	// ParamPartialName is the name of the partial user name param in URL.
-	ParamPartialName = "partial"
+	// ParamApproverID is the name of the approver id param in the URL.
+	ParamApproverID = "approverID"
+
+	// ParamRequestContent is the name of the partial user name param in URL.
+	ParamRequestContent = "content"
+
+	// ParamSearchType is the name of the flag that determines which search to execute.
+	ParamSearchType = "searchBy"
 
 	// ExternalUserSource is the value of the source field of user that indicated that the user is external
 	ExternalUserSource = "external"
@@ -36,28 +44,67 @@ const (
 
 	// ConfigBucketPostfix is the name of the environment variable containing the postfix for the bucket.
 	ConfigBucketPostfix = "bucket_postfix"
+
+	// TransactionUserLabel is the label of the custom transaction field : user.
+	TransactionUserLabel = "user"
+
+	// HeaderDestionation is the header used to get and set the external destination.
+	HeaderDestionation = "destination"
+
+	// ConfigTomcalDest is the name of the environment variable containing the tomcal dest name.
+	ConfigTomcalDest = "tomcal_dest_value"
+
+	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
+	ConfigCtsDest = "cts_dest_value"
+
+	ConfigCTSSuffix = "cts_suffix"
+
+)
+
+type searchByEnum string
+
+const (
+	// SearchByName is an enum key for searching by name
+	SearchByName searchByEnum = "SearchByName"
+
+	// FindByMail is an enum key for finding by mail
+	FindByMail searchByEnum = "FindByMail"
+
+	// FindByT is an enum key for finding by user T
+	FindByT searchByEnum = "FindByT"
 )
 
 //Router is a structure that handles users requests.
 type Router struct {
-	userClient uspb.UsersClient
-	logger     *logrus.Logger
+	// UserClientFactory
+	userClient factory.UserClientFactory
+
+	logger *logrus.Logger
 }
 
 // User is a structure of an authenticated user.
 type User struct {
-	ID        string `json:"id"`
-	FirstName string `json:"firstname"`
-	LastName  string `json:"lastname"`
-	Source    string `json:"source"`
-	Bucket    string `json:"bucket"`
+	ID          string `json:"id"`
+	FirstName   string `json:"firstname"`
+	LastName    string `json:"lastname"`
+	Source      string `json:"source"`
+	Bucket      string `json:"bucket"`
+	DisplayName string `json:"displayName"`
+	CurrentUnit string `json:"currentUnit"`
+	Rank        string `json:"rank"`
+	Job         string `json:"job"`
+}
+
+// usersResponse is a structure of a the response returned from users search
+type usersResponse struct {
+	Users []*uspb.User `json:"users"`
 }
 
 // NewRouter creates a new Router, and initializes clients of User Service
 //  with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
 func NewRouter(
-	userConn *grpc.ClientConn,
+	userConn *grpcPoolTypes.ConnPool,
 	logger *logrus.Logger,
 ) *Router {
 	// If no logger is given, use a default logger.
@@ -67,7 +114,9 @@ func NewRouter(
 
 	r := &Router{logger: logger}
 
-	r.userClient = uspb.NewUsersClient(userConn)
+	r.userClient = func() uspb.UsersClient {
+		return uspb.NewUsersClient((*userConn).Conn())
+	}
 
 	return r
 }
@@ -75,8 +124,7 @@ func NewRouter(
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET(fmt.Sprintf("/users/:%s", ParamUserID), r.GetUserByID)
-	rg.GET("/users", r.SearchByName)
-	rg.GET(fmt.Sprintf("/users/:%s/approverInfo", ParamUserID), r.GetApproverInfo)
+	rg.GET("/users", r.SearchByRouter)
 }
 
 // GetUserByID is the request handler for GET /users/:id
@@ -92,11 +140,18 @@ func (r *Router) GetUserByID(c *gin.Context) {
 		return
 	}
 
-	getUserByIDRequest := &uspb.GetByIDRequest{
-		Id: userID,
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
 	}
 
-	user, err := r.userClient.GetUserByID(c.Request.Context(), getUserByIDRequest)
+	getUserByIDRequest := &uspb.GetByIDRequest{
+		Id:          userID,
+		Destination: destination,
+	}
+
+	user, err := r.userClient().GetUserByID(c.Request.Context(), getUserByIDRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -107,19 +162,105 @@ func (r *Router) GetUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+// SearchByRouter is the search by request router for GET /users
+func (r *Router) SearchByRouter(c *gin.Context) {
+	searchBy := searchByEnum((c.Query(ParamSearchType)))
+
+	switch searchBy {
+	case SearchByName:
+		r.SearchByName(c)
+	case FindByMail:
+		r.FindByMail(c)
+	case FindByT:
+		r.FindByUserT(c)
+	default:
+		r.SearchByName(c)
+	}
+}
+
+// FindByMail is the request handler for GET /users with flag FindByMailFlag
+func (r *Router) FindByMail(c *gin.Context) {
+	mail := c.Query(ParamRequestContent)
+	if mail == "" {
+		c.String(http.StatusBadRequest, "mail required")
+		return
+	}
+
+	
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
+	}
+
+	if destination != "" && destination == viper.GetString(ConfigCtsDest) && !strings.Contains(mail, "@") {
+		mail = mail + viper.GetString(ConfigCTSSuffix)
+	}
+
+	findUserByMailRequest := &uspb.GetByMailOrTRequest{
+		MailOrT: mail,
+		Destination: destination,
+	}
+
+	user, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByMailRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	usersResponse := encapsulateUserResponse(user)
+
+	c.JSON(http.StatusOK, usersResponse)
+}
+
+// FindByUserT is the request handler for GET /users with flag FindByTFlag
+func (r *Router) FindByUserT(c *gin.Context) {
+	userT := c.Query(ParamRequestContent)
+	if userT == "" {
+		c.String(http.StatusBadRequest, "userT required")
+		return
+	}
+
+	// User service accepts the same route for mails and userT - user search
+	findUserByTRequest := &uspb.GetByMailOrTRequest{
+		MailOrT: userT,
+	}
+
+	user, err := r.userClient().GetUserByMailOrT(c.Request.Context(), findUserByTRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	usersResponse := encapsulateUserResponse(user)
+
+	c.JSON(http.StatusOK, usersResponse)
+}
+
 // SearchByName is the request handler for GET /users
 func (r *Router) SearchByName(c *gin.Context) {
-	partialName := c.Query(ParamPartialName)
+	partialName := c.Query(ParamRequestContent)
 	if partialName == "" {
 		c.String(http.StatusBadRequest, "partial name required")
 		return
 	}
 
-	findUserByNameRequest := &uspb.FindUserByNameRequest{
-		Name: partialName,
+	destination := c.GetHeader(HeaderDestionation)
+	if destination != "" && destination != viper.GetString(ConfigCtsDest) && destination != viper.GetString(ConfigTomcalDest) {
+		c.String(http.StatusBadRequest, fmt.Sprintf("destination %s doesnt supported", destination))
+		return
 	}
 
-	user, err := r.userClient.FindUserByName(c.Request.Context(), findUserByNameRequest)
+	findUserByNameRequest := &uspb.FindUserByNameRequest{
+		Name:        partialName,
+		Destination: destination,
+	}
+
+	user, err := r.userClient().FindUserByName(c.Request.Context(), findUserByNameRequest)
 
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -128,34 +269,6 @@ func (r *Router) SearchByName(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
-}
-
-// GetApproverInfo is the request handler for GET /users/:id/approverInfo
-func (r *Router) GetApproverInfo(c *gin.Context) {
-	reqUser := ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	userID := c.Param(ParamUserID)
-	if userID == "" {
-		c.String(http.StatusBadRequest, fmt.Sprintf("%s field is required", ParamUserID))
-		return
-	}
-
-	getApproverInfoRequest := &uspb.GetApproverInfoRequest{
-		Id: userID,
-	}
-
-	info, err := r.userClient.GetApproverInfo(c.Request.Context(), getApproverInfoRequest)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-
-	c.JSON(http.StatusOK, info)
 }
 
 // ExtractRequestUser gets a context.Context and extracts the user's details from c.
@@ -194,4 +307,27 @@ func normalizeCephBucketName(bucketName string) string {
 func IsExternalUser(userID string) bool {
 	_, err := primitive.ObjectIDFromHex(userID)
 	return err != nil
+}
+
+// SetApmUser adds a user to the current apm transaction.
+func SetApmUser(ctx *gin.Context, user User) {
+	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
+
+	currentTransaction.Context.SetCustom(TransactionUserLabel, user)
+	currentTransaction.Context.SetUserID(user.ID)
+
+	if user.DisplayName != "" {
+		currentTransaction.Context.SetUserEmail(user.DisplayName)
+	}
+}
+
+// encapsulateUserResponse gets a user of type *uspb.GetUserResponse and encapsulate it to type usersResponse
+func encapsulateUserResponse(user *uspb.GetUserResponse) usersResponse {
+	var users []*uspb.User
+
+	users = append(users, user.GetUser())
+
+	usersResponse := usersResponse{Users: users}
+
+	return usersResponse
 }

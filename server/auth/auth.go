@@ -9,10 +9,10 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"go.elastic.co/apm"
 )
 
 const (
@@ -25,11 +25,23 @@ const (
 	// AuthHeaderBearer is the prefix for the authorization token in AuthHeader.
 	AuthHeaderBearer = "Bearer"
 
-	// FirstNameClaim is the claim name for the firstname of the user
-	FirstNameClaim = "firstName"
+	// FirstNameLabel is the claim name for the firstname of the user
+	FirstNameLabel = "firstName"
 
-	// LastNameClaim is the claim name for the lastname of the user
-	LastNameClaim = "lastName"
+	// LastNameLabel is the claim name for the lastname of the user
+	LastNameLabel = "lastName"
+
+	// DisplayNameLabel is the claim name of the display name of the user
+	DisplayNameLabel = "displayName"
+
+	// CurrentUnitLabel is the claim name of the current unit of the user
+	CurrentUnitLabel = "currentUnit"
+
+	// RankLabel is the claim name of the rank of the user
+	RankLabel = "rank"
+
+	// JobLabel is the claim name of the job of the user
+	JobLabel = "job"
 
 	// UserNameLabel is the label for the full user name.
 	UserNameLabel = "username"
@@ -40,11 +52,17 @@ const (
 	// DocsAuthTypeValue is the value of the docs-service for AuthTypeHeader key
 	DocsAuthTypeValue = "Docs"
 
-	// ServiceAuthTypeValue is the value of service for AuthTypeHeader key
+	// DEPRECATED: ServiceAuthTypeValue is the value of service for AuthTypeHeader key
 	ServiceAuthTypeValue = "Service"
+
+	// ServiceAuthCodeTypeValue is the value of service using the authorization code flow for AuthTypeHeader key
+	ServiceAuthCodeTypeValue = "Service AuthCode"
 
 	// ConfigWebUI is the name of the environment variable containing the path to the ui.
 	ConfigWebUI = "web_ui"
+
+	// DriveClientName is the client name of the Drive UI client.
+	DriveClientName = "DriveUI"
 )
 
 // Router is a structure that handels the authentication middleware.
@@ -78,11 +96,15 @@ func NewRouter(
 func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		isService := c.GetHeader(AuthTypeHeader)
-		if isService != ServiceAuthTypeValue {
+		serviceName := c.GetHeader(AuthTypeHeader)
+
+		if serviceName != oauth.DropboxAuthTypeValue && serviceName != oauth.CargoAuthTypeValue && serviceName != ServiceAuthCodeTypeValue {
+			// If not an external service, then it is a user (from the main Drive UI client).
+			oauth.SetApmClient(c, DriveClientName)
 			secret := secrets.Drive
 
-			if isService == DocsAuthTypeValue {
+			if serviceName == DocsAuthTypeValue {
+				oauth.SetApmClient(c, DocsAuthTypeValue)
 				secret = secrets.Docs
 			}
 
@@ -112,20 +134,19 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 	}
 
 	// Check type assertion
-	id, idOk := claims["id"].(string)
-	firstName, firstNameOk := claims[FirstNameClaim].(string)
-	lastName, lastNameOk := claims[LastNameClaim].(string)
+	id, idOk := claims["id"]
+	firstName, firstNameOk := claims[FirstNameLabel]
+	lastName, lastNameOk := claims[LastNameLabel]
+	displayName := claims[DisplayNameLabel]
+	job := claims[JobLabel]
+	currentUnit := claims[CurrentUnitLabel]
+	rank := claims[RankLabel]
 
 	// If any of the claims are invalid then redirect to authentication
 	if !idOk || !firstNameOk || !lastNameOk {
 		r.redirectToAuthService(c, authURL, fmt.Sprintf("invalid token claims: %v", claims))
 		return
 	}
-
-	// The current transaction of the apm, adding the user id to the context.
-	currentTarnasction := apm.TransactionFromContext(c.Request.Context())
-	currentTarnasction.Context.SetUserID(id)
-	currentTarnasction.Context.SetCustom(UserNameLabel, firstName+" "+lastName)
 
 	// Check type assertion.
 	// For some reason can't convert directly to int64
@@ -144,12 +165,24 @@ func (r *Router) UserMiddleware(c *gin.Context, secret string, authURL string) {
 		return
 	}
 
-	c.Set(user.ContextUserKey, user.User{
-		ID:        id,
-		FirstName: firstName,
-		LastName:  lastName,
-		Source:    user.InternalUserSource,
-	})
+	authenticatedUser := user.User{
+		ID:          fmt.Sprintf("%s", id),
+		FirstName:   fmt.Sprintf("%s", firstName),
+		LastName:    fmt.Sprintf("%s", lastName),
+		Source:      user.InternalUserSource,
+		DisplayName: fmt.Sprintf("%s", displayName),
+		CurrentUnit: fmt.Sprintf("%s", currentUnit),
+		Rank:        fmt.Sprintf("%s", rank),
+		Job:         fmt.Sprintf("%s", job),
+	}
+
+	c.Set(user.ContextUserKey, authenticatedUser)
+
+	user.SetApmUser(c, authenticatedUser)
+
+	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
+
+	c.Set(oauth.ContextAppKey, oauth.DriveAppID)
 
 	c.Next()
 }
