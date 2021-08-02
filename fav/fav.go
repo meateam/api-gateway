@@ -111,9 +111,7 @@ func (r *Router) CreateFav(c *gin.Context) {
 	// An app cannot create a favorite for a file that does not belong to the app Drive.
 	ctxAppID := c.Value(oauth.ContextAppKey).(string)
 	if (ctxAppID != oauth.DriveAppID) {
-		// what error is given here ?
-		// loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
-		c.AbortWithStatus(http.StatusUnauthorized)
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, fmt.Errorf("failed creating request to non Drive file")))
 		return
 	}
 
