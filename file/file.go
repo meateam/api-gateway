@@ -83,6 +83,10 @@ const (
 	// permitted to make the GetFilesByFolder action.
 	GetFilesByFolderRole = ppb.Role_READ
 
+	// GetFavFilesRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the GetFavFiles action.
+	GetFavFilesRole = ppb.Role_READ
+
 	// DeleteFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the DeleteFileByID action.
 	DeleteFileByIDRole = ppb.Role_READ
@@ -211,7 +215,7 @@ type GetFileByIDResponse struct {
 	Permission  *Permission `json:"permission,omitempty"`
 	IsExternal  bool        `json:"isExternal"`
 	AppID       string      `json:"appID,omitempty"`
-	IsFavorite  bool        `json:"isFavorite"`
+	IsFavorite  bool        `json:"isFavorite,omitempty"`
 }
 
 type getSharedFilesResponse struct {
@@ -226,9 +230,10 @@ type getFavFilesResponse struct {
 }
 
 type filesResponse struct {
-	Successful []*GetFileByIDResponse `json:"successful"`
-	Failed     []string               `json:"failed"`
+	SuccessfulFileIDs []*GetFileByIDResponse `json:"SuccessfulFileIDs"`
+	FailedFileIDs     []string               `json:"FailedFileIDs"`
 }
+
 
 type partialFile struct {
 	ID          string  `json:"id,omitempty"`
@@ -319,82 +324,8 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.GET("/files/fav", r.GetAllUserFavorites)
 }
 
-// GetAllUserFavorites is the request handler for GET /favFiles/:id
-// The method gets all favorite file IDs of a user and returns an array with all favorite files.
-func (r *Router) GetAllUserFavorites(c *gin.Context) {
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	favfiles, err := r.favoriteClient().GetManyFavoritesByUserID(c, &fvpb.GetManyFavoritesRequest{UserID: reqUser.ID})
-	if err != nil {
-		loggermiddleware.LogError(r.logger, err)
-		return
-	}
-
-	filesSuccesful := make([]*GetFileByIDResponse, 0, len(favfiles.FavFileIDList))
-	filesFailed := make([]string, 0, len(favfiles.FavFileIDList))
-
-	var files []*fpb.File
-	for _, favfile := range favfiles.FavFileIDList {
-		result, err := r.fileClient().GetFileByID(c, &fpb.GetByFileByIDRequest{Id: favfile.FileID})
-		if err != nil {
-			filesFailed = append(filesFailed, favfile.FileID)
-			loggermiddleware.LogError(r.logger, err)
-		}
-		files = append(files, result)
-	}
-
-	FavFilesResponse := &getFavFilesResponse{}
-
-	for _, file := range files {
-		userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
-			r.fileClient(),
-			r.permissionClient(),
-			reqUser.ID,
-			file.GetId(),
-			GetFilesByFolderRole)
-		if err != nil {
-			filesFailed = append(filesFailed, file.GetId())
-			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
-			continue
-		}
-
-		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
-		if err != nil {
-			filesFailed = append(filesFailed, file.GetId())
-			loggermiddleware.LogError(r.logger, err)
-			continue
-		}
-
-		if userFilePermission != "" {
-			filesSuccesful = append(filesSuccesful, CreateGetFileResponse(file, userFilePermission, foundPermission, res.IsFavorite))
-		}
-
-		var errMsg string
-		if len(filesFailed) > 0 {
-			errMsg = "file not found"
-		}
-
-		filesResp := &filesResponse{Successful: filesSuccesful, Failed: filesFailed}
-		FavFilesResponse = &getFavFilesResponse{Files: filesResp, ErrMsg: errMsg}
-
-	}
-
-	c.JSON(http.StatusOK, FavFilesResponse)
-
-}
-
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
 		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
@@ -440,10 +371,9 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+	res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: user.ExtractRequestUser(c).ID, FileID: file.GetId()})
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
-		return
 	}
 	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission, res.IsFavorite))
 
@@ -565,7 +495,6 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
 		if err != nil {
 			loggermiddleware.LogError(r.logger, err)
-			return
 		}
 		if userFilePermission != "" {
 			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission, res.IsFavorite))
@@ -632,7 +561,6 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 			res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
 			if err != nil {
 				loggermiddleware.LogError(r.logger, err)
-				return
 			}
 			files = append(
 				files,
@@ -901,7 +829,6 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
 		if err != nil {
 			loggermiddleware.LogError(r.logger, err)
-			return
 		}
 		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[i]]
 		populatedPermittedAncestors = append(
@@ -1284,6 +1211,7 @@ func (r *Router) HandleUserFilePermit(
 }
 
 // CreateGetFileResponse Creates a file grpc response to http response struct.
+// optionalIsFav is an optional parameter to the function, whether the file is favorite or not.  
 func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.PermissionObject, optionalIsFav ...bool) *GetFileByIDResponse {
 	if file == nil {
 		return nil
@@ -1294,9 +1222,7 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 	var isFavorite bool
 	if len(optionalIsFav) != 0 {
 		isFavorite = optionalIsFav[0]
-	} else {
-		isFavorite = false
-	}
+	} 
 
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &GetFileByIDResponse{
@@ -1441,4 +1367,68 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+
+// GetAllUserFavorites is the request handler for GET /files/fav
+// The method gets all favorite file IDs of a user and returns an array with all favorite files.
+func (r *Router) GetAllUserFavorites(c *gin.Context) {
+	errorMsg := ""
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	favfiles, err := r.favoriteClient().GetManyFavoritesByUserID(c, &fvpb.GetManyFavoritesRequest{UserID: reqUser.ID})
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
+		return
+	}
+
+	SuccessfulFileIDs := make([]*GetFileByIDResponse, 0, len(favfiles.FavFileIDList))
+	FailedFileIDs := make([]string, 0, len(favfiles.FavFileIDList))
+
+	var files []*fpb.File
+	for _, favfileID := range favfiles.FavFileIDList {
+		currentFile, err := r.fileClient().GetFileByID(c, &fpb.GetByFileByIDRequest{Id: favfileID.FileID})
+		if err != nil {
+			FailedFileIDs = append(FailedFileIDs, favfileID.FileID)
+			loggermiddleware.LogError(r.logger, err)
+			errorMsg = err.Error()
+			continue
+		}
+		files = append(files, currentFile)
+	}
+
+	FavFilesResponse := &getFavFilesResponse{}
+
+	for _, file := range files {
+		userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
+			r.fileClient(),
+			r.permissionClient(),
+			reqUser.ID,
+			file.GetId(),
+			GetFavFilesRole)
+		if err != nil {
+			FailedFileIDs = append(FailedFileIDs, file.GetId())
+			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
+			errorMsg = err.Error()
+			continue
+		}
+
+		if userFilePermission != "" {
+			SuccessfulFileIDs = append(SuccessfulFileIDs, CreateGetFileResponse(file, userFilePermission, foundPermission, true))
+		}
+
+		if len(FailedFileIDs) > 0 {
+			errorMsg = "There was an error fetching a favorite file" + errorMsg
+		}
+
+		filesResp := &filesResponse{SuccessfulFileIDs: SuccessfulFileIDs, FailedFileIDs: FailedFileIDs}
+		FavFilesResponse = &getFavFilesResponse{Files: filesResp, ErrMsg: errorMsg}
+
+	}
+	c.JSON(http.StatusOK, FavFilesResponse)
+
 }
