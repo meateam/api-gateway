@@ -7,10 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## [v5.0.0] - 2021-07-25
+## [v5.0.1] - 2021-07-25
 
 ### Added
-- minor: ([247](https://github.com/meateam/api-gateway/pull/247)): Add file and folder upload number restriction to /config.
+- hotfix: ([247](https://github.com/meateam/api-gateway/pull/247)): Add file and folder upload number restriction to /config.
 
 ## [v5.0.0] - 2021-07-25
 
