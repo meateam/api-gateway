@@ -282,7 +282,7 @@ func ExtractRequestUser(ctx context.Context) *User {
 	switch v := contextUser.(type) {
 	case User:
 		reqUser = v
-		reqUser.Bucket = normalizeCephBucketName(reqUser.ID)
+		reqUser.Bucket = NormalizeCephBucketName(reqUser.ID)
 	default:
 		return nil
 	}
@@ -290,9 +290,9 @@ func ExtractRequestUser(ctx context.Context) *User {
 	return &reqUser
 }
 
-// normalizeCephBucketName gets a bucket name and normalizes it
+// NormalizeCephBucketName gets a bucket name and normalizes it
 // according to ceph s3's constraints.
-func normalizeCephBucketName(bucketName string) string {
+func NormalizeCephBucketName(bucketName string) string {
 	postfix := viper.GetString(ConfigBucketPostfix)
 	lowerCaseBucketName := strings.ToLower(bucketName + postfix)
 

@@ -19,10 +19,13 @@ import (
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
+	qpb "github.com/meateam/file-service/proto/quota"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	usb "github.com/meateam/user-service/proto/users"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/status"
@@ -119,6 +122,12 @@ type Router struct {
 	// SearchClientFactory
 	searchClient factory.SearchClientFactory
 
+	// UserClientFactory
+	userClient factory.UserClientFactory
+
+	// QuotaClientFactory
+	quotaClient factory.QuotaClientFactory
+
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 	mu              sync.Mutex
@@ -146,6 +155,8 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 	fileConn *grpcPoolTypes.ConnPool,
 	permissionConn *grpcPoolTypes.ConnPool,
 	searchConn *grpcPoolTypes.ConnPool,
+	userConn *grpcPoolTypes.ConnPool,
+	quotaConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
@@ -171,6 +182,13 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 		return spb.NewSearchClient((*searchConn).Conn())
 	}
 
+	r.userClient = func() usb.UsersClient {
+		return usb.NewUsersClient((*userConn).Conn())
+	}
+
+	r.quotaClient = func() qpb.QuotaServiceClient {
+		return qpb.NewQuotaServiceClient((*quotaConn).Conn())
+	}
 	r.oAuthMiddleware = oAuthMiddleware
 
 	return r
@@ -186,7 +204,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	r.UpdateSetup(rg)
 
 	// initializes copy routes
-	r.CopySetup(rg)
+	r.ShiftSetup(rg)
 }
 
 // Upload is the request handler for /upload request.
@@ -278,7 +296,6 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		Parent:  parent,
 		AppID:   appID,
 	})
-
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -542,7 +559,6 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		Parent:  parent,
 		AppID:   appID,
 	})
-
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -622,7 +638,6 @@ func (r *Router) UploadInit(c *gin.Context) {
 		Parent:  parent,
 		Size:    fileSize,
 	})
-
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
