@@ -15,6 +15,7 @@ import (
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
+	prdcr "github.com/meateam/listener-service/proto/producer"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/user-service/proto/users"
 	"github.com/sirupsen/logrus"
@@ -68,6 +69,9 @@ type Router struct {
 	// UserClientFactory
 	userClient factory.UserClientFactory
 
+	// UserClientFactory
+	producerClient factory.ProducerClientFactory
+
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 }
@@ -79,6 +83,7 @@ func NewRouter(
 	permissionConn *grpcPoolTypes.ConnPool,
 	fileConn *grpcPoolTypes.ConnPool,
 	userConnection *grpcPoolTypes.ConnPool,
+	producerConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
@@ -99,6 +104,10 @@ func NewRouter(
 
 	r.userClient = func() upb.UsersClient {
 		return upb.NewUsersClient((*userConnection).Conn())
+	}
+
+	r.producerClient = func() prdcr.ProducerServiceClient {
+		return prdcr.NewProducerServiceClient((*producerConn).Conn())
 	}
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -344,6 +353,14 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 		return
 	}
 
+	if _, err := r.producerClient().SendPermissionDelete(
+		c.Request.Context(),
+		&prdcr.SendPermissionDeleteRequest{FileID: fileID},
+	); err != nil {
+		loggermiddleware.LogError(r.logger, err)
+		return
+	}
+	
 	c.JSON(http.StatusOK, Permission{
 		UserID:  permission.GetUserID(),
 		FileID:  permission.GetFileID(),

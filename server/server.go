@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
+const (	
 	envPrefix                      = "GW"
 	configPort                     = "port"
 	configUploadService            = "upload_service"
@@ -23,6 +23,8 @@ const (
 	configSearchService            = "search_service"
 	configSpikeService             = "spike_service"
 	configGotenbergService         = "gotenberg_service"
+	configAdvancedSearchService    = "advanced_search_service"
+	configListenerService 	       = "listener_service"
 	configSecret                   = "secret"
 	configAuthURL                  = "auth_url"
 	configDocsURL                  = "docs_url"
@@ -87,8 +89,10 @@ func init() {
 	viper.SetDefault(configPermissionService, "permission-service:8080")
 	viper.SetDefault(configDropboxService, "dropbox-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
+	viper.SetDefault(configAdvancedSearchService, "indexing-search-service:8005")
 	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
+	viper.SetDefault(configListenerService, "listener-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configDocsURL, "http://localhost:3000")
