@@ -16,8 +16,8 @@ require (
 	github.com/meateam/download-service v0.0.0-20191216103739-80620a5c7311
 	github.com/meateam/dropbox-service v0.0.0-20210323125524-40aa0b34499c
 	github.com/meateam/elasticsearch-logger v1.1.3-0.20190901111807-4e8b84fb9fda
-	github.com/meateam/file-service v5.0.1-0.20210801135452-120f9202104f+incompatible // indirect
-	github.com/meateam/file-service/proto v0.0.0-20210801135452-120f9202104f
+	github.com/meateam/file-service v5.0.1-0.20210811074409-0dc6a0d6f0be+incompatible // indirect
+	github.com/meateam/file-service/proto v0.0.0-20210811074409-0dc6a0d6f0be
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8
 	github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d
@@ -38,6 +38,7 @@ require (
 	go.mongodb.org/mongo-driver v1.4.6
 	golang.org/x/mod v0.4.1 // indirect
 	golang.org/x/net v0.0.0-20210220033124-5f55cee0dc0d // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210220050731-9a76102bfb43 // indirect
 	golang.org/x/tools v0.1.0 // indirect
 	google.golang.org/genproto v0.0.0-20201211151036-40ec1c210f7a // indirect
