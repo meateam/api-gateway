@@ -12,6 +12,7 @@ import (
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
+	"github.com/remeh/sizedwaitgroup"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,13 +24,6 @@ func deleteFileAndPremission(ctx *gin.Context,
 	fileClient fpb.FileServiceClient,
 	permissionClient ppb.PermissionClient,
 	fileID string) *fpb.File {
-	filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to get file's  %s permission to delete: %v", fileID, err)))
-		return nil
-	}
-
 	// Delete file's permissions
 	if _, err := permissionClient.DeleteFilePermissions(ctx, &ppb.DeleteFilePermissionsRequest{FileID: fileID}); err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -42,14 +36,21 @@ func deleteFileAndPremission(ctx *gin.Context,
 	if err != nil || deletedFile == nil {
 		if status.Code(err) != codes.NotFound {
 			// Add permission rollback
-			AddPermissionsOnError(ctx, err, fileID, filePermissions.GetPermissions(), permissionClient, logger)
-		} 
+			filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
+			if err != nil {
+				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+				loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to get file's  %s permission to delete: %v", fileID, err)))
+				return nil
+			}
 
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))		
+			AddPermissionsOnError(ctx, err, fileID, filePermissions.GetPermissions(), permissionClient, logger)
+		}
+
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file: %v", err)))
 		return nil
-	} 
-	
+	}
+
 	return deletedFile.GetFile()
 }
 
@@ -63,13 +64,11 @@ func DeleteFile(ctx *gin.Context,
 	searchClient spb.SearchClient,
 	permissionClient ppb.PermissionClient,
 	fileID string,
-	userID string) ([]string, error) {
-	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed getting file to delete: %v", err)))
-		return nil, err
-	}
+	userID string,
+	role string) ([]string, error) {
+	swg := sizedwaitgroup.New(10)
+	wg := &sync.WaitGroup{}
+	mu := sync.RWMutex{}
 
 	getDescendantsByIDRes, err := fileClient.GetDescendantsByID(ctx, &fpb.GetDescendantsByIDRequest{Id: fileID})
 	if err != nil {
@@ -86,7 +85,7 @@ func DeleteFile(ctx *gin.Context,
 	// Deleting the file and permissions from db
 	// Only the owner of the file can delete the file instance.
 	// If the user requesting to delete isn't the owner- delete it's permission to this file
-	if file.GetOwnerID() == userID {
+	if role == OwnerRole {
 		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, fileID)
 		if deletedFile != nil {
 			deletedFiles = append(deletedFiles, deletedFile)
@@ -104,21 +103,30 @@ func DeleteFile(ctx *gin.Context,
 	}
 
 	// Delete file's descendants
-	for i := 0; i < len(descendants); i++ {
-		file := descendants[i].GetFile()
-		parent := descendants[i].GetParent()
+	for _, descendant := range descendants {
+		swg.Add()
 
-		if file.GetOwnerID() == userID {
-			deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, file.GetId())
-			if deletedFile != nil {
-				deletedFiles = append(deletedFiles, deletedFile)
+		go func(descendant *fpb.GetDescendantsByIDResponse_Descendant, deletedFiles *[]*fpb.File, floatFiles *[]string) {
+			defer swg.Done()
+			file := descendant.GetFile()
+			parent := descendant.GetParent()
+
+			if file.GetOwnerID() == userID {
+				deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, file.GetId())
+				if deletedFile != nil {
+					mu.Lock()
+					*deletedFiles = append(*deletedFiles, deletedFile)
+					mu.Unlock()
+				}
+
+			} else if parent == nil || parent.GetOwnerID() == userID {
+				mu.Lock()
+				*floatFiles = append(*floatFiles, file.GetId())
+				mu.Unlock()
 			}
-
-		} else if parent == nil || parent.GetOwnerID() == userID {
-			floatFiles = append(floatFiles, file.GetId())
-		}
+		}(descendant, &deletedFiles, &floatFiles)
 	}
-
+	swg.Wait()
 	root := ""
 	failedFloatFiles, err := HandleUpdate(
 		ctx,
@@ -139,19 +147,26 @@ func DeleteFile(ctx *gin.Context,
 	bucketKeysMap := make(map[string][]string)
 	ids := make([]string, 0, len(deletedFiles))
 	for _, file := range deletedFiles {
-		bucketKeysMap[file.GetBucket()] = append(bucketKeysMap[file.GetBucket()], file.GetKey())
-		ids = append(ids, file.GetId())
+		swg.Add()
+		go func(file *fpb.File, bucketKeysMap *map[string][]string, ids *[]string) {
+			defer swg.Done()
+			mu.Lock()
+			(*bucketKeysMap)[file.GetBucket()] = append((*bucketKeysMap)[file.GetBucket()], file.GetKey())
+			*ids = append(*ids, file.GetId())
+			mu.Unlock()
 
-		if _, err := searchClient.Delete(ctx, &spb.DeleteRequest{Id: file.GetId()}); err != nil {
-			loggermiddleware.LogError(logger, err)
-		}
+			if _, err := searchClient.Delete(ctx, &spb.DeleteRequest{Id: file.GetId()}); err != nil {
+				loggermiddleware.LogError(logger, err)
+			}
+		}(file, &bucketKeysMap, &ids)
 	}
+	swg.Wait()
+	mu.RLock()
 
-	var wg sync.WaitGroup
-	defer wg.Wait()
 	for bucket, keys := range bucketKeysMap {
 		wg.Add(1)
 		go func(bucket string, keys []string) {
+			defer wg.Done()
 			DeleteObjectRequest := &upb.DeleteObjectsRequest{
 				Bucket: bucket,
 				Keys:   keys,
@@ -167,10 +182,10 @@ func DeleteFile(ctx *gin.Context,
 					fmt.Errorf("failed deleting keys: %v", deleteObjectResponse.GetFailed()),
 				)
 			}
-
-			wg.Done()
 		}(bucket, keys)
 	}
+	wg.Wait()
+	mu.RUnlock()
 
 	if len(ids) < len(deletedFiles) {
 		return nil, fmt.Errorf("failed deleting files")

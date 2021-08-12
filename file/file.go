@@ -571,22 +571,9 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole); role == "" {
+	role, _ := r.HandleUserFilePermission(c, fileID, DeleteFileByIDRole)
+	if role == "" {
 		return
-	}
-
-	// Check if the user has an direct permission to the file
-	hasDirectPermission, err := r.permissionClient().IsPermitted(
-		c,&ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole}); 
-	if err != nil && status.Code(err) != codes.NotFound {
-		loggermiddleware.LogError(r.logger, err)
-		return
-	}
-
-	// If the user doesn't have direct premission, then he can't delete the file
-	if !hasDirectPermission.GetPermitted() {
-		c.AbortWithStatus(http.StatusForbidden)
-		return	
 	}
 
 	ids, err := DeleteFile(
@@ -597,7 +584,8 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		r.searchClient(),
 		r.permissionClient(),
 		fileID,
-		reqUser.ID)
+		reqUser.ID,
+		role)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
