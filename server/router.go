@@ -101,7 +101,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"statusSuccessType":    viper.GetString(configTransferStatusSuccess),
 				"statusFailedType":     viper.GetString(configTransferStatusFailed),
 				"statusInProgressType": viper.GetString(configTransferStatusInProgress),
-				"statusPendingType": 	viper.GetString(configTransferStatusPending),
+				"statusPendingType":    viper.GetString(configTransferStatusPending),
 				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 				"externalNetworkDests": GetExternalNetworksConfiguration(),
 				"localOfficeUrl":       viper.GetString(configLocalOfficeURL),
@@ -212,7 +212,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, dropboxConn,
 		searchConn, gotenbergClient, om, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, fileConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
