@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- hotfix([255](https://github.com/meateam/api-gateway/pull/255)): validate user quota before upload
+
 ## [v5.0.0] - 2021-07-25
 
 ### Added
