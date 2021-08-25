@@ -214,7 +214,7 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, dropboxConn,
 		searchConn, gotenbergClient, om, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, fileConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)

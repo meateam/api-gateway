@@ -2,6 +2,7 @@ package upload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +20,7 @@ import (
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
+	qpb "github.com/meateam/file-service/proto/quota"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
@@ -83,6 +85,8 @@ const (
 	// UploadRole is the role that is required of the authenticated requester to have to be
 	// permitted to make an upload action.
 	UploadRole = ppb.Role_WRITE
+
+	quotaExceededMessage = "file size exceeded user's quota"
 )
 
 func marshalSearchPB(f *fpb.File, file *spb.File) error {
@@ -119,6 +123,9 @@ type Router struct {
 	// SearchClientFactory
 	searchClient factory.SearchClientFactory
 
+	// QuotaClientFactory
+	quotaClient factory.QuotaClientFactory
+
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 	mu              sync.Mutex
@@ -146,6 +153,7 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 	fileConn *grpcPoolTypes.ConnPool,
 	permissionConn *grpcPoolTypes.ConnPool,
 	searchConn *grpcPoolTypes.ConnPool,
+	quotaConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
@@ -169,6 +177,10 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 
 	r.searchClient = func() spb.SearchClient {
 		return spb.NewSearchClient((*searchConn).Conn())
+	}
+
+	r.quotaClient = func() qpb.QuotaServiceClient {
+		return qpb.NewQuotaServiceClient((*quotaConn).Conn())
 	}
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -440,10 +452,34 @@ func (r *Router) UploadMedia(c *gin.Context) {
 		return
 	}
 
+	if err := r.validateUserQuota(c, c.Request.ContentLength); err != nil {
+		c.AbortWithError(http.StatusRequestEntityTooLarge, err)
+		return
+	}
+
 	contentType := c.ContentType()
 	fileName := extractFileName(c)
 
 	r.UploadFile(c, fileReader, contentType, fileName)
+}
+
+func (r *Router) validateUserQuota(c *gin.Context, fileSize int64) error {
+	reqUser := user.ExtractRequestUser(c)
+
+	quota, err := r.quotaClient().GetOwnerQuota(
+		c.Request.Context(),
+		&qpb.GetOwnerQuotaRequest{OwnerID: reqUser.ID},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if quota.Limit < quota.Used+fileSize {
+		return errors.New(quotaExceededMessage)
+	}
+
+	return nil
 }
 
 // UploadMultipart uploads a file from multipart/form-data request.
@@ -463,6 +499,11 @@ func (r *Router) UploadMultipart(c *gin.Context) {
 
 	if fileHeader.Size > MaxSimpleUploadSize {
 		c.String(http.StatusBadRequest, fmt.Sprintf("max file size exceeded %d", MaxSimpleUploadSize))
+		return
+	}
+
+	if err = r.validateUserQuota(c, fileHeader.Size); err != nil {
+		c.AbortWithError(http.StatusRequestEntityTooLarge, err)
 		return
 	}
 
@@ -612,6 +653,11 @@ func (r *Router) UploadInit(c *gin.Context) {
 		fileSize = 0
 	}
 
+	if err := r.validateUserQuota(c, fileSize); err != nil {
+		c.AbortWithError(http.StatusRequestEntityTooLarge, err)
+		return
+	}
+
 	createUploadResponse, err := r.fileClient().CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  reqUser.Bucket,
 		Name:    reqBody.Title,
@@ -699,6 +745,11 @@ func (r *Router) UploadPart(c *gin.Context) {
 	if err != nil {
 		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
 		r.deleteUploadOnErrorWithStatus(c, http.StatusInternalServerError, contentRangeErr, upload.GetKey(), upload.GetBucket())
+		return
+	}
+
+	if err := r.validateUserQuota(c, fileSize); err != nil {
+		c.AbortWithError(http.StatusRequestEntityTooLarge, err)
 		return
 	}
 
