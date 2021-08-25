@@ -136,7 +136,7 @@ func init() {
 	viper.SetDefault(configTransferStatusInProgress, "in progress")
 	viper.SetDefault(configTransferStatusPending, "pending")
 	viper.SetDefault(configCTSSuffix, "@gmail.com")
-	viper.SetDefault(configMaxZippingSize, 1<<30)
+	viper.SetDefault(configMaxZippingSize, 3<<30)
 	viper.SetDefault(configMaxZippingAmount, 200)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()

@@ -136,16 +136,17 @@ func (r Router) addFileToArchive(c *gin.Context, archive *zip.Writer, filePath s
 			header.Method = zip.Store
 		}
 
-		if err := zipFileToWriter(readCloser, archive, header, buffer); err != nil {
+		if err := zipFileToWriter(c, readCloser, archive, header, buffer); err != nil {
 			return err
 		}
+		c.Writer.Flush()
 	}
 
 	return nil
 }
 
 // zipFileToWriter zips the read cluster rc into archive according to the given header.
-func zipFileToWriter(r io.ReadCloser, archive *zip.Writer, header *zip.FileHeader, buffer []byte) error {
+func zipFileToWriter(c *gin.Context, rc io.ReadCloser, archive *zip.Writer, header *zip.FileHeader, buffer []byte) error {
 	if buffer == nil {
 		buffer = make([]byte, download.PartSize)
 	}
@@ -154,11 +155,12 @@ func zipFileToWriter(r io.ReadCloser, archive *zip.Writer, header *zip.FileHeade
 	if err != nil {
 		return err
 	}
-
-	if _, err = io.CopyBuffer(writer, r, buffer); err != nil {
+	c.Writer.Write(buffer)
+	if _, err = io.CopyBuffer(writer, rc, buffer); err != nil {
 		return err
 	}
 
+	archive.Flush()
 	return nil
 }
 
