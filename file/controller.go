@@ -35,7 +35,7 @@ func deleteFileAndPremission(ctx *gin.Context,
 	deletedFile, err := fileClient.DeleteFileByID(ctx, &fpb.DeleteFileByIDRequest{Id: fileID})
 	if err != nil || deletedFile == nil {
 		if status.Code(err) != codes.NotFound {
-			// Add permission rollback
+			// Permission rollback
 			filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
 			if err != nil {
 				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
