@@ -19,7 +19,7 @@ const (
 	configFileService              = "file_service"
 	configUserService              = "user_service"
 	configPermissionService        = "permission_service"
-	configFavService 	       = "fav_service"
+	configFavService               = "fav_service"
 	configDropboxService           = "dropbox_service"
 	configSearchService            = "search_service"
 	configSpikeService             = "spike_service"
@@ -142,7 +142,7 @@ func init() {
 	viper.SetDefault(configCTSSuffix, "@gmail.com")
 	viper.SetDefault(configMaxUploadedFiles, 100)
 	viper.SetDefault(configMaxUploadedFolders, 100)
-	viper.SetDefault(configMaxZippingSize, 1<<30)
+	viper.SetDefault(configMaxZippingSize, 3<<30)
 	viper.SetDefault(configMaxZippingAmount, 200)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
