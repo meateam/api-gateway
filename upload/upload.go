@@ -452,6 +452,11 @@ func (r *Router) UploadMedia(c *gin.Context) {
 		return
 	}
 
+	if err := r.validateUserQuota(c, c.Request.ContentLength); err != nil {
+		c.AbortWithError(http.StatusRequestEntityTooLarge, err)
+		return
+	}
+
 	contentType := c.ContentType()
 	fileName := extractFileName(c)
 
@@ -648,6 +653,11 @@ func (r *Router) UploadInit(c *gin.Context) {
 		fileSize = 0
 	}
 
+	if err := r.validateUserQuota(c, fileSize); err != nil {
+		c.AbortWithError(http.StatusRequestEntityTooLarge, err)
+		return
+	}
+
 	createUploadResponse, err := r.fileClient().CreateUpload(c.Request.Context(), &fpb.CreateUploadRequest{
 		Bucket:  reqUser.Bucket,
 		Name:    reqBody.Title,
@@ -735,6 +745,11 @@ func (r *Router) UploadPart(c *gin.Context) {
 	if err != nil {
 		contentRangeErr := fmt.Errorf("%s is invalid: %v", ContentRangeHeader, err)
 		r.deleteUploadOnErrorWithStatus(c, http.StatusInternalServerError, contentRangeErr, upload.GetKey(), upload.GetBucket())
+		return
+	}
+
+	if err := r.validateUserQuota(c, fileSize); err != nil {
+		c.AbortWithError(http.StatusRequestEntityTooLarge, err)
 		return
 	}
 
