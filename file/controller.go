@@ -25,10 +25,22 @@ func deleteFileAndPremission(ctx *gin.Context,
 	permissionClient ppb.PermissionClient,
 	fileID string) *fpb.File {
 	// Delete file's permissions
-	if _, err := permissionClient.DeleteFilePermissions(ctx, &ppb.DeleteFilePermissionsRequest{FileID: fileID}); err != nil {
+	deletedPermissions, err := permissionClient.DeleteFilePermissions(ctx, &ppb.DeleteFilePermissionsRequest{FileID: fileID})
+	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file's %s permissions: %v", fileID, err)))
 		return nil
+	}
+
+	deletedFilePermissions := deletedPermissions.GetPermissions()
+
+	filePermissions := make([]*ppb.GetFilePermissionsResponse_UserRole, 0, len(deletedFilePermissions))
+	for _, deletedFilePermission := range deletedFilePermissions {
+		filePermissions = append(filePermissions, &ppb.GetFilePermissionsResponse_UserRole{
+			UserID:  deletedFilePermission.GetUserID(),
+			Role:    deletedFilePermission.GetRole(),
+			Creator: deletedFilePermission.GetCreator(),
+		})
 	}
 
 	// Delete file from db
@@ -36,14 +48,7 @@ func deleteFileAndPremission(ctx *gin.Context,
 	if err != nil || deletedFile == nil {
 		if status.Code(err) != codes.NotFound {
 			// Permission rollback
-			filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
-			if err != nil {
-				httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-				loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to get file's  %s permission to delete: %v", fileID, err)))
-				return nil
-			}
-
-			AddPermissionsOnError(ctx, err, fileID, filePermissions.GetPermissions(), permissionClient, logger)
+			AddPermissionsOnError(ctx, err, fileID, filePermissions, permissionClient, logger)
 		}
 
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -70,6 +75,24 @@ func DeleteFile(ctx *gin.Context,
 	wg := &sync.WaitGroup{}
 	mu := sync.RWMutex{}
 
+	var deletedFile *fpb.File = nil
+
+	// Deleting the file and permissions from db
+	// Only the owner of the file can delete the file instance.
+	// If the user requesting to delete isn't the owner- delete it's permission to this file
+	if role == OwnerRole {
+		deletedFile = deleteFileAndPremission(ctx, logger, fileClient, permissionClient, fileID)
+	} else {
+		if _, err := permissionClient.DeletePermission(
+			ctx,
+			&ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			errFmt := fmt.Errorf("failed getting file's descendants to delete: %v", err)
+			loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, errFmt))
+			return nil, errFmt
+		}
+	}
+
 	getDescendantsByIDRes, err := fileClient.GetDescendantsByID(ctx, &fpb.GetDescendantsByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -82,24 +105,8 @@ func DeleteFile(ctx *gin.Context,
 	deletedFiles := make([]*fpb.File, 0, len(descendants)+1)
 	floatFiles := make([]string, 0, len(descendants))
 
-	// Deleting the file and permissions from db
-	// Only the owner of the file can delete the file instance.
-	// If the user requesting to delete isn't the owner- delete it's permission to this file
-	if role == OwnerRole {
-		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, fileID)
-		if deletedFile != nil {
-			deletedFiles = append(deletedFiles, deletedFile)
-		}
-
-	} else {
-		if _, err := permissionClient.DeletePermission(
-			ctx,
-			&ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}); err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			errFmt := fmt.Errorf("failed getting file's descendants to delete: %v", err)
-			loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, errFmt))
-			return nil, errFmt
-		}
+	if deletedFile != nil {
+		deletedFiles = append(deletedFiles, deletedFile)
 	}
 
 	// Delete file's descendants
