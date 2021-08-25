@@ -16,4 +16,3 @@ COPY --from=builder /go/src/app/api-gateway /api-gateway
 COPY --from=builder /go/src/app/swagger/ /swagger/
 EXPOSE 8080
 ENTRYPOINT ["/api-gateway"]
-

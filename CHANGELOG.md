@@ -11,6 +11,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - hotfix:([223](https://github.com/meateam/api-gateway/pull/223)): added authType and appID to metrics.
 
+## [v5.0.1] - 2021-07-25
+
+### Added
+
+- hotfix: ([247](https://github.com/meateam/api-gateway/pull/247)): Add file and folder upload number restriction to /config.
+
+## [v5.0.0] - 2021-07-25
+
+### Added
+
+- major: ([239](https://github.com/meateam/api-gateway/pull/239)) : Fix the fetching of GetSharedFiles bug that returns 404. Instead of returning only the successful files, it returns the successful files, the failed files and the error (if any) (breaking changes)
+
+## [v4.4.1] - 2021-05-30
+
+### Fixed
+
+- hotfix([237](https://github.com/meateam/api-gateway/pull/237)): add pending status for transfer
+- hotfix([236](https://github.com/meateam/api-gateway/pull/236)): fix delete file in shared folder & fix transfer info premission
+- hotfix([201](https://github.com/meateam/api-gateway/issues/201)): changed the delete order between the file and its permissions and added a rollback for the permissions
+
+## [v4.4.0] - 2021-05-18
+
+- minor([185](https://github.com/meateam/api-gateway/pull/185)): Added CTS upn transfer -fix
+
+## [v4.3.0] - 2021-05-16
+
+### Fixed
+
+- minor: ([234](https://github.com/meateam/api-gateway/pull/234)): Added CTS upn transfer
+
+## [v4.2.2] - 2021-05-14
+
+### Fixed
+
+- hotfix: ([231](https://github.com/meateam/api-gateway/pull/231)): allow cargo->drive transfer with identical `from` and `to`
+
 ## [v4.2.1] - 2021-04-27
 
 ### Added
@@ -102,13 +138,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FEAT([162](https://github.com/meateam/api-gateway/pull/162)): add auth startegy for docs
 
 [unreleased]: https://github.com/meateam/api-gateway/compare/master...develop
-[v4.2.1]: https://github.com/meateam/api-gateway/compare/v4.1.0...v4.2.1
-[v4.1.0]: https://github.com/meateam/api-gateway/compare/v4.0.0...v4.1.0
-[v4.0.0]: https://github.com/meateam/api-gateway/compare/v3.0.1...v4.0.0
-[v3.0.1]: https://github.com/meateam/api-gateway/compare/v3.0.0...v3.0.1
-[v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0
-[v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.3.0
-[v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0
-[v2.1.1]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.1.1
-[v2.1.0]: https://github.com/meateam/api-gateway/compare/v2.0.0...v2.1.0
-[v2.0.0]: https://github.com/meateam/api-gateway/compare/v1.3...v2.0.0
+
+# <<<<<<< HEAD
+
+[v5.0.0]: https://github.com/meateam/api-gateway/compare/v4.4.1...v5.0.0
+[v4.4.1]: https://github.com/meateam/api-gateway/compare/v4.4.0...v4.4.1
+[v4.4.0]: https://github.com/meateam/api-gateway/compare/v4.3.0...v4.4.0
+[v4.3.0]: https://github.com/meateam/api-gateway/compare/v4.2.2...v4.3.0
+[v4.2.2]: https://github.com/meateam/api-gateway/compare/v4.2.1...v4.2.2
+
+> > > > > > > develop
+> > > > > > > [v4.2.1]: https://github.com/meateam/api-gateway/compare/v4.1.0...v4.2.1 > > > > > > > [v4.1.0]: https://github.com/meateam/api-gateway/compare/v4.0.0...v4.1.0 > > > > > > > [v4.0.0]: https://github.com/meateam/api-gateway/compare/v3.0.1...v4.0.0 > > > > > > > [v3.0.1]: https://github.com/meateam/api-gateway/compare/v3.0.0...v3.0.1 > > > > > > > [v3.0.0]: https://github.com/meateam/api-gateway/compare/v2.3.0...v3.0.0 > > > > > > > [v2.3.0]: https://github.com/meateam/api-gateway/compare/v2.2.0...v2.3.0 > > > > > > > [v2.2.0]: https://github.com/meateam/api-gateway/compare/v2.1.1...v2.2.0 > > > > > > > [v2.1.1]: https://github.com/meateam/api-gateway/compare/v2.1.0...v2.1.1 > > > > > > > [v2.1.0]: https://github.com/meateam/api-gateway/compare/v2.0.0...v2.1.0 > > > > > > > [v2.0.0]: https://github.com/meateam/api-gateway/compare/v1.3...v2.0.0

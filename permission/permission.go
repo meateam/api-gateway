@@ -180,14 +180,6 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		return
 	}
 
-	// Forbid a user to give himself any permission.
-	if permission.UserID == reqUser.ID {
-		loggermiddleware.LogError(r.logger,
-			c.AbortWithError(http.StatusBadRequest,
-				fmt.Errorf("a user cannot give himself permissions")))
-		return
-	}
-
 	// Forbid creating a permission of NONE.
 	switch ppb.Role(ppb.Role_value[permission.Role]) {
 	case ppb.Role_NONE:
@@ -219,16 +211,9 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, err))
 		return
 	}
-
 	var dest string
-	if (ctxAppID == oauth.CargoAppID) {
+	if ctxAppID == oauth.CargoAppID {
 		dest = viper.GetString(oauth.ConfigCtsDest)
-	}
-
-	// Forbid changing the file owner's permission.
-	if file.GetOwnerID() == permission.UserID {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
 	}
 
 	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole); role == "" {
@@ -245,25 +230,42 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 			return
 		}
-		
+
 		if userRes.GetUser() == nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
+		// userID is now the Kartoffel ID
 		userID = userRes.GetUser().GetId()
 	} else {
 		userExists, err := r.userClient().GetUserByID(c.Request.Context(), &upb.GetByIDRequest{Id: permission.UserID, Destination: dest})
-	
+
 		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 			return
 		}
-	
+
 		if userExists.GetUser() == nil || userExists.GetUser().GetId() != permission.UserID {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
+	}
+
+	// Forbid a user to give himself any permission.
+	// Only an external user can give himself one (comparing reqUser.ID to the Kartoffel ID)
+	if userID == reqUser.ID {
+		loggermiddleware.LogError(r.logger,
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("a user cannot give himself permissions")))
+		return
+	}
+
+	// Forbid changing the file owner's permission.
+	// Only an external user can give himself a Kartoffel permission
+	if file.GetOwnerID() == userID {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 	
 	appID := c.Value(oauth.ContextAppKey).(string)
@@ -384,8 +386,8 @@ func (r *Router) HandleUserFilePermission(
 }
 
 // IsDomainUserID checks if the userID is domainuser
-func IsDomainUserID(userID string) (bool) {
-	return 	strings.Contains(userID, "@")
+func IsDomainUserID(userID string) bool {
+	return strings.Contains(userID, "@")
 }
 
 // IsPermitted checks if the userID has a permission with role for fileID.
@@ -423,7 +425,7 @@ func CreatePermission(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return createdPermission, nil
 }
 

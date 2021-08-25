@@ -12,7 +12,6 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	auth "github.com/meateam/api-gateway/oauth"
 	oauth "github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/api-gateway/utils"
@@ -211,9 +210,10 @@ type GetFileByIDResponse struct {
 }
 
 type getSharedFilesResponse struct {
-	Files     []*GetFileByIDResponse `json:"files"`
-	PageNum   int64                  `json:"pageNum"`
-	ItemCount int64                  `json:"itemCount"`
+	Files     *filesResponse `json:"files"`
+	PageNum   int64          `json:"pageNum"`
+	ItemCount int64          `json:"itemCount"`
+	ErrMsg    string         `json:"errMsg,omitempty"`
 }
 
 type partialFile struct {
@@ -227,6 +227,11 @@ type partialFile struct {
 	CreatedAt   int64   `json:"createdAt,omitempty"`
 	UpdatedAt   int64   `json:"updatedAt,omitempty"`
 	Float       bool    `json:"float,omitempty"`
+}
+
+type filesResponse struct {
+	Successful []*GetFileByIDResponse `json:"successful"`
+	Failed     []string               `json:"failed"`
 }
 
 type updateFilesRequest struct {
@@ -288,8 +293,8 @@ func NewRouter(
 
 // Setup sets up r and initializes its routes under rg.
 func (r *Router) Setup(rg *gin.RouterGroup) {
-	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(auth.GetFileScope)
-	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(auth.DeleteScope)
+	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.GetFileScope)
+	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.DeleteScope)
 
 	rg.GET("/files", checkGetFileScope, r.GetFilesByFolder)
 	rg.GET("/files/:id", checkGetFileScope, r.GetFileByID)
@@ -502,15 +507,16 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 		return
 	}
 
-	// Go over the permissions and get the files metadata related to them
-	files := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
+	// Make an empty slice of files
+	filesSuccesful := make([]*GetFileByIDResponse, 0, len(permissions.GetPermissions()))
+	filesFailed := make([]string, 0, len(permissions.GetPermissions()))
+
 	for _, permission := range permissions.GetPermissions() {
 		file, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: permission.GetFileID()})
 		if err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-			return
+			loggermiddleware.LogError(r.logger, fmt.Errorf("failed fetching file %v: %v", permission.GetFileID(), err))
+			filesFailed = append(filesFailed, permission.GetFileID())
+			continue
 		}
 
 		// Filter files which belong to the requesting user.
@@ -522,17 +528,24 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 				Role:    permission.GetRole(),
 				Creator: permission.GetCreator(),
 			}
-			files = append(
-				files,
+			filesSuccesful = append(
+				filesSuccesful,
 				CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
 			)
 		}
 	}
 
+	var errMsg string
+	if len(filesFailed) > 0 {
+		errMsg = "file not found"
+	}
+
+	files := &filesResponse{Successful: filesSuccesful, Failed: filesFailed}
 	sharedFilesResponse := &getSharedFilesResponse{
 		Files:     files,
 		PageNum:   permissions.PageNum,
 		ItemCount: permissions.ItemCount,
+		ErrMsg:    errMsg,
 	}
 
 	c.JSON(http.StatusOK, sharedFilesResponse)
@@ -562,8 +575,22 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		return
 	}
 
+	// Check if the user has an direct permission to the file
+	hasDirectPermission, err := r.permissionClient().IsPermitted(
+		c,&ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole}); 
+	if err != nil && status.Code(err) != codes.NotFound {
+		loggermiddleware.LogError(r.logger, err)
+		return
+	}
+
+	// If the user doesn't have direct premission, then he can't delete the file
+	if !hasDirectPermission.GetPermitted() {
+		c.AbortWithStatus(http.StatusForbidden)
+		return	
+	}
+
 	ids, err := DeleteFile(
-		c.Request.Context(),
+		c,
 		r.logger,
 		r.fileClient(),
 		r.uploadClient(),

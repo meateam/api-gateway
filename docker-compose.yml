@@ -1,4 +1,4 @@
-version: '2.1'
+version: '3'
 services:
   api-gateway:
     image: api-gateway
@@ -130,12 +130,12 @@ services:
       - '6379:6379'
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
-    environment: 
+    environment:
       - discovery.type=single-node
     container_name: elasticsearch
     ports: ['9200:9200']
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9200']
       interval: 5s
       timeout: 10s
       retries: 5
