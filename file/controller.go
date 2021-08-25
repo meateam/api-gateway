@@ -87,7 +87,7 @@ func DeleteFile(ctx *gin.Context,
 			ctx,
 			&ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}); err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			errFmt := fmt.Errorf("failed getting file's descendants to delete: %v", err)
+			errFmt := fmt.Errorf("failed to delete permission: %v", err)
 			loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, errFmt))
 			return nil, errFmt
 		}
