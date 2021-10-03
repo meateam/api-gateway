@@ -312,7 +312,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		return
 	}
 
-	c.String(http.StatusOK, createFolderResp.GetId())
+	c.JSON(http.StatusOK, createFolderResp)
 }
 
 // UploadComplete completes a resumable file upload and creates the uploaded file.
@@ -424,7 +424,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		return
 	}
 
-	c.String(http.StatusOK, createFileResp.GetId())
+	c.JSON(http.StatusOK, createFileResp)
 }
 
 // UploadMedia uploads a file from request's body.
@@ -579,7 +579,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		return
 	}
 
-	c.String(http.StatusOK, createFileResp.GetId())
+	c.JSON(http.StatusOK, createFileResp)
 }
 
 // UploadInit initiates a resumable upload to upload a large file to.
