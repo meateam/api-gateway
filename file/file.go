@@ -215,7 +215,7 @@ type GetFileByIDResponse struct {
 	Permission  *Permission `json:"permission,omitempty"`
 	IsExternal  bool        `json:"isExternal"`
 	AppID       string      `json:"appID,omitempty"`
-	IsFavorite  bool        `json:"isFavorite,omitempty"`
+	IsFavorite  bool        `json:"isFavorite"`
 }
 
 type getSharedFilesResponse struct {
@@ -1222,7 +1222,9 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 	var isFavorite bool
 	if len(optionalIsFav) != 0 {
 		isFavorite = optionalIsFav[0]
-	} 
+	} else {
+		isFavorite = false
+	}
 
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &GetFileByIDResponse{

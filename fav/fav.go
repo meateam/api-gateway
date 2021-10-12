@@ -91,7 +91,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // CreateFav creates a favorite for a given file.
 // FileID is extracted from url params.
 func (r *Router) CreateFav(c *gin.Context) {
-	fmt.Println("****************in create favorite in api-gateway**************")
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -111,7 +110,6 @@ func (r *Router) CreateFav(c *gin.Context) {
 
 	// An app can create a favorite only if the request is from the Drive.
 	ctxAppID := c.Value(oauth.ContextAppKey).(string)
-	fmt.Println("****************ctxappID**************", ctxAppID)
 	if (ctxAppID != oauth.DriveAppID) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, fmt.Errorf("failed creating favorite, request has to be only from the Drive")))
 		return
