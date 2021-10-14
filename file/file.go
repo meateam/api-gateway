@@ -372,10 +372,13 @@ func (r *Router) GetFileByID(c *gin.Context) {
 	}
 
 	res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: user.ExtractRequestUser(c).ID, FileID: file.GetId()})
+	isFavorite := false
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
+	} else {
+		isFavorite = res.IsFavorite
 	}
-	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission, res.IsFavorite))
+	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
 
 }
 
@@ -493,11 +496,14 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		}
 
 		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+		isFavorite := false
 		if err != nil {
 			loggermiddleware.LogError(r.logger, err)
+		} else {
+			isFavorite = res.IsFavorite
 		}
 		if userFilePermission != "" {
-			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission, res.IsFavorite))
+			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
 		}
 
 	}
@@ -559,12 +565,15 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 			}
 
 			res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+			isFavorite := false
 			if err != nil {
 				loggermiddleware.LogError(r.logger, err)
+			} else {
+				isFavorite = res.IsFavorite
 			}
 			files = append(
 				files,
-				CreateGetFileResponse(file, permission.GetRole().String(), userPermission, res.IsFavorite),
+				CreateGetFileResponse(file, permission.GetRole().String(), userPermission, isFavorite),
 			)
 
 		}
@@ -827,13 +836,16 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 			return
 		}
 		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+		isFavorite := false
 		if err != nil {
 			loggermiddleware.LogError(r.logger, err)
+		} else {
+			isFavorite = res.IsFavorite
 		}
 		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[i]]
 		populatedPermittedAncestors = append(
 			populatedPermittedAncestors,
-			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission, res.IsFavorite))
+			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
 	}
 
 	c.JSON(http.StatusOK, populatedPermittedAncestors)
