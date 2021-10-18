@@ -103,11 +103,13 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"statusSuccessType":    viper.GetString(configTransferStatusSuccess),
 				"statusFailedType":     viper.GetString(configTransferStatusFailed),
 				"statusInProgressType": viper.GetString(configTransferStatusInProgress),
-				"statusPendingType": 	viper.GetString(configTransferStatusPending),
+				"statusPendingType":    viper.GetString(configTransferStatusPending),
 				"environment":          os.Getenv("ELASTIC_APM_ENVIRONMENT"),
 				"externalNetworkDests": GetExternalNetworksConfiguration(),
 				"localOfficeUrl":       viper.GetString(configLocalOfficeURL),
 				"CTSSuffix":            viper.GetString(configCTSSuffix),
+				"maxUploadedFiles":     viper.GetString(configMaxUploadedFiles),
+				"maxUploadedFolders":   viper.GetString(configMaxUploadedFolders),
 			},
 		)
 	})

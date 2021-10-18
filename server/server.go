@@ -70,6 +70,8 @@ const (
 	configPoolSize                 = "pool_size"
 	configLocalOfficeURL           = "docs_local_office_url"
 	configCTSSuffix                = "cts_suffix"
+	configMaxUploadedFiles         = "max_uploaded_files"
+	configMaxUploadedFolders       = "max_uploaded_folders"
 )
 
 var (
@@ -136,6 +138,8 @@ func init() {
 	viper.SetDefault(configTransferStatusInProgress, "in progress")
 	viper.SetDefault(configTransferStatusPending, "pending")
 	viper.SetDefault(configCTSSuffix, "@gmail.com")
+	viper.SetDefault(configMaxUploadedFiles, 100)
+	viper.SetDefault(configMaxUploadedFolders, 100)
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }

@@ -160,7 +160,7 @@ func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.Hand
 // If a delegator exists too, the function will set the context user to be the delegator.
 func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string) error {
 	spikeToken, err := m.extractClientCredentialsToken(ctx)
-	
+
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (m *Middleware) dropboxAuthorization(ctx *gin.Context, requiredScope string
 
 	// Checks the scopes, and if correct, store the user in the context.
 	for _, scope := range scopes {
-		if scope == requiredScope {			
+		if scope == requiredScope {
 			err = m.storeDelegator(ctx)
 			if err != nil {
 				return err
@@ -238,7 +238,8 @@ func (m *Middleware) authCodeAuthorization(ctx *gin.Context, requiredScope strin
 // extractAuthCodeToken extracts the auth-code token from the Auth header and validates
 // it with spike service. Returns the extracted token.
 func (m *Middleware) extractAuthCodeToken(ctx *gin.Context) (*spb.ValidateAuthCodeTokenResponse, error) {
-	token, err := m.extractTokenFromHeader(ctx)
+
+	token, err := ExtractTokenFromHeader(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +265,7 @@ func (m *Middleware) extractAuthCodeToken(ctx *gin.Context) (*spb.ValidateAuthCo
 // extractClientCredentialsToken extracts the token from the Auth header and validates it with spike service.
 // Returns the extracted token.
 func (m *Middleware) extractClientCredentialsToken(ctx *gin.Context) (*spb.ValidateTokenResponse, error) {
-	token, err := m.extractTokenFromHeader(ctx)
+	token, err := ExtractTokenFromHeader(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +352,8 @@ func (m *Middleware) register(ctx *gin.Context, delegator *spb.User) {
 	ctx.Set(user.ContextUserKey, authenticatedUser)
 }
 
-func (m *Middleware) extractTokenFromHeader(ctx *gin.Context) (string, error) {
+// ExtractTokenFromHeader extracts the token from the header and returns it as a string
+func ExtractTokenFromHeader(ctx *gin.Context) (string, error) {
 	authArr := strings.Fields(ctx.GetHeader(AuthHeader))
 
 	// No authorization header sent
