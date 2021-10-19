@@ -19,6 +19,7 @@ import (
 )
 
 // deleteFileAndPremission deletes the file and the permissions to it from db
+// Also deletes the favorite. 
 func deleteFileAndPremission(ctx *gin.Context,
 	logger *logrus.Logger,
 	fileClient fpb.FileServiceClient,
@@ -55,7 +56,7 @@ func deleteFileAndPremission(ctx *gin.Context,
 	//Delete file from favorites
 	if _, err := favClient.DeleteAllfileFav(ctx, &fvpb.DeleteAllfileFavRequest{FileID: fileID}); err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file's %s from favorites: %v", fileID, err)))
+		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file with ID %s from favorites: %v", fileID, err)))
 		return nil
 	}
 

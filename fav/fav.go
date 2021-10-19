@@ -23,19 +23,19 @@ import (
 )
 
 const (
-	// CreateFileByIDRole is the role that is required of the of the authenticated requester to have to be
+	// CreateFavFileByIDRole is the role that is required of the of the authenticated requester to have to be
 	// permitted to make the CreateFavorite action.
-	CreateFileByIDRole = ppb.Role_READ
+	CreateFavFileByIDRole = ppb.Role_READ
+
+	// DeleteFavFileByIDRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the DeleteFavFileByIDRole action.
+	DeleteFavFileByIDRole = ppb.Role_READ
 )
 
 // Fav is a struct of favorite file
 type Fav struct {
 	UserID string `json:"userID,omitempty"`
 	FileID string `json:"fileID,omitempty"`
-}
-// GetAllUserFavoritesFileIDsResponse is a struct of fileID
-type GetAllUserFavoritesFileIDsResponse struct {
-	FileID []string `json:"fileID,omitempty"`
 }
 
 // Router is a structure that handles favorite requests.
@@ -89,7 +89,7 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 }
 
 // CreateFav creates a favorite for a given file.
-// File id is extracted from url params.
+// FileID is extracted from url params.
 func (r *Router) CreateFav(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
@@ -103,15 +103,15 @@ func (r *Router) CreateFav(c *gin.Context) {
 		return
 	}
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFileByIDRole); role == "" {
+	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFavFileByIDRole); role == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
-	// An app cannot create a favorite for a file that does not belong to the app Drive.
+	// An app can create a favorite only if the request is from the Drive.
 	ctxAppID := c.Value(oauth.ContextAppKey).(string)
 	if (ctxAppID != oauth.DriveAppID) {
-		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, fmt.Errorf("failed creating request to non Drive file")))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, fmt.Errorf("failed creating favorite, request has to be only from the Drive")))
 		return
 	}
 
@@ -132,8 +132,8 @@ func (r *Router) CreateFav(c *gin.Context) {
 
 }
 
-// DeleteFav deletes a favorite
-// File id is extracted from url params.
+// DeleteFav deletes a favorite by the fileID extracted from query params.
+// A user can only delete his own fav object.
 func (r *Router) DeleteFav(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
@@ -148,7 +148,7 @@ func (r *Router) DeleteFav(c *gin.Context) {
 	}
 
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, file.DeleteFileByIDRole); role == "" {
+	if role, _ := r.HandleUserFilePermission(c, fileID, DeleteFavFileByIDRole); role == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}

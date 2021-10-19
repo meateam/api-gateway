@@ -337,7 +337,6 @@ func (r *Router) GetAllUserFavorites(c *gin.Context) {
 	favfiles, err := r.favoriteClient().GetManyFavoritesByUserID(c, &fvpb.GetManyFavoritesRequest{UserID: reqUser.ID})
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
-		// return
 	}
 
 	filesSuccesful := make([]*GetFileByIDResponse, 0, len(favfiles.FavFileIDList))
