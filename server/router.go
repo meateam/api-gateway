@@ -106,6 +106,8 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 				"externalNetworkDests": GetExternalNetworksConfiguration(),
 				"localOfficeUrl":       viper.GetString(configLocalOfficeURL),
 				"CTSSuffix":            viper.GetString(configCTSSuffix),
+				"maxUploadedFiles":     viper.GetString(configMaxUploadedFiles),
+				"maxUploadedFolders":   viper.GetString(configMaxUploadedFolders),
 			},
 		)
 	})

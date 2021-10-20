@@ -240,7 +240,7 @@ func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) 
 		files = append(files, descendant.GetFile())
 	}
 
-	// Copy each descendant in the folder whose owner is the user that made the request.
+	// Copy between buckets each descendant in the folder whose owner is the user that made the request.
 	failedCopyStorageFiles, successCopyStorageFiles := r.copyObjectManipulate(c, files, copyObjectRequest.newOwnerID)
 	if len(failedCopyStorageFiles) > 0 {
 		r.copyObjectToBucketRollack(c, successCopyStorageFiles, copyObjectRequest.newOwnerID)
@@ -249,7 +249,7 @@ func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) 
 
 	isMoving := isMoveShift(c)
 
-	// If move
+	// If move request
 	if isMoving {
 		// Change owner for each descendant
 		failedChangeOwnerFiles, successChangeOwnerFiles, err := r.changeOwnerMoveManipulate(c, successCopyStorageFiles, copyObjectRequest)
@@ -495,6 +495,7 @@ func (r *Router) changeOwnerRollbackMove(c *gin.Context, successChangeOwnerFiles
 			copyFile := copyFileRequest{
 				file:       successChangeOwnerFile,
 				newOwnerID: reqUserID,
+				parentID:   successChangeOwnerFile.GetParent(),
 			}
 
 			changeOwnerMove(r, c, copyFile, successChangeOwnerFile.GetKey())
