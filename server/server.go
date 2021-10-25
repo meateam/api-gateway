@@ -19,6 +19,7 @@ const (
 	configFileService              = "file_service"
 	configUserService              = "user_service"
 	configPermissionService        = "permission_service"
+	configFavService 	       = "fav_service"
 	configDropboxService           = "dropbox_service"
 	configSearchService            = "search_service"
 	configSpikeService             = "spike_service"
@@ -85,6 +86,7 @@ func init() {
 	viper.SetDefault(configFileService, "file-service:8080")
 	viper.SetDefault(configUserService, "user-service:8080")
 	viper.SetDefault(configPermissionService, "permission-service:8080")
+	viper.SetDefault(configFavService, "fav-service:8080")
 	viper.SetDefault(configDropboxService, "dropbox-service:8080")
 	viper.SetDefault(configSearchService, "search-service:8080")
 	viper.SetDefault(configSpikeService, "spike-service:8080")

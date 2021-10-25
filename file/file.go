@@ -18,6 +18,7 @@ import (
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
+	fvpb "github.com/meateam/fav-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	"github.com/meateam/gotenberg-go-client/v6"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
@@ -131,8 +132,8 @@ const (
 	// OdpMimeType is the mime type of a .odp file.
 	OdpMimeType = "application/vnd.oasis.opendocument.presentation"
 
-	// fileIDIsRequiredMessage is the error message for missing fileID
-	fileIDIsRequiredMessage = "fileID is required"
+	// FileIDIsRequiredMessage is the error message for missing fileID
+	FileIDIsRequiredMessage = "fileID is required"
 )
 
 var (
@@ -178,6 +179,9 @@ type Router struct {
 	// SearchClientFactory
 	searchClient factory.SearchClientFactory
 
+	//FavoriteClientFactory
+	favoriteClient factory.FavClientFactory
+
 	gotenbergClient *gotenberg.Client
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
@@ -207,6 +211,7 @@ type GetFileByIDResponse struct {
 	Permission  *Permission `json:"permission,omitempty"`
 	IsExternal  bool        `json:"isExternal"`
 	AppID       string      `json:"appID,omitempty"`
+	IsFavorite  bool        `json:"isFavorite"`
 }
 
 type getSharedFilesResponse struct {
@@ -214,6 +219,16 @@ type getSharedFilesResponse struct {
 	PageNum   int64          `json:"pageNum"`
 	ItemCount int64          `json:"itemCount"`
 	ErrMsg    string         `json:"errMsg,omitempty"`
+}
+
+type getFavFilesResponse struct {
+	Files     *favFilesResponse `json:"files"`
+	ErrMsg    string         `json:"errMsg,omitempty"`
+}
+
+type favFilesResponse struct {
+	Successful []*GetFileByIDResponse `json:"successful"`
+	Failed     []string               `json:"failed"`
 }
 
 type partialFile struct {
@@ -249,6 +264,7 @@ func NewRouter(
 	permissionConn *grpcPoolTypes.ConnPool,
 	dropboxConn *grpcPoolTypes.ConnPool,
 	searchConn *grpcPoolTypes.ConnPool,
+	favConn *grpcPoolTypes.ConnPool,
 	gotenbergClient *gotenberg.Client,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
@@ -284,6 +300,10 @@ func NewRouter(
 		return spb.NewSearchClient((*searchConn).Conn())
 	}
 
+	r.favoriteClient = func() fvpb.FavoriteClient {
+		return fvpb.NewFavoriteClient((*favConn).Conn())
+	}
+
 	r.gotenbergClient = gotenbergClient
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -302,13 +322,90 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.DELETE("/files/:id", checkDeleteFileScope, r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
+	rg.GET("/files/fav", r.GetAllUserFavorites)
+}
+
+// GetAllUserFavorites is the request handler for GET /favFiles/:id
+// The method gets all favorite file IDs of a user and returns an array with all favorite files.
+func (r *Router) GetAllUserFavorites(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	favfiles, err := r.favoriteClient().GetManyFavoritesByUserID(c, &fvpb.GetManyFavoritesRequest{UserID: reqUser.ID})
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
+	}
+
+	filesSuccesful := make([]*GetFileByIDResponse, 0, len(favfiles.FavFileIDList))
+	filesFailed := make([]string, 0, len(favfiles.FavFileIDList))
+
+	var files []*fpb.File
+	for _, favfile := range favfiles.FavFileIDList {
+		result, err := r.fileClient().GetFileByID(c, &fpb.GetByFileByIDRequest{Id: favfile.FileID})
+		if err != nil {
+			filesFailed = append(filesFailed, favfile.FileID)
+			loggermiddleware.LogError(r.logger, err)
+		}
+		files = append(files, result)
+	}
+
+	FavFilesResponse := &getFavFilesResponse{}
+
+	for _, file := range files {
+		userFilePermission, foundPermission, err := CheckUserFilePermission(c.Request.Context(),
+			r.fileClient(),
+			r.permissionClient(),
+			reqUser.ID,
+			file.GetId(),
+			GetFilesByFolderRole)
+		if err != nil {
+			filesFailed = append(filesFailed, file.GetId())
+			loggermiddleware.LogError(r.logger, c.AbortWithError(int(status.Code(err)), err))
+			continue
+		}
+
+		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+		isFavorite := false
+		if err != nil {
+			filesFailed = append(filesFailed, file.GetId())
+			loggermiddleware.LogError(r.logger, err)
+			continue
+		} else {
+			isFavorite = res.IsFavorite
+		}
+
+		if userFilePermission != "" {
+			filesSuccesful = append(filesSuccesful, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
+		}
+
+		var errMsg string
+		if len(filesFailed) > 0 {
+			errMsg = "file not found"
+		}
+
+		filesResp := &favFilesResponse{Successful: filesSuccesful, Failed: filesFailed}
+		FavFilesResponse = &getFavFilesResponse{Files: filesResp, ErrMsg: errMsg}
+
+	}
+
+	c.JSON(http.StatusOK, FavFilesResponse)
+
 }
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -351,7 +448,15 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission))
+	res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+	isFavorite := false
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
+	} else {
+		isFavorite = res.IsFavorite
+	}
+	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
+
 }
 
 // Extracts parameters from request query to a map, non-existing parameter has a value of ""
@@ -467,9 +572,18 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 			return
 		}
 
-		if userFilePermission != "" {
-			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission))
+		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+		isFavorite := false
+		if err != nil {
+			loggermiddleware.LogError(r.logger, err)
+		} else {
+			isFavorite = res.IsFavorite
 		}
+
+		if userFilePermission != "" {
+			responseFiles = append(responseFiles, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
+		}
+
 	}
 
 	c.JSON(http.StatusOK, responseFiles)
@@ -528,9 +642,17 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 				Role:    permission.GetRole(),
 				Creator: permission.GetCreator(),
 			}
+
+			res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+			isFavorite := false
+			if err != nil {
+				loggermiddleware.LogError(r.logger, err)
+			} else {
+				isFavorite = res.IsFavorite
+			}
 			filesSuccesful = append(
 				filesSuccesful,
-				CreateGetFileResponse(file, permission.GetRole().String(), userPermission),
+				CreateGetFileResponse(file, permission.GetRole().String(), userPermission, isFavorite),
 			)
 		}
 	}
@@ -561,7 +683,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -577,7 +699,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 	// Check if the user has an direct permission to the file
 	hasDirectPermission, err := r.permissionClient().IsPermitted(
-		c,&ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole}); 
+		c, &ppb.IsPermittedRequest{FileID: fileID, UserID: reqUser.ID, Role: DeleteFileByIDRole})
 	if err != nil && status.Code(err) != codes.NotFound {
 		loggermiddleware.LogError(r.logger, err)
 		return
@@ -586,7 +708,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 	// If the user doesn't have direct premission, then he can't delete the file
 	if !hasDirectPermission.GetPermitted() {
 		c.AbortWithStatus(http.StatusForbidden)
-		return	
+		return
 	}
 
 	ids, err := DeleteFile(
@@ -596,6 +718,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		r.uploadClient(),
 		r.searchClient(),
 		r.permissionClient(),
+		r.favoriteClient(),
 		fileID,
 		reqUser.ID)
 	if err != nil {
@@ -604,7 +727,6 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 		return
 	}
-
 	c.JSON(http.StatusOK, ids)
 }
 
@@ -672,7 +794,7 @@ func (r *Router) Download(c *gin.Context) {
 func (r *Router) UpdateFile(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -717,7 +839,7 @@ func (r *Router) UpdateFile(c *gin.Context) {
 func (r *Router) GetFileAncestors(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
 	if fileID == "" {
-		c.String(http.StatusBadRequest, fileIDIsRequiredMessage)
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -798,11 +920,17 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 
 			return
 		}
-
+		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+		isFavorite := false
+		if err != nil {
+			loggermiddleware.LogError(r.logger, err)
+		} else {
+			isFavorite = res.IsFavorite
+		}
 		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[i]]
 		populatedPermittedAncestors = append(
 			populatedPermittedAncestors,
-			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission))
+			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
 	}
 
 	c.JSON(http.StatusOK, populatedPermittedAncestors)
@@ -1176,15 +1304,23 @@ func (r *Router) HandleUserFilePermit(
 	}
 
 	return isPermitted
+
 }
 
 // CreateGetFileResponse Creates a file grpc response to http response struct.
-func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.PermissionObject) *GetFileByIDResponse {
+func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.PermissionObject, optionalIsFav ...bool) *GetFileByIDResponse {
 	if file == nil {
 		return nil
 	}
 
 	isExternal := user.IsExternalUser(file.OwnerID)
+
+	var isFavorite bool
+	if len(optionalIsFav) != 0 {
+		isFavorite = optionalIsFav[0]
+	} else {
+		isFavorite = false
+	}
 
 	// Get file parent ID, if it doesn't exist check if it's an file object and get its ID.
 	responseFile := &GetFileByIDResponse{
@@ -1201,6 +1337,7 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 		Shared:      false,
 		IsExternal:  isExternal,
 		AppID:       file.GetAppID(),
+		IsFavorite:  isFavorite,
 	}
 
 	if permission != nil {
