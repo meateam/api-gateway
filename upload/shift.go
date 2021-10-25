@@ -81,7 +81,9 @@ func (r *Router) ShiftSetup(rg *gin.RouterGroup) {
 }
 
 // Shift is the request handler for /shift request.
-// shift objects between buckets
+// shiftType -
+// a. copy - copy files between users, create files permissions
+// b. move - copy files between users, create files permissions and remove the source file
 func (r *Router) Shift(c *gin.Context) {
 	// Get the user from request
 	reqUser := user.ExtractRequestUser(c)
@@ -104,11 +106,7 @@ func (r *Router) Shift(c *gin.Context) {
 	// Get the shift file request body and check if it's valid
 	var reqBody ShiftFileBody
 	if err := c.ShouldBindJSON(&reqBody); err != nil {
-		loggermiddleware.LogError(
-			r.logger,
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
-		)
-
+		c.String(http.StatusBadRequest, fmt.Sprintf("unexpected body format"))
 		return
 	}
 
@@ -192,9 +190,9 @@ func (r *Router) shiftInit(c *gin.Context, Shift ShiftInit) {
 		return
 	}
 
-	// Copy the file and it's desendents to the new owner
+	// Copy the file and it's descendants to the new owner
 	copyReq := copyFileRequest{file: file, newOwnerID: Shift.NewOwnerID, parentID: newParentID}
-	errCopyObjects := r.copyObjects(c, copyReq)
+	errCopyObjects := r.copyItems(c, copyReq)
 	if errCopyObjects != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(errCopyObjects))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, errCopyObjects))
@@ -215,8 +213,8 @@ func (r *Router) shiftInit(c *gin.Context, Shift ShiftInit) {
 	c.Status(http.StatusOK)
 }
 
-// copyObjects - copy a file or a folder and it's descendsents to the new owner
-func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) error {
+// copyItems - copy a file or a folder and it's descendsents to the new owner (to bucket and db)
+func (r *Router) copyItems(c *gin.Context, copyObjectRequest copyFileRequest) error {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		return c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("unauthorized"))
@@ -224,39 +222,40 @@ func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) 
 
 	fileID := copyObjectRequest.file.GetId()
 
-	// Get descendants by file id - if it's a file (and not a folder), it will return an empty array
-	descendantsResp, err := r.fileClient().GetDescendantsByID(c.Request.Context(), &fpb.GetDescendantsByIDRequest{Id: fileID})
+	// Get descendants by file id
+	// if it's a file (and not a folder), it will return an empty array
+	descendantsRes, err := r.fileClient().GetDescendantsByID(c.Request.Context(), &fpb.GetDescendantsByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		return c.AbortWithError(httpStatusCode, err)
 	}
 
 	// Create files array to copy to the new owner
-	files := make([]*fpb.File, 0, len(descendantsResp.GetDescendants())+1)
+	descendants := descendantsRes.GetDescendants()
+	files := make([]*fpb.File, 0, len(descendants)+1)
 	files = append(files, copyObjectRequest.file)
 
-	descendants := descendantsResp.GetDescendants()
 	for _, descendant := range descendants {
 		files = append(files, descendant.GetFile())
 	}
 
+	// CHECK: from here
 	// Copy between buckets each descendant in the folder whose owner is the user that made the request.
-	failedCopyStorageFiles, successCopyStorageFiles := r.copyObjectManipulate(c, files, copyObjectRequest.newOwnerID)
+	failedCopyStorageFiles, successCopyStorageFiles := r.copyObjectToBucketManipulate(c, files, copyObjectRequest.newOwnerID)
 	if len(failedCopyStorageFiles) > 0 {
 		r.copyObjectToBucketRollack(c, successCopyStorageFiles, copyObjectRequest.newOwnerID)
 		return c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Error while copy objects between buckets"))
 	}
 
 	isMoving := isMoveShift(c)
+	var successMoveFiles []*FileCopy
 
-	// If move request
 	if isMoving {
 		// Change owner for each descendant
 		failedChangeOwnerFiles, successChangeOwnerFiles, err := r.changeOwnerMoveManipulate(c, successCopyStorageFiles, copyObjectRequest)
-
 		if err != nil || len(failedChangeOwnerFiles) > 0 {
 			// Rollback for owners
-			r.changeOwnerRollbackMove(c, successChangeOwnerFiles, reqUser.ID)
+			r.changeOwnerMoveRollback(c, successChangeOwnerFiles, reqUser.ID)
 
 			// Rollback for buckets
 			r.copyObjectToBucketRollack(c, successCopyStorageFiles, copyObjectRequest.newOwnerID)
@@ -270,8 +269,8 @@ func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) 
 			return c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Error while change owner"))
 		}
 
-		filesKeys := make([]string, 0, len(descendantsResp.GetDescendants())+1)
-		filesIds := make([]string, 0, len(descendantsResp.GetDescendants())+1)
+		filesKeys := make([]string, 0, len(descendants)+1)
+		filesIds := make([]string, 0, len(descendants)+1)
 
 		for _, file := range files {
 			filesKeys = append(filesKeys, file.GetKey())
@@ -285,9 +284,10 @@ func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) 
 			return c.AbortWithError(httpStatusCode, err)
 		}
 
+		successMoveFiles = successChangeOwnerFiles
 	} else {
-		// Change owner for each descendant
-		failedChangeOwnerFiles, _, err := r.changeOwnerCopyManipulate(c, successCopyStorageFiles, copyObjectRequest)
+		// Create file copy for each descendant
+		failedChangeOwnerFiles, successChangeOwnerFiles, err := r.createFileCopyManipulate(c, successCopyStorageFiles, copyObjectRequest)
 		if err != nil || len(failedChangeOwnerFiles) > 0 {
 			// Rollback for owners
 			r.changeOwnerRollbackCopy(c, fileID)
@@ -304,9 +304,20 @@ func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) 
 		if len(failedChangeOwnerFiles) > 0 {
 			return c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Error while change owner"))
 		}
+		
+		successMoveFiles = successChangeOwnerFiles
 	}
 
-	if _, _, err := r.createPermissionsManipulate(c, files, copyObjectRequest.newOwnerID, reqUser.ID); err != nil {
+	if _, _, err := r.createPermissionsManipulate(c, successCopyStorageFiles, copyObjectRequest.newOwnerID, reqUser.ID); err != nil {
+		// Rollback for buckets
+		if isMoving {
+			r.changeOwnerMoveRollback(c, successMoveFiles, reqUser.ID)
+		} else {
+			r.changeOwnerRollbackCopy(c, fileID)
+		}
+			
+		r.copyObjectToBucketRollack(c, successCopyStorageFiles, copyObjectRequest.newOwnerID)
+
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		return c.AbortWithError(httpStatusCode, err)
 	}
@@ -314,8 +325,8 @@ func (r *Router) copyObjects(c *gin.Context, copyObjectRequest copyFileRequest) 
 	return nil
 }
 
-// copyObjectManipulate -function that manipulates copy object. get files array and manipulate them.
-func (r *Router) copyObjectManipulate(
+// copyObjectToBucketManipulate -function that manipulates copy object. get files array and manipulate them.
+func (r *Router) copyObjectToBucketManipulate(
 	c *gin.Context,
 	files []*fpb.File,
 	newOwnerID string) ([]*fpb.File, map[string]*FileCopy) {
@@ -425,14 +436,14 @@ func (r *Router) copyObjectToBucketRollack(c *gin.Context, successCopyStorageFil
 func (r *Router) changeOwnerMoveManipulate(
 	c *gin.Context,
 	files map[string]*FileCopy,
-	copyObjectReq copyFileRequest) ([]*fpb.File, []*fpb.File, error) {
+	copyObjectReq copyFileRequest) ([]*fpb.File, []*FileCopy, error) {
 	// Remove the first file from the list
 	destKey := files[copyObjectReq.file.GetId()].result
 	delete(files, copyObjectReq.file.GetId())
 
 	// Create slices to send the results
 	copyFailed := make([]*fpb.File, 0, len(files))
-	copySuccessful := make([]*fpb.File, 0, len(files))
+	copySuccessful := make([]*FileCopy, 0, len(files))
 
 	// Move the first file to the new bucket
 	copyFile := copyFileRequest{
@@ -447,7 +458,7 @@ func (r *Router) changeOwnerMoveManipulate(
 		return copyFailed, copySuccessful, nil
 
 	}
-	copySuccessful = append(copySuccessful, copyObjectReq.file)
+	copySuccessful = append(copySuccessful, &FileCopy{file: copyObjectReq.file, result: copyObjectReq.file.GetId()})
 
 	// Move decendants
 	errg := new(errgroup.Group)
@@ -469,7 +480,7 @@ func (r *Router) changeOwnerMoveManipulate(
 					return err
 				}
 
-				copySuccessful = append(copySuccessful, fileCopy.file)
+				copySuccessful = append(copySuccessful, &FileCopy{file: fileCopy.file, result: fileCopy.file.GetId()})
 				return nil
 			}(fileCopy)
 		})
@@ -483,7 +494,7 @@ func (r *Router) changeOwnerMoveManipulate(
 }
 
 // ChangeOwnerRollBack - function that rollback the owner changes for the files
-func (r *Router) changeOwnerRollbackMove(c *gin.Context, successChangeOwnerFiles []*fpb.File, reqUserID string) error {
+func (r *Router) changeOwnerMoveRollback(c *gin.Context, successChangeOwnerFiles []*FileCopy, reqUserID string) error {
 	var wg sync.WaitGroup
 
 	defer wg.Wait()
@@ -491,14 +502,14 @@ func (r *Router) changeOwnerRollbackMove(c *gin.Context, successChangeOwnerFiles
 	for _, successChangeOwnerFile := range successChangeOwnerFiles {
 		wg.Add(1)
 
-		go func(successChangeOwnerFile *fpb.File) {
+		go func(successChangeOwnerFile *FileCopy) {
 			copyFile := copyFileRequest{
-				file:       successChangeOwnerFile,
+				file:       successChangeOwnerFile.file,
 				newOwnerID: reqUserID,
-				parentID:   successChangeOwnerFile.GetParent(),
+				parentID:   successChangeOwnerFile.file.GetParent(),
 			}
 
-			changeOwnerMove(r, c, copyFile, successChangeOwnerFile.GetKey())
+			changeOwnerMove(r, c, copyFile, successChangeOwnerFile.file.GetKey())
 
 			wg.Done()
 		}(successChangeOwnerFile)
@@ -535,8 +546,8 @@ func changeOwnerMove(r *Router, c *gin.Context, copyFileRequest copyFileRequest,
 	return nil
 }
 
-// changeOwnerCopyManipulate -
-func (r *Router) changeOwnerCopyManipulate(c *gin.Context, files map[string]*FileCopy, copyObjectReq copyFileRequest) ([]*fpb.File, []*FileCopy, error) {
+// createFileCopyManipulate -
+func (r *Router) createFileCopyManipulate(c *gin.Context, files map[string]*FileCopy, copyObjectReq copyFileRequest) ([]*fpb.File, []*FileCopy, error) {
 	// Create slices to send the results
 	copyFailed := make([]*fpb.File, 0, len(files))
 	copySuccessful := make([]*FileCopy, 0, len(files))
@@ -546,7 +557,7 @@ func (r *Router) changeOwnerCopyManipulate(c *gin.Context, files map[string]*Fil
 		return copyFailed, copySuccessful, c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("unauthorized"))
 	}
 
-	fileID, err := changeOwnerCopy(r, c, copyObjectReq, files[copyObjectReq.file.Id].result)
+	fileID, err := createFileCopy(r, c, copyObjectReq, files[copyObjectReq.file.Id].result)
 	if err != nil {
 		copyFailed = append(copyFailed, copyObjectReq.file)
 
@@ -569,7 +580,7 @@ func (r *Router) changeOwnerCopyManipulate(c *gin.Context, files map[string]*Fil
 			parentID:   parentID,
 		}
 
-		newFileID, err := changeOwnerCopy(r, c, copyFile, files[descendant.GetId()].result)
+		newFileID, err := createFileCopy(r, c, copyFile, files[descendant.GetId()].result)
 		if err != nil {
 			copyFailed = append(copyFailed, copyObjectReq.file)
 
@@ -591,8 +602,8 @@ func (r *Router) changeOwnerCopyManipulate(c *gin.Context, files map[string]*Fil
 	return copyFailed, copySuccessful, nil
 }
 
-// ChangeOwner ...
-func changeOwnerCopy(r *Router, c *gin.Context, copyFileRequest copyFileRequest, destKey string) (string, error) {
+// createFileCopy ...
+func createFileCopy(r *Router, c *gin.Context, copyFileRequest copyFileRequest, destKey string) (string, error) {
 	// Create new file instance for the same file
 	file := copyFileRequest.file
 
@@ -631,23 +642,23 @@ func (r *Router) changeOwnerRollbackCopy(c *gin.Context, fileID string) error {
 }
 
 // changeOwnerManipulate -function that manipulates copy object. get files array and manipulate them.
-func (r *Router) createPermissionsManipulate(c *gin.Context, files []*fpb.File, newOwnerID string, reqUserID string) ([]*fpb.File, []*fpb.File, error) {
+func (r *Router) createPermissionsManipulate(c *gin.Context, successCopyStorageFiles map[string]*FileCopy, newOwnerID string, reqUserID string) ([]*fpb.File, []*fpb.File, error) {
 	// Create slices to send the results
-	copyFailed := make([]*fpb.File, 0, len(files))
-	copySuccessful := make([]*fpb.File, 0, len(files))
+	copyFailed := make([]*fpb.File, 0, len(successCopyStorageFiles))
+	copySuccessful := make([]*fpb.File, 0, len(successCopyStorageFiles))
 
 	// Move decendants
 	errg := new(errgroup.Group)
 
-	for _, item := range files {
+	for _, fileCopy := range successCopyStorageFiles {
 		errg.Go(func() error {
-			return func(item *fpb.File) error {
+			return func(fileCopy *FileCopy) error {
 				newPermission := ppb.PermissionObject{
-					FileID:  item.GetId(),
+					FileID:  fileCopy.result,
 					UserID:  newOwnerID,
-					AppID:   item.GetAppID(),
+					AppID:   fileCopy.file.GetAppID(),
 					Role:    ppb.Role_WRITE,
-					Creator: reqUserID,
+					Creator: newOwnerID,
 				}
 
 				err := file.CreatePermission(
@@ -657,31 +668,14 @@ func (r *Router) createPermissionsManipulate(c *gin.Context, files []*fpb.File, 
 					reqUserID,
 					newPermission)
 				if err != nil {
-					copyFailed = append(copyFailed, item)
+					copyFailed = append(copyFailed, fileCopy.file)
+					r.logger.Info(err)
 					return err
 				}
 
-				changePermission := ppb.PermissionObject{
-					FileID:  item.GetId(),
-					UserID:  reqUserID,
-					AppID:   item.GetAppID(),
-					Role:    ppb.Role_WRITE,
-					Creator: newOwnerID,
-				}
-
-				err1 := file.CreatePermission(
-					c.Request.Context(),
-					r.fileClient(),
-					r.permissionClient(),
-					newOwnerID,
-					changePermission)
-				if err1 != nil {
-					copyFailed = append(copyFailed, item)
-					return err
-				}
-				copySuccessful = append(copySuccessful, item)
+				copySuccessful = append(copySuccessful, fileCopy.file)
 				return nil
-			}(item)
+			}(fileCopy)
 		})
 	}
 

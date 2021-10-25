@@ -433,6 +433,8 @@ github.com/meateam/file-service v5.0.1-0.20210801135452-120f9202104f+incompatibl
 github.com/meateam/file-service v5.0.1-0.20210801135452-120f9202104f+incompatible/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/file-service v5.0.1-0.20210811074409-0dc6a0d6f0be+incompatible h1:sbvwWxLpSoXa1X8L01CJ0mUKK2NLIJIv/kjti9PEieE=
 github.com/meateam/file-service v5.0.1-0.20210811074409-0dc6a0d6f0be+incompatible/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
+github.com/meateam/file-service v5.0.1-0.20211021075128-f037a36a8e93+incompatible h1:/urh1V7GDVa79gQK4pVyuwuZBMnh4uH5YUaL7ue7SjY=
+github.com/meateam/file-service v5.0.1-0.20211021075128-f037a36a8e93+incompatible/go.mod h1:YTY6wxHVgpEP65ZZJeWQ2MY2yEMiU+ETduiItnOYfv8=
 github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e h1:8yz3Qan6aYtBe2gHHVxAqgUoFlR25wHtG9zueRwmqlw=
 github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e/go.mod h1:NOdhFDgEF8KJAH52BbdPBrFMFvYUSJHWUBN7eziwUWw=
 github.com/meateam/file-service/proto v0.0.0-20210801135452-120f9202104f h1:arxipVK4Nw6j5j4/q1COXziVbXZBpMPrKFOylGHsj1k=
