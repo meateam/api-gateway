@@ -47,6 +47,9 @@ const (
 	// ContextAppKey is the context key used to get and set the client's appID in the context.
 	ContextAppKey = "appID"
 
+	// ContextAppKey is the context key used to get and set the client's appID in the context.
+	ContextShortcutKey = "shortcutID"
+
 	// ContextScopesKey is the context key used to get and set the client's scopes in the context.
 	ContextScopesKey = "scopes"
 

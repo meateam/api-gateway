@@ -75,6 +75,10 @@ const (
 	// OwnerRole is the owner role name when referred to as a permission.
 	OwnerRole = "OWNER"
 
+	// CreateShortcutRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the GetFileByID action.
+	CreateShortcutRole = ppb.Role_WRITE
+
 	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the GetFileByID action.
 	GetFileByIDRole = ppb.Role_READ
@@ -222,8 +226,8 @@ type getSharedFilesResponse struct {
 }
 
 type getFavFilesResponse struct {
-	Files     *favFilesResponse `json:"files"`
-	ErrMsg    string         `json:"errMsg,omitempty"`
+	Files  *favFilesResponse `json:"files"`
+	ErrMsg string            `json:"errMsg,omitempty"`
 }
 
 type favFilesResponse struct {
@@ -323,6 +327,72 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
 	rg.GET("/files/fav", r.GetAllUserFavorites)
+	rg.POST("/files/shortcut", r.CreateShortcut)
+}
+
+// CreateShortcut is the request handler for POST /files/shortcut
+func (r *Router) CreateShortcut(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
+		return
+	}
+
+	err := ValidateShortcutID(c, fileID, r.fileClient(), AllowedDownloadApps)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
+		return
+	}
+
+	alt := c.Query("alt")
+	if alt == "media" {
+		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
+
+		if !canDownload {
+			loggermiddleware.LogError(r.logger, c.AbortWithError(
+				http.StatusForbidden,
+				fmt.Errorf("required scope '%s' is not supplied", oauth.DownloadScope),
+			))
+			return
+		}
+		r.Download(c)
+
+		return
+	}
+
+	userFilePermission, foundPermission := r.HandleUserFilePermission(c, fileID, CreateShortcutRole)
+	if userFilePermission == "" {
+		if !r.HandleUserFilePermit(c, fileID, CreateShortcutRole) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+	}
+
+	// TODO: change to shortcut request according to the proto correctly
+	getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
+	file, err := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+	isFavorite := false
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
+	} else {
+		isFavorite = res.IsFavorite
+	}
+	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
+
 }
 
 // GetAllUserFavorites is the request handler for GET /favFiles/:id
@@ -1451,6 +1521,34 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 		return ctx.AbortWithError(http.StatusForbidden, err)
 	}
 	if file.GetAppID() != appID {
+		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("application not permitted"))
+	}
+
+	return nil
+}
+
+// ValidateShortcutID returns an error if the app cannot do an operation on the shortcut, otherwise, nil.
+// The allowedShortcuts are permitted to do any operation.
+func ValidateShortcutID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient, allowedShortcuts []string) error {
+	shortcutID := ctx.Value(oauth.ContextShortcutKey).(string)
+
+	// Check if the shortcutID is in the allowed shortcutIDs.
+	if stringInSlice(shortcutID, allowedShortcuts) {
+		return nil
+	}
+
+	// Root folder belongs to all apps.
+	if shortcutID == "" {
+		return nil
+	}
+
+	// TODO: change all the getFilebyID to createShortcut correctly.
+	// Get the file's metadata.
+	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		return ctx.AbortWithError(http.StatusForbidden, err)
+	}
+	if file.GetAppID() != shortcutID {
 		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("application not permitted"))
 	}
 
