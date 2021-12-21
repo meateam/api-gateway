@@ -58,6 +58,12 @@ const (
 	// ParamPageNum is a constant for the requested page num in the pagination.
 	ParamPageNum = "pageNum"
 
+	// ParamFolderID is the name of the folder id param in URL.
+	ParamFolderID = "folderId"
+
+	// ParamNewFileName is the name of the new file name param in URL. 
+	ParamNewFileName = "newFileName"
+
 	// ParamPageSize is a constant for the requested page size in the pagination.
 	ParamPageSize = "pageSize"
 
@@ -134,6 +140,10 @@ const (
 
 	// FileIDIsRequiredMessage is the error message for missing fileID
 	FileIDIsRequiredMessage = "fileID is required"
+
+	// CopyFileRole is the role that is required of the authenticated requester to have to be
+	// permitted to make the CopyFile action.
+	CopyFileRole = ppb.Role_READ
 )
 
 var (
@@ -222,8 +232,8 @@ type getSharedFilesResponse struct {
 }
 
 type getFavFilesResponse struct {
-	Files     *favFilesResponse `json:"files"`
-	ErrMsg    string         `json:"errMsg,omitempty"`
+	Files  *favFilesResponse `json:"files"`
+	ErrMsg 	string         	 `json:"errMsg,omitempty"`
 }
 
 type favFilesResponse struct {
@@ -323,9 +333,10 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
 	rg.GET("/files/fav", r.GetAllUserFavorites)
+	rg.POST("/files/copyObject/:id/:folderId/:newFileName", r.CopyObject)
 }
 
-// GetAllUserFavorites is the request handler for GET /favFiles/:id
+// GetAllUserFavorites is the request handler for GET /fav
 // The method gets all favorite file IDs of a user and returns an array with all favorite files.
 func (r *Router) GetAllUserFavorites(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
@@ -1465,4 +1476,127 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+// CopyObject is the request handler for POST /file
+// The function gets the fileID, folderID and the name of the file and copies the file to the folder.
+// It returns the new file id.
+func (r *Router) CopyObject(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
+		return
+	}
+
+	folderID := c.Param(ParamFolderID)
+	if folderID == "undefined" {
+		folderID = ""
+	}
+
+	newFileName := c.Param(ParamNewFileName)
+	if newFileName == "undefined" {
+		newFileName = ""
+	}
+
+
+	userFilePermission, _ := r.HandleUserFilePermission(c, fileID, CopyFileRole)
+	if userFilePermission == "" {
+		if !r.HandleUserFilePermit(c, fileID, CopyFileRole) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+	}
+
+	getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
+	fileToCopy, err := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	key := r.GenerateKey(c)
+
+	createFileResp, err := r.fileClient().CreateFile(c.Request.Context(), &fpb.CreateFileRequest{
+		Key:     key,
+		Bucket:  reqUser.Bucket,
+		OwnerID: reqUser.ID,
+		Size:    fileToCopy.GetSize(),
+		Type:    fileToCopy.Type,
+		Name:    newFileName,
+		Parent:  folderID,
+		AppID:   fileToCopy.AppID,
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	newPermission := ppb.PermissionObject{
+		FileID:  createFileResp.Id,
+		UserID:  reqUser.ID,
+		AppID:   fileToCopy.AppID,
+		Role:    ppb.Role_WRITE,
+		Creator: reqUser.ID,
+	}
+
+	
+	err = CreatePermission(c.Request.Context(),
+		r.fileClient(),
+		r.permissionClient(),
+		reqUser.ID,
+		newPermission,
+	)
+
+	if err != nil {
+		return
+	}
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	_, err = r.uploadClient().CopyObject(c.Request.Context(), &upb.CopyObjectRequest{
+		BucketSrc:  fileToCopy.Bucket,
+		BucketDest: reqUser.Bucket,
+		KeySrc:     fileToCopy.Key,
+		KeyDest:    key,
+	})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	c.String(http.StatusOK, createFileResp.Id)
+}
+
+func (r *Router) GenerateKey(c *gin.Context) string {
+	keyResp, err := r.fileClient().GenerateKey(c.Request.Context(), &fpb.GenerateKeyRequest{})
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return ""
+	}
+
+	key := keyResp.GetKey()
+
+	return key
 }
