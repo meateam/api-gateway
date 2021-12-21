@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- minor([259](https://github.com/meateam/api-gateway/pull/259)): add copy file
+
+
 ## [v5.1.0] - 2021-12-7
 
 ### Added 
 
-- minor([246](https://github.com/meateam/api-gateway/pull/246)) : add fav service
+- minor([246](https://github.com/meateam/api-gateway/pull/246)): add fav service
 
 ## [v5.0.2] - 2021-08-26
 
