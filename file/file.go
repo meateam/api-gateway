@@ -1501,7 +1501,8 @@ func (r *Router) CopyObject(c *gin.Context) {
 
 	newFileName := c.Param(ParamNewFileName)
 	if newFileName == "undefined" {
-		newFileName = ""
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, fmt.Errorf("failed to copy file")))
+		return	
 	}
 
 
@@ -1519,7 +1520,6 @@ func (r *Router) CopyObject(c *gin.Context) {
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
 		return
 	}
 
@@ -1560,10 +1560,7 @@ func (r *Router) CopyObject(c *gin.Context) {
 	)
 
 	if err != nil {
-		return
-	}
-
-	if err != nil {
+		DeleteFileOnError(c, fileID, reqUser.ID, r.fileClient(), r.permissionClient(), r.logger)
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -1578,6 +1575,8 @@ func (r *Router) CopyObject(c *gin.Context) {
 	})
 
 	if err != nil {
+		DeleteFileOnError(c, fileID, reqUser.ID, r.fileClient(), r.permissionClient(), r.logger)
+		DeletePermissionOnError(c, fileID, reqUser.ID, r.permissionClient(), r.logger)
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
