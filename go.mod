@@ -23,7 +23,7 @@ require (
 	github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d
 	github.com/meateam/search-service v0.0.0-20191202135334-eca1d41057e0
 	github.com/meateam/spike-service v0.0.0-20200707100230-2e9242b8e18a
-	github.com/meateam/upload-service v0.0.0-20190829065259-6265a6168676
+	github.com/meateam/upload-service v0.0.0-20210213190415-5a5b88583833
 	github.com/meateam/user-service v3.1.1-0.20210518081330-33212ed397cb+incompatible
 	github.com/olivere/elastic/v7 v7.0.22
 	github.com/pelletier/go-toml v1.8.1 // indirect
