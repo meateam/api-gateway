@@ -216,6 +216,7 @@ type GetFileByIDResponse struct {
 	IsExternal  bool        `json:"isExternal"`
 	AppID       string      `json:"appID,omitempty"`
 	IsFavorite  bool        `json:"isFavorite"`
+	IsShortcut  bool        `json:"isShortcut"`
 }
 
 type getSharedFilesResponse struct {
@@ -356,6 +357,12 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 		return
 	}
 
+	shortcutErr := validateShortcut(c, r.fileClient(), fileID, parent, name)
+	if err != nil {
+		loggermiddleware.LogError(r.logger, shortcutErr)
+		return
+	}
+
 	alt := c.Query("alt")
 	if alt == "media" {
 		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
@@ -382,7 +389,7 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 	}
 
 	// protobuf request that'll be sent via gRPC
-	CreateShortcutRequest := &fpb.CreateShortcutRequest{Id: fileID, Parent: parent, Name: name}
+	CreateShortcutRequest := &fpb.CreateShortcutRequest{FileID: fileID, Parent: parent, Name: name}
 	file, err := r.fileClient().CreateShortcut(c.Request.Context(), CreateShortcutRequest)
 	if err != nil {
 		// converts grpc error code into http status code
@@ -392,8 +399,16 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 		return
 	}
 
+	res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+	isFavorite := false
+	if err != nil {
+		loggermiddleware.LogError(r.logger, err)
+	} else {
+		isFavorite = res.IsFavorite
+	}
+
 	// creates a file response
-	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission))
+	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
 
 }
 
@@ -1410,7 +1425,7 @@ func CreateGetFileResponse(file *fpb.File, role string, permission *ppb.Permissi
 		IsExternal:  isExternal,
 		AppID:       file.GetAppID(),
 		IsFavorite:  isFavorite,
-		IsShortcut:  file.isShortcut,
+		IsShortcut:  file.GetIsShortcut(),
 	}
 
 	if permission != nil {
@@ -1525,6 +1540,24 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	}
 	if file.GetAppID() != appID {
 		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("application not permitted"))
+	}
+
+	return nil
+}
+
+// validateShortcut validates and calls for create shortcut in file service
+func validateShortcut(ctx *gin.Context, fileClient fpb.FileServiceClient, fileID string, parent string, name string) error {
+	if fileID == "" {
+		return nil
+	}
+
+	file, err := fileClient.CreateShortcut(ctx, &fpb.CreateShortcutRequest{FileID: fileID, Parent: parent, Name: name})
+	if err != nil {
+		return err
+	}
+
+	if file.GetIsShortcut() == false {
+		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("could not find the shortcut file"))
 	}
 
 	return nil
