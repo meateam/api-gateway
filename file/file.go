@@ -338,6 +338,7 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
+
 		return
 	}
 
@@ -348,21 +349,20 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 
 	if fileID == "" || parent == "" || name == "" {
 		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
+
 		return
 	}
 
 	err := validateAppID(c, fileID, r.fileClient(), AllowedDownloadApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
+
 		return
 	}
 
-	getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
-
 	// validates by checking if the file exists or not and calls for create shortcut in file service, return if it doesn't exist.
-	shortcutErr := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
+	shortcutErr := validateShortcut(c, fileID, r.fileClient())
 	if shortcutErr != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, shortcutErr)
 
 		return
@@ -373,6 +373,7 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 	if userFilePermission == "" {
 		if !r.HandleUserFilePermit(c, fileID, CreateShortcutRole) {
 			c.AbortWithStatus(http.StatusUnauthorized)
+
 			return
 		}
 	}
@@ -1521,6 +1522,15 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	}
 	if file.GetAppID() != appID {
 		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("application not permitted"))
+	}
+
+	return nil
+}
+
+func validateShortcut(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient) error {
+	_, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
+	if err != nil {
+		return ctx.AbortWithError(http.StatusForbidden, err)
 	}
 
 	return nil
