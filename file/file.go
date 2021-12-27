@@ -346,7 +346,7 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 	parent := c.Param(ParamFileParent)
 	name := c.Param(ParamFileName)
 
-	if fileID == "" {
+	if fileID == "" || parent == "" || name == "" {
 		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
@@ -357,24 +357,13 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 		return
 	}
 
-	shortcutErr := validateShortcut(c, r.fileClient(), fileID, parent, name)
-	if err != nil {
+	getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
+
+	// validates by checking if the file exists or not and calls for create shortcut in file service, return if it doesn't exist.
+	shortcutErr := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
+	if shortcutErr != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, shortcutErr)
-		return
-	}
-
-	alt := c.Query("alt")
-	if alt == "media" {
-		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
-
-		if !canDownload {
-			loggermiddleware.LogError(r.logger, c.AbortWithError(
-				http.StatusForbidden,
-				fmt.Errorf("required scope '%s' is not supplied", oauth.DownloadScope),
-			))
-			return
-		}
-		r.Download(c)
 
 		return
 	}
@@ -399,16 +388,8 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 		return
 	}
 
-	res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
-	isFavorite := false
-	if err != nil {
-		loggermiddleware.LogError(r.logger, err)
-	} else {
-		isFavorite = res.IsFavorite
-	}
-
 	// creates a file response
-	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission, isFavorite))
+	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission))
 
 }
 
@@ -1540,24 +1521,6 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	}
 	if file.GetAppID() != appID {
 		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("application not permitted"))
-	}
-
-	return nil
-}
-
-// validateShortcut validates and calls for create shortcut in file service
-func validateShortcut(ctx *gin.Context, fileClient fpb.FileServiceClient, fileID string, parent string, name string) error {
-	if fileID == "" {
-		return nil
-	}
-
-	file, err := fileClient.CreateShortcut(ctx, &fpb.CreateShortcutRequest{FileID: fileID, Parent: parent, Name: name})
-	if err != nil {
-		return err
-	}
-
-	if file.GetIsShortcut() == false {
-		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("could not find the shortcut file"))
 	}
 
 	return nil
