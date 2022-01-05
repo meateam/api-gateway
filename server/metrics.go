@@ -131,6 +131,8 @@ func extractRequestInfo(c *gin.Context) *extractedTokenInfo {
 		appID = oauth.DropboxAppID
 	case oauth.CargoAuthTypeValue:
 		appID = oauth.CargoAuthTypeValue
+	case oauth.FalconAuthTypeValue:
+		appID = oauth.FalconAuthTypeValue
 	case oauth.ServiceAuthCodeTypeValue:
 		claimAppID, ok := claims[ClientNameLabel].(string) // get the appID from the claims
 		if !ok {

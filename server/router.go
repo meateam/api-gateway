@@ -362,6 +362,17 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest {
 			IsEnabled:      viper.GetBool(configCtsDestEnabled),
 			IsOnlyApprover: viper.GetBool(configCtsDestOnlyApprover),
 		},
+		{
+			Value: 			viper.GetString(configFalconDestValue),
+			Label: 			viper.GetString(configFalconDestName),
+			AppID: 			viper.GetString(configFalconDestAppID),
+			ApprovalURL: 	viper.GetString(configApprovalFalconServiceURL),
+			ApprovalUIURL: 	viper.GetString(configApprovalFalconServiceUIURL),
+			IsDefault: 		false,
+			IsEnabled: 		viper.GetBool(configFalconDestEnabled),
+			IsOnlyApprover: viper.GetBool(configFalconDestOnlyApprover),
+
+		},
 	}
 
 	return externalNetworkDests
