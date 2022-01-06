@@ -27,6 +27,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/status"
+	"github.com/meateam/api-gateway/utils"
+
 )
 
 const (
@@ -258,7 +260,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 
 	appID := c.Value(oauth.ContextAppKey).(string)
 
-	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	isPermitted, err := r.isUploadPermitted(c, reqUser.ID, parent)
 	if err != nil || !isPermitted {
 		c.AbortWithStatus(http.StatusForbidden)
 		return
@@ -310,7 +312,7 @@ func (r *Router) UploadFolder(c *gin.Context) {
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}
-	err = file.CreatePermission(c.Request.Context(),
+	err = file.CreatePermission(c,
 		r.fileClient(),
 		r.permissionClient(),
 		reqUser.ID,
@@ -329,7 +331,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	parent := c.Query(ParentQueryKey)
 
-	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	isPermitted, err := r.isUploadPermitted(c, reqUser.ID, parent)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -422,7 +424,7 @@ func (r *Router) UploadComplete(c *gin.Context) {
 		Role:    ppb.Role_WRITE,
 		Creator: reqUser.ID,
 	}
-	err = file.CreatePermission(c.Request.Context(),
+	err = file.CreatePermission(c,
 		r.fileClient(),
 		r.permissionClient(),
 		reqUser.ID,
@@ -493,7 +495,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 
 	parent := c.Query(ParentQueryKey)
 
-	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	isPermitted, err := r.isUploadPermitted(c, reqUser.ID, parent)
 	if err != nil || !isPermitted {
 		c.AbortWithStatus(http.StatusForbidden)
 		return
@@ -576,7 +578,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 		Creator: reqUser.ID,
 	}
 
-	err = file.CreatePermission(c.Request.Context(),
+	err = file.CreatePermission(c,
 		r.fileClient(),
 		r.permissionClient(),
 		reqUser.ID,
@@ -595,7 +597,7 @@ func (r *Router) UploadFile(c *gin.Context, fileReader io.ReadCloser, contentTyp
 func (r *Router) UploadInit(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 	parent := c.Query(ParentQueryKey)
-	isPermitted, err := r.isUploadPermitted(c.Request.Context(), reqUser.ID, parent)
+	isPermitted, err := r.isUploadPermitted(c, reqUser.ID, parent)
 	if err != nil || !isPermitted {
 		c.AbortWithStatus(http.StatusForbidden)
 		return
@@ -816,7 +818,7 @@ func (r *Router) HandleUpload(
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
-			break
+			// break
 		default:
 		}
 
@@ -898,8 +900,8 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 
 // isUploadPermitted checks if userID has permission to upload a file to fileID,
 // requires ppb.Role_WRITE permission.
-func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
-	userFilePermission, _, err := file.CheckUserFilePermission(
+func (r *Router) isUploadPermitted(ctx *gin.Context, userID string, fileID string) (bool, error) {
+	userFilePermission, _, err := utils.CheckUserFilePermission(
 		ctx,
 		r.fileClient(),
 		r.permissionClient(),

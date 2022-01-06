@@ -8,6 +8,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
 	"github.com/meateam/api-gateway/file"
+	"github.com/meateam/api-gateway/utils"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -107,8 +108,8 @@ func (r *Router) Search(c *gin.Context) {
 	var responseFiles []*file.GetFileByIDResponse
 
 	for _, id := range searchResponse.GetIds() {
-		userFilePermission, foundPermission, err := file.CheckUserFilePermission(
-			c.Request.Context(),
+		userFilePermission, foundPermission, err := utils.CheckUserFilePermission(
+			c,
 			r.fileClient(),
 			r.permissionClient(),
 			reqUser.ID,

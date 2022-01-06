@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
-	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/permission"
@@ -155,7 +154,7 @@ func (r *Router) GetTransfersInfo(c *gin.Context) {
 	}
 
 	if fileID != "" {
-		if permission, _ := r.HandleUserFilePermission(c, fileID, permission.GetFilePermissionsRole); permission == "" {
+		if permission, _ := utils.HandleUserFilePermission(r.fileClient(), r.permissionClient(), c, fileID, permission.GetFilePermissionsRole); permission == "" {
 			return
 		}
 	}
@@ -322,41 +321,4 @@ func (r *Router) GetApproverInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, info)
-}
-
-
-// HandleUserFilePermission gets the id of the requested file, and the required role.
-// Returns the user role as a string, and the permission if the user is permitted
-// to operate on the file, and `"", nil` if not.
-func (r *Router) HandleUserFilePermission(
-	c *gin.Context,
-	fileID string,
-	role ppb.Role) (string, *ppb.PermissionObject) {
-	reqUser := user.ExtractRequestUser(c)
-
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-
-		return "", nil
-	}
-
-	userStringRole, foundPermission, err := file.CheckUserFilePermission(c.Request.Context(),
-		r.fileClient(),
-		r.permissionClient(),
-		reqUser.ID,
-		fileID,
-		role)
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return "", nil
-	}
-
-	if userStringRole == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-	}
-
-	return userStringRole, foundPermission
 }

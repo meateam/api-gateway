@@ -13,6 +13,7 @@ import (
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/upload-service/proto"
 	"google.golang.org/grpc/status"
+	"github.com/meateam/api-gateway/utils"
 )
 
 const (
@@ -62,7 +63,7 @@ func (r *Router) Update(c *gin.Context) {
 		return
 	}
 
-	if hasPermission := r.HandleUserFilePermission(c, fileID, UpdateFileRole); !hasPermission {
+	if role, _ := utils.HandleUserFilePermission(r.fileClient(), r.permissionClient(), c, fileID, UpdateFileRole); role == "" {
 		return
 	}
 
@@ -204,7 +205,7 @@ func (r *Router) UpdateComplete(c *gin.Context) {
 		return
 	}
 
-	deleteObjectsResponse, err := r.uploadClient().DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
+	deleteObjectsResponse, _ := r.uploadClient().DeleteObjects(c.Request.Context(), &upb.DeleteObjectsRequest{
 		Bucket: upload.Bucket,
 		Keys:   []string{oldFile.Key},
 	})

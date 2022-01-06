@@ -11,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/viper"
-
-	// "github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
 	fpb "github.com/meateam/file-service/proto/file"
@@ -104,16 +102,16 @@ func normalizeCephBucketName(bucketName string) string {
 }
 
 
-
 // HandleUserFilePermission gets the id of the requested file, and the required role.
 // Returns the user role as a string, and the permission if the user is permitted
 // to operate on the file, and `"", nil` if not.
-func (r *Router) HandleUserFilePermission(
+func HandleUserFilePermission(
 	fileClient fpb.FileServiceClient, 
 	permissionClient ppb.PermissionClient,
 	c *gin.Context,
 	fileID string,
 	role ppb.Role) (string, *ppb.PermissionObject) {
+	r := NewRouter(&logrus.Logger{})
 	reqUser := user.ExtractRequestUser(c)
 
 	if reqUser == nil {
@@ -142,71 +140,6 @@ func (r *Router) HandleUserFilePermission(
 
 	return userStringRole, foundPermission
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// HandleUserFilePermission gets a gin context, the requested file id, and the role the user needs.
-// Returns true if the user was shared to the file.
-// Returns false and aborts with status if the user isn't permitted to operate on it,
-// Returns false if any error occurred and logs the error.
-// func HandleUserFilePermission(fileclinet fpb.FileServiceClient, permissionClient ppb.PermissionClient, c *gin.Context, fileID string, role ppb.Role) bool {
-// 	r := NewRouter(&logrus.Logger{})
-// 	reqUser := user.ExtractRequestUser(c)
-// 	if reqUser == nil {
-// 		return false
-// 	}
-
-// 	userFilePermission, _, err := CheckUserFilePermission(
-// 		c,
-// 		fileclinet, 
-// 		permissionClient,
-// 		reqUser.ID,
-// 		fileID,
-// 		role,
-// 	)
-
-// 	if err != nil {
-// 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-// 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-// 		return false
-// 	}
-
-// 	// If no permission is returned it means there is no permission to do the action
-// 	if userFilePermission == "" {
-// 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("you do not have permission to do this operation")))
-// 	}
-
-// 	return true
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 // CheckUserFilePermission checks if userID is permitted to fileID with the wanted role.
