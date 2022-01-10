@@ -343,9 +343,9 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 	}
 
 	// returns the value of the url parameter
-	fileID := c.Param(ParamFileID)
-	parent := c.Param(ParamFileParent)
-	name := c.Param(ParamFileName)
+	fileID := c.Query(ParamFileID)
+	parent := c.Query(ParamFileParent)
+	name := c.Query(ParamFileName)
 
 	if fileID == "" || parent == "" || name == "" {
 		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
