@@ -1500,7 +1500,7 @@ func (r *Router) CopyObject(c *gin.Context) {
 	}
 
 	newFileName := c.Param(ParamNewFileName)
-	if newFileName == "undefined" {
+	if newFileName == "undefined" || newFileName == "" {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, fmt.Errorf("failed to copy file")))
 		return	
 	}
