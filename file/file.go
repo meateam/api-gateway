@@ -355,7 +355,7 @@ func (r *Router) GetAllUserFavorites(c *gin.Context) {
 	FavFilesResponse := &getFavFilesResponse{}
 
 	for _, file := range files {
-		userFilePermission, foundPermission, err := utils.CheckUserFilePermission(c,
+		userFilePermission, foundPermission, err := utils.CheckUserFilePermission(c.Request.Context(),
 			r.fileClient(),
 			r.permissionClient(),
 			reqUser.ID,
@@ -561,7 +561,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 	files := filesResp.GetFiles()
 	responseFiles := make([]*GetFileByIDResponse, 0, len(files))
 	for _, file := range files {
-		userFilePermission, foundPermission, err := utils.CheckUserFilePermission(c,
+		userFilePermission, foundPermission, err := utils.CheckUserFilePermission(c.Request.Context(),
 			r.fileClient(),
 			r.permissionClient(),
 			reqUser.ID,
@@ -882,7 +882,7 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	var firstPermittedFileIndex int
 	for firstPermittedFileIndex = 0; firstPermittedFileIndex < len(ancestors); firstPermittedFileIndex++ {
 		userFilePermission, foundPermission, err := utils.CheckUserFilePermission(
-			c,
+			c.Request.Context(),
 			r.fileClient(),
 			r.permissionClient(),
 			reqUser.ID,
@@ -964,7 +964,7 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 	allowedIds := make([]string, 0, len(body.IDList))
 
 	for _, id := range body.IDList {
-		userFilePermission, _, err := utils.CheckUserFilePermission(c,
+		userFilePermission, _, err := utils.CheckUserFilePermission(c.Request.Context(),
 			r.fileClient(),
 			r.permissionClient(),
 			reqUser.ID,
@@ -1108,7 +1108,7 @@ func CheckUserFileTransfer(ctx context.Context,
 
 // CreatePermission creates permission in permission service only if userID has
 // ppb.Role_WRITE permission to permission.FileID.
-func CreatePermission(ctx *gin.Context,
+func CreatePermission(ctx context.Context,
 	fileClient fpb.FileServiceClient,
 	permissionClient ppb.PermissionClient,
 	userID string,

@@ -383,7 +383,7 @@ func (r *Router) HandleUserFilePermission(
 		return "", nil
 	}
 
-	userFilePermission, foundPermission, err := utils.CheckUserFilePermission(c,
+	userFilePermission, foundPermission, err := utils.CheckUserFilePermission(c.Request.Context(),
 		r.fileClient(),
 		r.permissionClient(),
 		reqUser.ID,

@@ -151,7 +151,7 @@ func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.Hand
 			loggermiddleware.LogError(m.logger, err)
 		}
 
-		// return
+		return
 	}
 }
 

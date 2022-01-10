@@ -147,7 +147,7 @@ func HandleUserFilePermission(
 // the permission if the user was shared, and non-nil err if any encountered.
 // If no permitted then role found role would be "".
 // If user was shared then permission would be non-nil.
-func CheckUserFilePermission(c *gin.Context,
+func CheckUserFilePermission(c context.Context,
 	fileClient fpb.FileServiceClient,
 	permissionClient ppb.PermissionClient,
 	userID string,

@@ -900,7 +900,7 @@ func (r *Router) AbortUpload(ctx context.Context, upload *fpb.GetUploadByIDRespo
 
 // isUploadPermitted checks if userID has permission to upload a file to fileID,
 // requires ppb.Role_WRITE permission.
-func (r *Router) isUploadPermitted(ctx *gin.Context, userID string, fileID string) (bool, error) {
+func (r *Router) isUploadPermitted(ctx context.Context, userID string, fileID string) (bool, error) {
 	userFilePermission, _, err := utils.CheckUserFilePermission(
 		ctx,
 		r.fileClient(),

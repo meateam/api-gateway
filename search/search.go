@@ -109,7 +109,7 @@ func (r *Router) Search(c *gin.Context) {
 
 	for _, id := range searchResponse.GetIds() {
 		userFilePermission, foundPermission, err := utils.CheckUserFilePermission(
-			c,
+			c.Request.Context(),
 			r.fileClient(),
 			r.permissionClient(),
 			reqUser.ID,
