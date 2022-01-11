@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
-	"github.com/meateam/api-gateway/file"
+	"github.com/meateam/api-gateway/utils"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
@@ -139,7 +139,7 @@ func (r *Router) GetFilePermissions(c *gin.Context) {
 		return
 	}
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, GetFilePermissionsRole); role == "" {
+	if role, _ := utils.HandleUserFilePermission(r.fileClient(), r.permissionClient(), c, fileID, GetFilePermissionsRole); role == "" {
 		return
 	}
 
@@ -225,7 +225,7 @@ func (r *Router) CreateFilePermission(c *gin.Context) {
 		dest = viper.GetString(oauth.ConfigCtsDest)
 	}
 
-	if role, _ := r.HandleUserFilePermission(c, fileID, CreateFilePermissionRole); role == "" {
+	if role, _ := utils.HandleUserFilePermission(r.fileClient(), r.permissionClient(), c, fileID, CreateFilePermissionRole); role == "" {
 		return
 	}
 
@@ -338,7 +338,7 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 	// requested to delete another user's permission, since he can do this operation with any permission
 	// to himself.
 	if userID != reqUser.ID {
-		if role, _ := r.HandleUserFilePermission(c, fileID, DeleteFilePermissionRole); role == "" {
+		if role, _ := utils.HandleUserFilePermission(r.fileClient(), r.permissionClient(), c, fileID, DeleteFilePermissionRole); role == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
@@ -383,7 +383,7 @@ func (r *Router) HandleUserFilePermission(
 		return "", nil
 	}
 
-	userFilePermission, foundPermission, err := file.CheckUserFilePermission(c.Request.Context(),
+	userFilePermission, foundPermission, err := utils.CheckUserFilePermission(c.Request.Context(),
 		r.fileClient(),
 		r.permissionClient(),
 		reqUser.ID,
