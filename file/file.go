@@ -249,6 +249,12 @@ type partialFile struct {
 	Float       bool    `json:"float,omitempty"`
 }
 
+type Shortcut struct {
+	fileID string `json:"fileID,omitempty"`
+	parent string `json:"parent,omitempty"`
+	name   string `json:"name,omitempty"`
+}
+
 type filesResponse struct {
 	Successful []*GetFileByIDResponse `json:"successful"`
 	Failed     []string               `json:"failed"`
@@ -328,12 +334,11 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
 	rg.GET("/files/fav", r.GetAllUserFavorites)
-	rg.POST("/files/shortcut", r.CreateShortcut)
+	rg.POST("/files/shortcut/:fileId/:parent/:name", r.CreateShortcut)
 }
 
 // CreateShortcut is the request handler for POST /files/shortcut
 func (r *Router) CreateShortcut(c *gin.Context) {
-
 	// extracts request user details
 	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
@@ -343,9 +348,9 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 	}
 
 	// returns the value of the url parameter
-	fileID := c.Query(ParamFileID)
-	parent := c.Query(ParamFileParent)
-	name := c.Query(ParamFileName)
+	fileID := c.Param(ParamFileID)
+	parent := c.Param(ParamFileParent)
+	name := c.Param(ParamFileName)
 
 	if fileID == "" || parent == "" || name == "" {
 		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
@@ -368,29 +373,8 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 		return
 	}
 
-	// returns the user-role as a string, and the permission if the user is permitted to operate on the file and nil if not
-	userFilePermission, foundPermission := r.HandleUserFilePermission(c, fileID, CreateShortcutRole)
-	if userFilePermission == "" {
-		if !r.HandleUserFilePermit(c, fileID, CreateShortcutRole) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-
-			return
-		}
-	}
-
-	// protobuf request that'll be sent via gRPC
-	CreateShortcutRequest := &fpb.CreateShortcutRequest{FileID: fileID, Parent: parent, Name: name}
-	file, err := r.fileClient().CreateShortcut(c.Request.Context(), CreateShortcutRequest)
-	if err != nil {
-		// converts grpc error code into http status code
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
-		return
-	}
-
 	// creates a file response
-	c.JSON(http.StatusOK, CreateGetFileResponse(file, userFilePermission, foundPermission))
+	c.JSON(http.StatusOK, Shortcut{})
 
 }
 
