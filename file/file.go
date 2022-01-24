@@ -1560,7 +1560,7 @@ func (r *Router) CopyObject(c *gin.Context) {
 	)
 
 	if err != nil {
-		DeleteFileOnError(c, fileID, reqUser.ID, r.fileClient(), r.permissionClient(), r.logger)
+		DeleteFileOnError(c, createFileResp.Id, reqUser.ID, r.fileClient(), r.permissionClient(), r.logger)
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
@@ -1575,8 +1575,8 @@ func (r *Router) CopyObject(c *gin.Context) {
 	})
 
 	if err != nil {
-		DeleteFileOnError(c, fileID, reqUser.ID, r.fileClient(), r.permissionClient(), r.logger)
-		DeletePermissionOnError(c, fileID, reqUser.ID, r.permissionClient(), r.logger)
+		DeleteFileOnError(c, createFileResp.Id, reqUser.ID, r.fileClient(), r.permissionClient(), r.logger)
+		DeletePermissionOnError(c, createFileResp.Id, reqUser.ID, r.permissionClient(), r.logger)
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 
