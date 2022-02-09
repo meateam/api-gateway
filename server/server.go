@@ -131,7 +131,7 @@ func init() {
 	viper.SetDefault(configCtsDestEnabled, true)
 	viper.SetDefault(configCtsDestOnlyApprover, false)
 	viper.SetDefault(configFalconDestName, "falcon")
-	viper.SetDefault(configFalconDestValue, "FALCON")
+	viper.SetDefault(configFalconDestValue, "")
 	viper.SetDefault(configFalconDestAppID, "falcon")
 	viper.SetDefault(configFalconDestEnabled, true)
 	viper.SetDefault(configFalconDestOnlyApprover, false)
