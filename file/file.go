@@ -947,37 +947,37 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	permittedAncestors := ancestors[firstPermittedFileIndex:]
 
 	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
+	filesRes, err :=r.fileClient().GetFilesByIDs(c.Request.Context(), &fpb.GetByFilesByIDsRequest{Ids: permittedAncestors})
 
-	for i := 0; i < len(permittedAncestors); i++ {
-		file, err := r.fileClient().GetFileByID(
-			c.Request.Context(),
-			&fpb.GetByFileByIDRequest{Id: permittedAncestors[i]},
-		)
-		if err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+	files := filesRes.GetFiles()
+	fmt.Printf("files: %v\n", files)
 
-			return
-		}
-		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
+	for file := range files {
+		res,err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: files[file].GetId()})
 		isFavorite := false
 		if err != nil {
 			loggermiddleware.LogError(r.logger, err)
 		} else {
 			isFavorite = res.IsFavorite
 		}
-		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[i]]
+		
+		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[file]]
 		populatedPermittedAncestors = append(
 			populatedPermittedAncestors,
-			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
+			CreateGetFileResponse(filesRes.Files[file], ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
+			fmt.Println("files are" , populatedPermittedAncestors)
+			
 	}
 
-	c.JSON(http.StatusOK, populatedPermittedAncestors)
-}
 
-// UpdateFiles Updates many files with the same value.
-// The function gets slice of ids and the partial file to update.
-// It returns the updated file id's.
+	c.JSON(http.StatusOK, populatedPermittedAncestors)
+
+}
 func (r *Router) UpdateFiles(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 
