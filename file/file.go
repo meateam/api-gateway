@@ -784,7 +784,7 @@ func (r *Router) Download(c *gin.Context) {
 		}
 	}
 
-	// Get the file meta from the file service
+	// Get the file meta from the file servicebreak
 	fileMeta, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -949,6 +949,11 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 
 	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
 	filesRes, err := r.fileClient().GetFilesByIDs(c.Request.Context(), &fpb.GetByFilesByIDsRequest{Ids: permittedAncestors})
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
 
 	files := filesRes.GetFiles()
 
@@ -962,13 +967,6 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 
 		}
 	}
-
-	if err != nil {
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-		return
-	}
-	fmt.Printf("files: %v\n", files)
 
 	for index, file := range orderedFiles {
 		res, err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
