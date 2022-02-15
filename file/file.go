@@ -991,6 +991,10 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	c.JSON(http.StatusOK, populatedPermittedAncestors)
 
 }
+
+// UpdateFiles Updates many files with the same value.
+// The function gets slice of ids and the partial file to update.
+// It returns the updated file id's.
 func (r *Router) UpdateFiles(c *gin.Context) {
 	reqUser := user.ExtractRequestUser(c)
 
