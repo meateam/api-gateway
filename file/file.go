@@ -654,15 +654,16 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	permissionsAndFiles := make([]*permissionAndFile, 0, len(permissions))
 
 	for _, permission := range permissions {
-		isTheFileExists := false
+		doesFileExist := false
 		for _, file := range files {
 			if permission.GetFileID() == file.GetId() {
 				permissionsAndFiles = append(permissionsAndFiles, &permissionAndFile{permission, file})
-				isTheFileExists = true
+				doesFileExist = true
+				break;
 
 			}
 		}
-		if !isTheFileExists {
+		if !doesFileExist {
 			filesFailed = append(filesFailed, permission.GetFileID())
 		}
 	}
@@ -949,16 +950,28 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
 	filesRes, err :=r.fileClient().GetFilesByIDs(c.Request.Context(), &fpb.GetByFilesByIDsRequest{Ids: permittedAncestors})
 
+	files := filesRes.GetFiles()
+	
+	orderedFiles := make([]*fpb.File, 0, len(permittedAncestors))
+	for _, permitted := range permittedAncestors {
+		for _, file := range files {
+			if permitted == file.GetId() {
+				orderedFiles = append(orderedFiles, file)
+				break
+			}
+
+		}
+	}
+
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
-	files := filesRes.GetFiles()
 	fmt.Printf("files: %v\n", files)
 
-	for file := range files {
-		res,err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: files[file].GetId()})
+	for index, file := range orderedFiles {
+		res,err := r.favoriteClient().IsFavorite(c, &fvpb.IsFavoriteRequest{UserID: reqUser.ID, FileID: file.GetId()})
 		isFavorite := false
 		if err != nil {
 			loggermiddleware.LogError(r.logger, err)
@@ -966,10 +979,10 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 			isFavorite = res.IsFavorite
 		}
 		
-		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[file]]
+		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[index]]
 		populatedPermittedAncestors = append(
 			populatedPermittedAncestors,
-			CreateGetFileResponse(filesRes.Files[file], ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
+			CreateGetFileResponse(orderedFiles[index], ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
 			fmt.Println("files are" , populatedPermittedAncestors)
 			
 	}
