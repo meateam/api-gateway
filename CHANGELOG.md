@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- FEAT ([265](https://github.com/meateam/api-gateway/pull/265)): Add get By Ids feature 
+
 - minor([259](https://github.com/meateam/api-gateway/pull/259)): add copy file
 
-- FEAT ([#265](https://github.com/meateam/api-gateway/pull/265)): Add get By Ids feature 
 
 
 
