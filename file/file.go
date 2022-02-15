@@ -980,8 +980,7 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 		ancestorPermissionRole := ancestorsPermissionsMap[permittedAncestors[index]]
 		populatedPermittedAncestors = append(
 			populatedPermittedAncestors,
-			CreateGetFileResponse(orderedFiles[index], ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
-		
+			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
 
 	}
 
