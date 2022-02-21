@@ -166,7 +166,7 @@ var (
 
 	// AllowedDownloadApps are the applications which are only allowed to download
 	// files which are not theirs
-	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID, oauth.CargoAppID}
+	AllowedDownloadApps = []string{oauth.DriveAppID, oauth.DropboxAppID, oauth.CargoAppID, oauth.FalconAppID}
 )
 
 // Router is a structure that handles upload requests.
@@ -408,8 +408,9 @@ func (r *Router) GetAllUserFavorites(c *gin.Context) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
+	appID := c.Value(oauth.ContextAppKey).(string)
 	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
+	if appID != oauth.FalconAuthTypeValue && reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -743,15 +744,19 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 // Download is the request handler for /files/:id?alt=media request.
 func (r *Router) Download(c *gin.Context) {
+	appID := c.Value(oauth.ContextAppKey).(string)
+	
 	// Get file ID from param.
 	fileID := c.Param(ParamFileID)
 
-	role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
+	if appID != oauth.FalconAuthTypeValue {
+		role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 
-	if role == "" {
-		if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
+		if role == "" {
+			if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
+				c.AbortWithStatus(http.StatusUnauthorized)
+				return
+			}
 		}
 	}
 
