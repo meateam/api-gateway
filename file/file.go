@@ -264,6 +264,11 @@ type updateFilesRequest struct {
 	PartialFile partialFile `json:"partialFile"`
 }
 
+type permissionAndFile struct {
+	permission *ppb.GetUserPermissionsResponse_FileRole
+	file       *fpb.File
+}
+
 // NewRouter creates a new Router, and initializes clients of File Service
 // and Download Service with the given connections. If logger is non-nil then it will
 // be set as-is, otherwise logger would default to logrus.New().
@@ -647,10 +652,6 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 	filesSuccesful := make([]*GetFileByIDResponse, 0, len(permissions))
 	filesFailed := make([]string, 0, len(permissions))
 
-	type permissionAndFile struct {
-		permission *ppb.GetUserPermissionsResponse_FileRole
-		file       *fpb.File
-	}
 	permissionsAndFiles := make([]*permissionAndFile, 0, len(permissions))
 
 	for _, permission := range permissions {
