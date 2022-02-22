@@ -91,9 +91,6 @@ const (
 
 	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
 	ConfigCtsDest = "cts_dest_value"
-
-	// ConfigFalconDest is the name of the environment variable containing the falcon dest name.
-	ConfigFalconDest = "falcon_dest_value"
 )
 
 // Middleware is a structure that handles the authentication middleware.
@@ -309,12 +306,10 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 	delegatorID := ctx.GetHeader(AuthUserHeader)
 
 	authType := ctx.Value(ContextAuthType)
-	var destination string
+	destination := ""
 	switch authType {
 	case CargoAuthTypeValue:
 		destination = viper.GetString(ConfigCtsDest)
-	case FalconAuthTypeValue:
-		destination = viper.GetString(ConfigFalconDest)
 	default:
 		destination = viper.GetString(ConfigTomcalDest)
 	}

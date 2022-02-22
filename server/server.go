@@ -44,8 +44,6 @@ const (
 	configApprovalServiceUIURL     = "approval_ui_url"
 	configApprovalCtsServiceURL    = "approval_cts_url"
 	configApprovalCtsServiceUIURL  = "approval_cts_ui_url"
-	configApprovalFalconServiceURL = "approval_falcon_url"
-	configApprovalFalconServiceUIURL = "approval_falcon_ui_url"
 	configTomcalDestName           = "tomcal_dest_name"
 	configTomcalDestValue          = "tomcal_dest_value"
 	configTomcalDestAppID          = "tomcal_dest_appid"
@@ -56,11 +54,6 @@ const (
 	configCtsDestAppID             = "cts_dest_appid"
 	configCtsDestEnabled           = "cts_dest_enabled"
 	configCtsDestOnlyApprover      = "cts_dest_only_approver"
-	configFalconDestName           = "falcon_dest_name"
-	configFalconDestValue          = "falcon_dest_value"
-	configFalconDestAppID          = "falcon_dest_appid"
-	configFalconDestEnabled        = "falcon_dest_enabled"
-	configFalconDestOnlyApprover   = "falcon_dest_only_approver"
 	configTransferStatusSuccess    = "transfer_status_success_type"
 	configTransferStatusFailed     = "transfer_status_failed_type"
 	configTransferStatusInProgress = "transfer_status_in_progress_type"
@@ -118,8 +111,6 @@ func init() {
 	viper.SetDefault(configApprovalServiceUIURL, "http://approval.service.ui")
 	viper.SetDefault(configApprovalCtsServiceURL, "http://approval.service")
 	viper.SetDefault(configApprovalCtsServiceUIURL, "http://approval.service.ui")
-	viper.SetDefault(configApprovalFalconServiceURL, "http://approval.service")
-	viper.SetDefault(configApprovalFalconServiceUIURL, "http://approval.service.ui")
 	viper.SetDefault(configTomcalDestName, "תומכל")
 	viper.SetDefault(configTomcalDestValue, "TOMCAL")
 	viper.SetDefault(configTomcalDestAppID, "dropbox")
@@ -130,11 +121,6 @@ func init() {
 	viper.SetDefault(configCtsDestAppID, "cargo")
 	viper.SetDefault(configCtsDestEnabled, true)
 	viper.SetDefault(configCtsDestOnlyApprover, false)
-	viper.SetDefault(configFalconDestName, "falcon")
-	viper.SetDefault(configFalconDestValue, "")
-	viper.SetDefault(configFalconDestAppID, "falcon")
-	viper.SetDefault(configFalconDestEnabled, true)
-	viper.SetDefault(configFalconDestOnlyApprover, false)
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")
