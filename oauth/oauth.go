@@ -306,12 +306,14 @@ func (m *Middleware) storeDelegator(ctx *gin.Context) error {
 	delegatorID := ctx.GetHeader(AuthUserHeader)
 
 	authType := ctx.Value(ContextAuthType)
-	destination := ""
+	var destination string
 	switch authType {
 	case CargoAuthTypeValue:
 		destination = viper.GetString(ConfigCtsDest)
-	default:
+	case DropboxAuthTypeValue:
 		destination = viper.GetString(ConfigTomcalDest)
+	default:
+		destination = ""
 	}
 
 	// If there is a delegator, validate him, then add him to the context
