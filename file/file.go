@@ -326,8 +326,14 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.GetFileScope)
 	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.DeleteScope)
 
+	checkGetFileByIdScope := func(c *gin.Context) {
+		if c.Query(QueryAppID) != oauth.FalconAppID {
+			checkGetFileScope(c)
+		}
+	}
+
 	rg.GET("/files", checkGetFileScope, r.GetFilesByFolder)
-	rg.GET("/files/:id", checkGetFileScope, r.GetFileByID)
+	rg.GET("/files/:id", checkGetFileByIdScope, r.GetFileByID)
 	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", checkDeleteFileScope, r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
