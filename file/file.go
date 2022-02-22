@@ -979,7 +979,6 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 		populatedPermittedAncestors = append(
 			populatedPermittedAncestors,
 			CreateGetFileResponse(file, ancestorPermissionRole.role, ancestorPermissionRole.permission, isFavorite))
-
 	}
 
 	c.JSON(http.StatusOK, populatedPermittedAncestors)
