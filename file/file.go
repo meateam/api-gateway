@@ -620,14 +620,12 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 
 	// Return a page of all shared files' permissions which belong to the user,
 	// filtered by appID. If queryAppID = "", it will not filter by apps
-	filters := &ppb.GetUserPermissionsRequest{
+	permissionsRes, err := r.permissionClient().GetUserPermissions(c.Request.Context(), &ppb.GetUserPermissionsRequest{
 		UserID:   reqUser.ID,
 		AppID:    queryAppID,
 		PageNum:  pageNum,
 		PageSize: pageSize,
-		IsShared: true}
-
-	permissionsRes, err := r.permissionClient().GetUserPermissions(c.Request.Context(), filters)
+		IsShared: true})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
@@ -647,8 +645,6 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
-	files := filesRes.GetFiles()
-
 	filesSuccesful := make([]*GetFileByIDResponse, 0, len(permissions))
 	filesFailed := make([]string, 0, len(permissions))
 
@@ -656,12 +652,11 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 
 	for _, permission := range permissions {
 		doesFileExist := false
-		for _, file := range files {
+		for _, file := range filesRes.GetFiles() {
 			if permission.GetFileID() == file.GetId() {
 				permissionsAndFiles = append(permissionsAndFiles, &permissionAndFile{permission, file})
 				doesFileExist = true
 				break
-
 			}
 		}
 		if !doesFileExist {
@@ -703,9 +698,9 @@ func (r *Router) GetSharedFiles(c *gin.Context, queryAppID string) {
 		errMsg = "file not found"
 	}
 
-	resFiles := &filesResponse{Successful: filesSuccesful, Failed: filesFailed}
+	files := &filesResponse{Successful: filesSuccesful, Failed: filesFailed}
 	sharedFilesResponse := &getSharedFilesResponse{
-		Files:     resFiles,
+		Files:     files,
 		PageNum:   permissionsRes.GetPageNum(),
 		ItemCount: permissionsRes.GetItemCount(),
 		ErrMsg:    errMsg,
@@ -785,7 +780,7 @@ func (r *Router) Download(c *gin.Context) {
 		}
 	}
 
-	// Get the file meta from the file servicebreak
+	// Get the file meta from the file service
 	fileMeta, err := r.fileClient().GetFileByID(c.Request.Context(), &fpb.GetByFileByIDRequest{Id: fileID})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
@@ -949,23 +944,25 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	permittedAncestors := ancestors[firstPermittedFileIndex:]
 
 	populatedPermittedAncestors := make([]*GetFileByIDResponse, 0, len(permittedAncestors))
-	filesRes, err := r.fileClient().GetFilesByIDs(c.Request.Context(), &fpb.GetByFilesByIDsRequest{Ids: permittedAncestors})
+	files, err := r.fileClient().GetFilesByIDs(c.Request.Context(), &fpb.GetByFilesByIDsRequest{Ids: permittedAncestors})
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
 		return
 	}
 
-	files := filesRes.GetFiles()
+	if len(files.GetFiles()) < len(permittedAncestors) {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("could not get file ancestors")))
+		return
+	}
 
 	orderedFiles := make([]*fpb.File, 0, len(permittedAncestors))
 	for _, permitted := range permittedAncestors {
-		for _, file := range files {
+		for _, file := range files.GetFiles() {
 			if permitted == file.GetId() {
 				orderedFiles = append(orderedFiles, file)
 				break
 			}
-
 		}
 	}
 
@@ -986,7 +983,6 @@ func (r *Router) GetFileAncestors(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, populatedPermittedAncestors)
-
 }
 
 // UpdateFiles Updates many files with the same value.
@@ -1001,7 +997,6 @@ func (r *Router) UpdateFiles(c *gin.Context) {
 			r.logger,
 			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
 		)
-
 		return
 	}
 
