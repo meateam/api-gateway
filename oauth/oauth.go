@@ -158,8 +158,6 @@ func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.Hand
 		if err != nil {
 			loggermiddleware.LogError(m.logger, err)
 		}
-
-		return
 	}
 }
 
