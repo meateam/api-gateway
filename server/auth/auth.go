@@ -97,7 +97,7 @@ func NewRouter(
 func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		if c.Query(file.QueryAppID) == oauth.FalconAppID {
+		if c.Query(file.QueryAppID) == oauth.FalconAppID && c.Query("alt") == "media" {
 			return
 		}
 
