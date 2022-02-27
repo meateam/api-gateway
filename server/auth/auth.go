@@ -9,6 +9,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/meateam/api-gateway/file"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/sirupsen/logrus"
@@ -95,6 +96,10 @@ func NewRouter(
 // This function also set variables like user and service to the context.
 func (r *Router) Middleware(secrets Secrets, authURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
+		if c.Query(file.QueryAppID) == oauth.FalconAppID {
+			return
+		}
 
 		serviceName := c.GetHeader(AuthTypeHeader)
 
