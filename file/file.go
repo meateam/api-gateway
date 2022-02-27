@@ -761,10 +761,13 @@ func (r *Router) Download(c *gin.Context) {
 	if c.Query(QueryAppID) == oauth.FalconAppID {
 		getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
 		file, err := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
-		if err != nil && file.AppID != oauth.FalconAppID {
+		if err != nil {
 			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-
+			return
+		}
+		if file.AppID != oauth.FalconAppID {
+			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusBadRequest, fmt.Errorf("file %v is not a Falcon file", fileID)))
 			return
 		}
 	} else {
