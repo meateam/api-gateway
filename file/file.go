@@ -61,7 +61,7 @@ const (
 	// ParamFolderID is the name of the folder id param in URL.
 	ParamFolderID = "folderId"
 
-	// ParamNewFileName is the name of the new file name param in URL. 
+	// ParamNewFileName is the name of the new file name param in URL.
 	ParamNewFileName = "newFileName"
 
 	// ParamPageSize is a constant for the requested page size in the pagination.
@@ -233,7 +233,7 @@ type getSharedFilesResponse struct {
 
 type getFavFilesResponse struct {
 	Files  *favFilesResponse `json:"files"`
-	ErrMsg 	string         	 `json:"errMsg,omitempty"`
+	ErrMsg string            `json:"errMsg,omitempty"`
 }
 
 type favFilesResponse struct {
@@ -414,9 +414,16 @@ func (r *Router) GetAllUserFavorites(c *gin.Context) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-	appID := c.Value(oauth.ContextAppKey).(string)
+	appID := c.Query(QueryAppID)
+	alt := c.Query("alt")
 	reqUser := user.ExtractRequestUser(c)
-	if appID != oauth.FalconAuthTypeValue && reqUser == nil {
+
+	if appID == oauth.FalconAppID && alt == "media" {
+		r.Download(c)
+		return
+	}
+
+	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -433,7 +440,6 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
-	alt := c.Query("alt")
 	if alt == "media" {
 		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
 
@@ -750,12 +756,10 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 
 // Download is the request handler for /files/:id?alt=media request.
 func (r *Router) Download(c *gin.Context) {
-	appID := c.Value(oauth.ContextAppKey).(string)
-	
 	// Get file ID from param.
 	fileID := c.Param(ParamFileID)
 
-	if appID != oauth.FalconAuthTypeValue {
+	if c.Query(QueryAppID) != oauth.FalconAppID {
 		role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 
 		if role == "" {
@@ -1513,9 +1517,8 @@ func (r *Router) CopyObject(c *gin.Context) {
 	newFileName := c.Param(ParamNewFileName)
 	if newFileName == "undefined" || newFileName == "" {
 		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusForbidden, fmt.Errorf("failed to copy file")))
-		return	
+		return
 	}
-
 
 	userFilePermission, _ := r.HandleUserFilePermission(c, fileID, CopyFileRole)
 	if userFilePermission == "" {
@@ -1562,7 +1565,6 @@ func (r *Router) CopyObject(c *gin.Context) {
 		Creator: reqUser.ID,
 	}
 
-	
 	err = CreatePermission(c.Request.Context(),
 		r.fileClient(),
 		r.permissionClient(),
