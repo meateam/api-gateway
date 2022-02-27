@@ -227,7 +227,7 @@ func (r *Router) ExtractToken(secret string, authURL string, c *gin.Context) *jw
 
 	// The auth token is empty
 	if auth == "" {
-		r.redirectToAuthService(c, authURL, fmt.Sprintf("there is no auth token"))
+		r.redirectToAuthService(c, authURL, "there is no auth token")
 		return nil
 	}
 

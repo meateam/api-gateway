@@ -758,7 +758,16 @@ func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
 	fileID := c.Param(ParamFileID)
 
-	if c.Query(QueryAppID) != oauth.FalconAppID {
+	if c.Query(QueryAppID) == oauth.FalconAppID {
+		getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
+		file, err := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
+		if err != nil && file.AppID != oauth.FalconAppID {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+			return
+		}
+	} else {
 		role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 
 		if role == "" {
@@ -767,6 +776,7 @@ func (r *Router) Download(c *gin.Context) {
 				return
 			}
 		}
+
 	}
 
 	// Get the file meta from the file service
