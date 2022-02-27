@@ -325,9 +325,8 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.GetFileScope)
 	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.DeleteScope)
-
 	checkGetFileByIdScope := func(c *gin.Context) {
-		if c.Query(QueryAppID) != oauth.FalconAppID {
+		if c.Query(QueryAppID) != oauth.FalconAppID || c.Query("alt") != "media" {
 			checkGetFileScope(c)
 		}
 	}
