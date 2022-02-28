@@ -12,7 +12,7 @@ import (
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
-	oauth "github.com/meateam/api-gateway/oauth"
+	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
 	"github.com/meateam/api-gateway/utils"
 	"github.com/meateam/download-service/download"
@@ -325,14 +325,9 @@ func NewRouter(
 func (r *Router) Setup(rg *gin.RouterGroup) {
 	checkGetFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.GetFileScope)
 	checkDeleteFileScope := r.oAuthMiddleware.AuthorizationScopeMiddleware(oauth.DeleteScope)
-	checkGetFileByIdScope := func(c *gin.Context) {
-		if c.Query(QueryAppID) != oauth.FalconAppID || c.Query("alt") != "media" {
-			checkGetFileScope(c)
-		}
-	}
 
 	rg.GET("/files", checkGetFileScope, r.GetFilesByFolder)
-	rg.GET("/files/:id", checkGetFileByIdScope, r.GetFileByID)
+	rg.GET("/files/:id", checkGetFileScope, r.GetFileByID)
 	rg.GET("/files/:id/ancestors", r.GetFileAncestors)
 	rg.DELETE("/files/:id", checkDeleteFileScope, r.DeleteFileByID)
 	rg.PUT("/files/:id", r.UpdateFile)
@@ -413,23 +408,20 @@ func (r *Router) GetAllUserFavorites(c *gin.Context) {
 
 // GetFileByID is the request handler for GET /files/:id
 func (r *Router) GetFileByID(c *gin.Context) {
-	appID := c.Query(QueryAppID)
-	alt := c.Query("alt")
-	reqUser := user.ExtractRequestUser(c)
+	fileID := c.Param(ParamFileID)
+	if fileID == "" {
+		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
+		return
+	}
 
-	if appID == oauth.FalconAppID && alt == "media" {
+	if CanNoAuthAppDownload(c) {
 		r.Download(c)
 		return
 	}
 
+	reqUser := user.ExtractRequestUser(c)
 	if reqUser == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	fileID := c.Param(ParamFileID)
-	if fileID == "" {
-		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
 		return
 	}
 
@@ -439,6 +431,7 @@ func (r *Router) GetFileByID(c *gin.Context) {
 		return
 	}
 
+	alt := c.Query("alt")
 	if alt == "media" {
 		canDownload := r.oAuthMiddleware.ValidateRequiredScope(c, oauth.DownloadScope)
 
@@ -518,7 +511,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 
 	// Check if a specific app was requested by the drive.
 	// Other apps are not permitted to do so.
-	if stringInSlice(appID, AllowedAllOperationsApps) {
+	if utils.StringInSlice(appID, AllowedAllOperationsApps) {
 		queryAppID = c.Query(QueryAppID)
 	}
 
@@ -527,7 +520,7 @@ func (r *Router) GetFilesByFolder(c *gin.Context) {
 		// Only AllowedAllOperationsApps can access GetSharedFiles.
 		// In the future - we may allow other apps to get the
 		// shared files which belong to them.
-		if !stringInSlice(appID, AllowedAllOperationsApps) {
+		if !utils.StringInSlice(appID, AllowedAllOperationsApps) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
@@ -757,29 +750,17 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
 	fileID := c.Param(ParamFileID)
-
-	if c.Query(QueryAppID) == oauth.FalconAppID {
-		getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
-		file, err := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
-		if err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
-			return
-		}
-		if file.AppID != oauth.FalconAppID {
-			loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusBadRequest, fmt.Errorf("file %v is not a Falcon file", fileID)))
-			return
-		}
-	} else {
+	appID := c.Query(QueryAppID)
+	if appID == "" {
 		role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
-
 		if role == "" {
 			if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
 				c.AbortWithStatus(http.StatusUnauthorized)
 				return
 			}
 		}
-
+	} else if !r.ValidateNoAuthDownloadAppId(c, fileID, appID) {
+		return
 	}
 
 	// Get the file meta from the file service
@@ -1474,7 +1455,7 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	appID := ctx.Value(oauth.ContextAppKey).(string)
 
 	// Check if the appID is in the allowed appIDs.
-	if stringInSlice(appID, allowedApps) {
+	if utils.StringInSlice(appID, allowedApps) {
 		return nil
 	}
 
@@ -1493,16 +1474,6 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	}
 
 	return nil
-}
-
-// stringInSlice checks if a given string is in a given slice of strings
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }
 
 // CopyObject is the request handler for POST /file
@@ -1623,4 +1594,29 @@ func (r *Router) GenerateKey(c *gin.Context) string {
 	key := keyResp.GetKey()
 
 	return key
+}
+
+func CanNoAuthAppDownload(ctx *gin.Context) bool {
+	alt := ctx.Query("alt")
+	if alt != "media" {
+		return false
+	}
+
+	appID := ctx.Query(QueryAppID)
+	return oauth.IsAppAllowedNoAuthAction(appID, "download")
+}
+
+func (r *Router) ValidateNoAuthDownloadAppId(c *gin.Context, fileID string, appID string) bool {
+	getFileByIDRequest := &fpb.GetByFileByIDRequest{Id: fileID}
+	file, err := r.fileClient().GetFileByID(c.Request.Context(), getFileByIDRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return false
+	}
+	if file.AppID != appID {
+		loggermiddleware.LogError(r.logger, c.AbortWithError(http.StatusBadRequest, fmt.Errorf("file %v is not a %v file", fileID, appID)))
+		return false
+	}
+	return true
 }

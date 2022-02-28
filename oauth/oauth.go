@@ -9,6 +9,7 @@ import (
 	"github.com/meateam/api-gateway/factory"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/user"
+	"github.com/meateam/api-gateway/utils"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	spb "github.com/meateam/spike-service/proto/spike-service"
 	usrpb "github.com/meateam/user-service/proto/users"
@@ -83,6 +84,10 @@ const (
 	// FalconAppID is the app ID of the falcon client.
 	FalconAppID = "falcon"
 
+	// QueryAppID is a constant for queryAppId parameter in a request.
+	// If exists, the files returned will only belong to the app of QueryAppID.
+	QueryAppID = "appId"
+
 	// TransactionClientLabel is the label of the custom transaction field : client-name.
 	TransactionClientLabel = "client"
 
@@ -91,6 +96,10 @@ const (
 
 	// ConfigCtsDest is the name of the environment variable containing the cts dest name.
 	ConfigCtsDest = "cts_dest_value"
+)
+
+var (
+	AllowedNoAuthAppsAndActions = map[string][]string{FalconAppID: {"download"}}
 )
 
 // Middleware is a structure that handles the authentication middleware.
@@ -137,6 +146,13 @@ func NewOAuthMiddleware(
 // delegator exists too, the function will set the context user to be the delegator.
 func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		appId := ctx.Query(QueryAppID)
+
+		if ctx.Query("alt") == "media" && IsAppAllowedNoAuthAction(appId, "download") {
+			ctx.Next()
+			return
+		}
+
 		authType := ctx.GetHeader(AuthTypeHeader)
 		ctx.Set(ContextAuthType, authType)
 
@@ -417,4 +433,8 @@ func (m *Middleware) ValidateRequiredScope(ctx *gin.Context, requiredScope strin
 func SetApmClient(ctx *gin.Context, clientID string) {
 	currentTransaction := apm.TransactionFromContext(ctx.Request.Context())
 	currentTransaction.Context.SetCustom(TransactionClientLabel, clientID)
+}
+
+func IsAppAllowedNoAuthAction(appID string, action string) bool {
+	return utils.StringInSlice(action, AllowedNoAuthAppsAndActions[appID])
 }

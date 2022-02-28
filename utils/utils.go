@@ -10,3 +10,13 @@ func StringToInt64(s string) int64 {
 	}
 	return n
 }
+
+// StringInSlice checks if a given string is in a given slice of strings
+func StringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
