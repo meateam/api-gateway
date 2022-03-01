@@ -98,8 +98,13 @@ const (
 	ConfigCtsDest = "cts_dest_value"
 )
 
+const (
+	Download string = "0"
+	Uplaod   string = "1"
+)
+
 var (
-	AllowedNoAuthAppsAndActions = map[string][]string{FalconAppID: {"download"}}
+	AllowedNoAuthAppsAndActions = map[string][]string{FalconAppID: {Download}}
 )
 
 // Middleware is a structure that handles the authentication middleware.
@@ -148,7 +153,7 @@ func (m *Middleware) AuthorizationScopeMiddleware(requiredScope string) gin.Hand
 	return func(ctx *gin.Context) {
 		appId := ctx.Query(QueryAppID)
 
-		if ctx.Query("alt") == "media" && IsAppAllowedNoAuthAction(appId, "download") {
+		if ctx.Query("alt") == "media" && IsAppAllowedNoAuthAction(appId, Download) {
 			ctx.Next()
 			return
 		}

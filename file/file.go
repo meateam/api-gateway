@@ -751,7 +751,7 @@ func (r *Router) Download(c *gin.Context) {
 	// Get file ID from param.
 	fileID := c.Param(ParamFileID)
 	appID := c.Query(QueryAppID)
-	if appID == "" {
+	if appID == "" || appID == oauth.DropboxAppID || appID == oauth.CargoAppID {
 		role, _ := r.HandleUserFilePermission(c, fileID, GetFileByIDRole)
 		if role == "" {
 			if !r.HandleUserFilePermit(c, fileID, DownloadRole) {
@@ -1603,7 +1603,7 @@ func CanNoAuthAppDownload(ctx *gin.Context) bool {
 	}
 
 	appID := ctx.Query(QueryAppID)
-	return oauth.IsAppAllowedNoAuthAction(appID, "download")
+	return oauth.IsAppAllowedNoAuthAction(appID, oauth.Download)
 }
 
 func (r *Router) ValidateNoAuthDownloadAppId(c *gin.Context, fileID string, appID string) bool {
