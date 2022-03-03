@@ -1603,7 +1603,7 @@ func CanNoAuthAppDownload(ctx *gin.Context) bool {
 	}
 
 	appID := ctx.Query(QueryAppID)
-	return oauth.IsAppAllowedNoAuthAction(appID, oauth.Download)
+	return oauth.IsAppAllowedNoAuthAction(appID, oauth.NoAuthActionDownload)
 }
 
 func (r *Router) ValidateNoAuthDownloadAppId(c *gin.Context, fileID string, appID string) bool {
