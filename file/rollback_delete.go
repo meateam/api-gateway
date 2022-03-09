@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/status"
@@ -48,3 +49,38 @@ func AddPermissionsOnError(c *gin.Context,
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 	loggermiddleware.LogError(logger, c.AbortWithError(httpStatusCode, err))
 }
+
+func DeletePermissionOnError(c *gin.Context,
+	fileID string,
+	userID string,
+	permissionClient ppb.PermissionClient,
+	logger *logrus.Logger) {
+	
+	permissionRequest := &ppb.DeletePermissionRequest{
+		FileID: fileID,
+		UserID: userID,
+	}
+
+	_, err := permissionClient.DeletePermission(c, permissionRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(logger, c.AbortWithError(httpStatusCode,
+			fmt.Errorf("failed rollback and delete permissions for file: %s", fileID)))
+
+		return
+	}
+}
+
+
+func DeleteFileOnError(c *gin.Context,
+	fileID string,
+	userID string,
+	fileClient fpb.FileServiceClient,
+	permissionClient ppb.PermissionClient,
+	logger *logrus.Logger) {
+		deletedFile, err := fileClient.DeleteFileByID(c, &fpb.DeleteFileByIDRequest{Id: fileID})
+		if err != nil || deletedFile == nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))		
+			loggermiddleware.LogError(logger, c.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file: %v", err)))
+		}
+	}
