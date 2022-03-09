@@ -76,8 +76,8 @@ const (
 	OwnerRole = "OWNER"
 
 	// CreateShortcutRole is the role that is required of the authenticated requester to have to be
-	// permitted to make the GetFileByID action.
-	CreateShortcutRole = ppb.Role_READ
+	// permitted to make the CreateShortcut action.
+	CreateShortcutRole = ppb.Role_WRITE
 
 	// GetFileByIDRole is the role that is required of the authenticated requester to have to be
 	// permitted to make the GetFileByID action.
@@ -247,12 +247,7 @@ type partialFile struct {
 	CreatedAt   int64   `json:"createdAt,omitempty"`
 	UpdatedAt   int64   `json:"updatedAt,omitempty"`
 	Float       bool    `json:"float,omitempty"`
-}
-
-type Shortcut struct {
-	fileID string `json:"fileID,omitempty"`
-	parent string `json:"parent,omitempty"`
-	name   string `json:"name,omitempty"`
+	FileID      string  `json:"fileID,omitempty"`
 }
 
 type filesResponse struct {
@@ -334,47 +329,57 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 	rg.PUT("/files/:id", r.UpdateFile)
 	rg.PUT("/files", r.UpdateFiles)
 	rg.GET("/files/fav", r.GetAllUserFavorites)
-	rg.POST("/files/shortcut/:fileId/:parent/:name", r.CreateShortcut)
+	rg.POST("/files/:id/shortcut", r.CreateShortcut)
 }
 
-// CreateShortcut is the request handler for POST /files/shortcut
+// CreateShortcut is the request handler for POST /files/:id/shortcut
 func (r *Router) CreateShortcut(c *gin.Context) {
-	// extracts request user details
-	reqUser := user.ExtractRequestUser(c)
-	if reqUser == nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-
-		return
-	}
-
-	// returns the value of the url parameter
 	fileID := c.Param(ParamFileID)
 	parent := c.Param(ParamFileParent)
 	name := c.Param(ParamFileName)
 
-	if fileID == "" || parent == "" || name == "" {
+	if fileID == "" {
 		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
-
 		return
 	}
 
-	err := validateAppID(c, fileID, r.fileClient(), AllowedDownloadApps)
+	err := validateAppID(c, fileID, r.fileClient(), AllowedAllOperationsApps)
 	if err != nil {
 		loggermiddleware.LogError(r.logger, err)
-
 		return
 	}
 
-	// validates by checking if the file exists or not and calls for create shortcut in file service, return if it doesn't exist.
-	shortcutErr := validateShortcut(c, fileID, r.fileClient())
-	if shortcutErr != nil {
-		loggermiddleware.LogError(r.logger, shortcutErr)
-
+	if role, _ := r.HandleUserFilePermission(c, fileID, CreateShortcutRole); role == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
-	// creates a file response
-	c.JSON(http.StatusOK, Shortcut{})
+	var pf partialFile
+	if c.ShouldBindJSON(&pf) != nil {
+		loggermiddleware.LogError(
+			r.logger,
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unexpected body format")),
+		)
+		return
+	}
+
+	// If the parent should be updated then check permissions for the new parent.
+	if pf.Parent != nil {
+		if role, _ := r.HandleUserFilePermission(c, *pf.Parent, UpdateFileRole); role == "" {
+			return
+		}
+	}
+
+	createReq := &fpb.CreateShortcutRequest{FileID: fileID, Parent: parent, Name: name}
+	createdResponse, err := r.fileClient().CreateShortcut(c.Request.Context(), createReq)
+
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+		return
+	}
+
+	c.JSON(http.StatusOK, createdResponse)
 
 }
 

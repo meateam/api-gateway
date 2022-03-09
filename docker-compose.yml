@@ -41,8 +41,8 @@ services:
       - '8082:8080'
     depends_on:
       - minio
-  file-service:
-    image: 'drivehub.azurecr.io/meateam/file-service:develop'
+  file-service: 
+    image: 'file-service'
     env_file:
       - ../kdrive.env
     ports:
