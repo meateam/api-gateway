@@ -350,8 +350,6 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 // CreateShortcut is the request handler for POST /files/:id/shortcut
 func (r *Router) CreateShortcut(c *gin.Context) {
 	fileID := c.Param(ParamFileID)
-	parent := c.Param(ParamFileParent)
-	name := c.Param(ParamFileName)
 
 	if fileID == "" {
 		c.String(http.StatusBadRequest, FileIDIsRequiredMessage)
@@ -378,14 +376,18 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 		return
 	}
 
+	createReq := &fpb.CreateShortcutRequest{}
+
 	// If the parent should be updated then check permissions for the new parent.
 	if pf.Parent != nil {
-		if role, _ := r.HandleUserFilePermission(c, *pf.Parent, UpdateFileRole); role == "" {
+		if role, _ := r.HandleUserFilePermission(c, *(pf.Parent), UpdateFileRole); role == "" {
 			return
 		}
+		createReq.Parent = *pf.Parent
 	}
 
-	createReq := &fpb.CreateShortcutRequest{FileID: fileID, Parent: parent, Name: name}
+	createReq.FileID = fileID
+	createReq.Name = pf.Name
 	createdResponse, err := r.fileClient().CreateShortcut(c.Request.Context(), createReq)
 
 	if err != nil {
@@ -1535,15 +1537,6 @@ func validateAppID(ctx *gin.Context, fileID string, fileClient fpb.FileServiceCl
 	}
 	if file.GetAppID() != appID {
 		return ctx.AbortWithError(http.StatusForbidden, fmt.Errorf("application not permitted"))
-	}
-
-	return nil
-}
-
-func validateShortcut(ctx *gin.Context, fileID string, fileClient fpb.FileServiceClient) error {
-	_, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
-	if err != nil {
-		return ctx.AbortWithError(http.StatusForbidden, err)
 	}
 
 	return nil

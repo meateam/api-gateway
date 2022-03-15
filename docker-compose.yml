@@ -42,7 +42,7 @@ services:
     depends_on:
       - minio
   file-service: 
-    image: 'file-service'
+    image: 'file-service:latest'
     env_file:
       - ../kdrive.env
     ports:

@@ -17,7 +17,7 @@ require (
 	github.com/meateam/dropbox-service v0.0.0-20210323125524-40aa0b34499c
 	github.com/meateam/elasticsearch-logger v1.2.0
 	github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904
-	github.com/meateam/file-service/proto v0.0.0-20211209143512-0efc9e190036
+	github.com/meateam/file-service/proto v0.0.0-20220314130010-fae66e0b6c85
 	github.com/meateam/gotenberg-go-client/v6 v6.0.7
 	github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8
 	github.com/meateam/permission-service v0.0.0-20201227160413-b8b9c077c53d
@@ -39,6 +39,10 @@ require (
 	go.elastic.co/apm/module/apmgrpc v1.7.0
 	go.elastic.co/apm/module/apmhttp v1.7.0
 	go.mongodb.org/mongo-driver v1.5.1
+	golang.org/x/net v0.0.0-20211020060615-d418f374d309 // indirect
+	golang.org/x/sys v0.0.0-20211023085530-d6a326fbbf70 // indirect
+	golang.org/x/text v0.3.7 // indirect
+	google.golang.org/genproto v0.0.0-20211021150943-2b146023228c // indirect
 	google.golang.org/grpc v1.41.0
 	google.golang.org/grpc/examples v0.0.0-20201212000604-81b95b1854d7 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect

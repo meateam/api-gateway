@@ -459,6 +459,8 @@ github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904 h1:GeRVh03g4sr
 github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904/go.mod h1:VO1ophmFMERxLSep96Rkb2p2D8XXWLEqweOBU8sag4M=
 github.com/meateam/file-service/proto v0.0.0-20211209143512-0efc9e190036 h1:sX6D6rber7KjDreGuicnyYP5K6WvnQH59Nl2RfwVEO0=
 github.com/meateam/file-service/proto v0.0.0-20211209143512-0efc9e190036/go.mod h1:YKsqk1yvdjvAvXgYOk9CKFQ//pa5kJBFsC+mL4IDzfU=
+github.com/meateam/file-service/proto v0.0.0-20220314130010-fae66e0b6c85 h1:lCFtFGMd3a/UtlEFUSehfW1hQHSLfavguHH2YagsunM=
+github.com/meateam/file-service/proto v0.0.0-20220314130010-fae66e0b6c85/go.mod h1:cajUbeYwiz0ofDqrl1sdiSxIRUbekh95ahQg8WdDJ6k=
 github.com/meateam/gotenberg-go-client/v6 v6.0.7 h1:9De2v5f6LPo92nzVjBbAlwyrMmqmPhQLIDZLP5qNHYo=
 github.com/meateam/gotenberg-go-client/v6 v6.0.7/go.mod h1:6Rfyc4psQ0N2GUBOp7fUjXblxHG+U9NdicqVgXd2tTQ=
 github.com/meateam/grpc-go-conn-pool v0.0.0-20201214083317-16d5ec9ea3b8 h1:lnzFfsxZdjpr9wdZiLoMykZtW0NsCDwUDWUxUWG5WII=
