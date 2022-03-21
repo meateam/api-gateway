@@ -67,6 +67,9 @@ const (
 	// ParamPageSize is a constant for the requested page size in the pagination.
 	ParamPageSize = "pageSize"
 
+	// DriveAppID is a constant for the app id of the drive app.
+	DriveAppID = "drive"
+
 	// QueryShareFiles is the querystring key for retrieving the files that were shared with the user.
 	QueryShareFiles = "shares"
 
@@ -349,6 +352,12 @@ func (r *Router) Setup(rg *gin.RouterGroup) {
 
 // CreateShortcut is the request handler for POST /files/:id/shortcut
 func (r *Router) CreateShortcut(c *gin.Context) {
+	reqUser := user.ExtractRequestUser(c)
+	if reqUser == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
 	fileID := c.Param(ParamFileID)
 
 	if fileID == "" {
@@ -396,8 +405,31 @@ func (r *Router) CreateShortcut(c *gin.Context) {
 		return
 	}
 
+	newPermission := ppb.PermissionObject{
+		FileID:  createdResponse.GetId(),
+		UserID:  reqUser.ID,
+		AppID:   DriveAppID,
+		Role:    ppb.Role_WRITE,
+		Creator: reqUser.ID,
+	}
+
+	err = CreatePermission(c.Request.Context(),
+		r.fileClient(),
+		r.permissionClient(),
+		reqUser.ID,
+		newPermission,
+	)
+
+	if err != nil {
+		DeleteFileOnError(c, fileID, reqUser.ID, r.fileClient(), r.permissionClient(), r.logger)
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
 	c.JSON(http.StatusOK, createdResponse)
-  
+
 }
 
 // GetAllUserFavorites is the request handler for GET /fav
