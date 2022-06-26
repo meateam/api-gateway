@@ -8,23 +8,26 @@ import (
 	"github.com/gin-gonic/gin"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
+	"github.com/meateam/api-gateway/oauth"
+	flcnpb "github.com/meateam/falcon-service/proto/falcon"
+	fvpb "github.com/meateam/fav-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
 	upb "github.com/meateam/upload-service/proto"
-	fvpb "github.com/meateam/fav-service/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // deleteFileAndPremission deletes the file and the permissions to it from db
-// Also deletes the favorite. 
+// Also deletes the favorite.
 func deleteFileAndPremission(ctx *gin.Context,
 	logger *logrus.Logger,
 	fileClient fpb.FileServiceClient,
 	permissionClient ppb.PermissionClient,
 	favClient fvpb.FavoriteClient,
+	falconClient flcnpb.FalconServiceClient,
 	fileID string) *fpb.File {
 	filePermissions, err := permissionClient.GetFilePermissions(ctx, &ppb.GetFilePermissionsRequest{FileID: fileID})
 	if err != nil {
@@ -46,12 +49,21 @@ func deleteFileAndPremission(ctx *gin.Context,
 		if status.Code(err) != codes.NotFound {
 			// Add permission rollback
 			AddPermissionsOnError(ctx, err, fileID, filePermissions.GetPermissions(), permissionClient, logger)
-		} 
+		}
 
-		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))		
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed deleting file: %v", err)))
 		return nil
-	} 
+	}
+
+	// Notify falcon service
+	if deletedFile.File.GetAppID() == oauth.FalconAppID {
+		if _, err := falconClient.SendMsg(ctx, &flcnpb.SendMsgRequest{FileId: fileID}); err != nil {
+			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+			loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to notify falcon service: %v", err)))
+			return nil
+		}
+	}
 
 	//Delete file from favorites
 	if _, err := favClient.DeleteAllfileFav(ctx, &fvpb.DeleteAllfileFavRequest{FileID: fileID}); err != nil {
@@ -73,6 +85,7 @@ func DeleteFile(ctx *gin.Context,
 	searchClient spb.SearchClient,
 	permissionClient ppb.PermissionClient,
 	favClient fvpb.FavoriteClient,
+	falconClient flcnpb.FalconServiceClient,
 	fileID string,
 	userID string) ([]string, error) {
 	file, err := fileClient.GetFileByID(ctx, &fpb.GetByFileByIDRequest{Id: fileID})
@@ -98,7 +111,7 @@ func DeleteFile(ctx *gin.Context,
 	// Only the owner of the file can delete the file instance.
 	// If the user requesting to delete isn't the owner- delete it's permission to this file
 	if file.GetOwnerID() == userID {
-		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, favClient, fileID)
+		deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, favClient, falconClient, fileID)
 		if deletedFile != nil {
 			deletedFiles = append(deletedFiles, deletedFile)
 		}
@@ -120,7 +133,7 @@ func DeleteFile(ctx *gin.Context,
 		parent := descendants[i].GetParent()
 
 		if file.GetOwnerID() == userID {
-			deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, favClient, file.GetId())
+			deletedFile := deleteFileAndPremission(ctx, logger, fileClient, permissionClient, favClient, falconClient, file.GetId())
 			if deletedFile != nil {
 				deletedFiles = append(deletedFiles, deletedFile)
 			}

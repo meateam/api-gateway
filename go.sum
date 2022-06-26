@@ -448,6 +448,8 @@ github.com/meateam/elasticsearch-logger v1.2.0 h1:jeI24UnKwaUgWfpXMl1w3hy/OpsUqc
 github.com/meateam/elasticsearch-logger v1.2.0/go.mod h1:MB87eYU9j8HHX0CCmi/BqQes/WAZPX0iPiwr1yR7Sw0=
 github.com/meateam/elogrus/v4 v4.0.2 h1:X+fpps3Ti9vIoqo/wnPcuaB+wxkZwkmTppXnnBe1Un4=
 github.com/meateam/elogrus/v4 v4.0.2/go.mod h1:O+KJPmbnEV80u+V8tCYTvcBpzp/HZa7XR4nqDtDMzYg=
+github.com/meateam/falcon-service v0.0.0-20220626105501-1d4e723879df h1:4l07oB6YvKIVNeQ/WPqnU6FAyYcQ8btkieckiG4hqFY=
+github.com/meateam/falcon-service v0.0.0-20220626105501-1d4e723879df/go.mod h1:jzscOZFlJYsJ8okHZTyZt17S18fQx7H9TkyVeO2H+vo=
 github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904 h1:GeRVh03g4srFVlOFdcJNr4VI+K+LQpHTte2oN7m2RPQ=
 github.com/meateam/fav-service v0.0.0-20210714071938-14c0a1ce3904/go.mod h1:VO1ophmFMERxLSep96Rkb2p2D8XXWLEqweOBU8sag4M=
 github.com/meateam/file-service/proto v0.0.0-20201029090524-223240db6f1e h1:8yz3Qan6aYtBe2gHHVxAqgUoFlR25wHtG9zueRwmqlw=

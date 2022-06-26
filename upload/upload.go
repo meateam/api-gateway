@@ -18,8 +18,9 @@ import (
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
 	"github.com/meateam/api-gateway/user"
-	fpb "github.com/meateam/file-service/proto/file"
+	flcnpb "github.com/meateam/falcon-service/proto/falcon"
 	fvpb "github.com/meateam/fav-service/proto"
+	fpb "github.com/meateam/file-service/proto/file"
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	spb "github.com/meateam/search-service/proto"
@@ -123,6 +124,9 @@ type Router struct {
 	//FavoriteClientFactory
 	favoriteClient factory.FavClientFactory
 
+	// FalconClientFactory
+	falconClient factory.FalconClientFactory
+
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 	mu              sync.Mutex
@@ -151,6 +155,7 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 	permissionConn *grpcPoolTypes.ConnPool,
 	searchConn *grpcPoolTypes.ConnPool,
 	favConn *grpcPoolTypes.ConnPool,
+	falconConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger) *Router {
 	// If no logger is given, use a default logger.
@@ -178,6 +183,10 @@ func NewRouter(uploadConn *grpcPoolTypes.ConnPool,
 
 	r.favoriteClient = func() fvpb.FavoriteClient {
 		return fvpb.NewFavoriteClient((*favConn).Conn())
+	}
+
+	r.falconClient = func() flcnpb.FalconServiceClient {
+		return flcnpb.NewFalconServiceClient((*falconConn).Conn())
 	}
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -941,6 +950,7 @@ func (r *Router) deleteOnError(c *gin.Context, err error, fileID string) {
 		r.searchClient(),
 		r.permissionClient(),
 		r.favoriteClient(),
+		r.falconClient(),
 		fileID,
 		reqUser.ID)
 	httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))

@@ -18,6 +18,7 @@ import (
 	"github.com/meateam/download-service/download"
 	dpb "github.com/meateam/download-service/proto"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
+	flcnpb "github.com/meateam/falcon-service/proto/falcon"
 	fvpb "github.com/meateam/fav-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	"github.com/meateam/gotenberg-go-client/v6"
@@ -192,6 +193,9 @@ type Router struct {
 	//FavoriteClientFactory
 	favoriteClient factory.FavClientFactory
 
+	// FalconClientFactory
+	falconClient factory.FalconClientFactory
+
 	gotenbergClient *gotenberg.Client
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
@@ -275,6 +279,7 @@ func NewRouter(
 	dropboxConn *grpcPoolTypes.ConnPool,
 	searchConn *grpcPoolTypes.ConnPool,
 	favConn *grpcPoolTypes.ConnPool,
+	falconConn *grpcPoolTypes.ConnPool,
 	gotenbergClient *gotenberg.Client,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
@@ -312,6 +317,10 @@ func NewRouter(
 
 	r.favoriteClient = func() fvpb.FavoriteClient {
 		return fvpb.NewFavoriteClient((*favConn).Conn())
+	}
+
+	r.falconClient = func() flcnpb.FalconServiceClient {
+		return flcnpb.NewFalconServiceClient((*falconConn).Conn())
 	}
 
 	r.gotenbergClient = gotenbergClient
@@ -742,6 +751,7 @@ func (r *Router) DeleteFileByID(c *gin.Context) {
 		r.searchClient(),
 		r.permissionClient(),
 		r.favoriteClient(),
+		r.falconClient(),
 		fileID,
 		reqUser.ID)
 	if err != nil {

@@ -19,11 +19,12 @@ const (
 	configFileService              = "file_service"
 	configUserService              = "user_service"
 	configPermissionService        = "permission_service"
-	configFavService 	       = "fav_service"
+	configFavService               = "fav_service"
 	configDropboxService           = "dropbox_service"
 	configSearchService            = "search_service"
 	configSpikeService             = "spike_service"
 	configGotenbergService         = "gotenberg_service"
+	configFalconService            = "falcon_service"
 	configSecret                   = "secret"
 	configAuthURL                  = "auth_url"
 	configDocsURL                  = "docs_url"
@@ -54,9 +55,9 @@ const (
 	configCtsDestAppID             = "cts_dest_appid"
 	configCtsDestEnabled           = "cts_dest_enabled"
 	configCtsDestOnlyApprover      = "cts_dest_only_approver"
-	configFalconDestName 		   = "falcon_dest_name"
-	configFalconDestValue 		   = "falcon_dest_value"
-	configFalconDestAppID 		   = "falcon_dest_appid"
+	configFalconDestName           = "falcon_dest_name"
+	configFalconDestValue          = "falcon_dest_value"
+	configFalconDestAppID          = "falcon_dest_appid"
 	configTransferStatusSuccess    = "transfer_status_success_type"
 	configTransferStatusFailed     = "transfer_status_failed_type"
 	configTransferStatusInProgress = "transfer_status_in_progress_type"
@@ -94,6 +95,7 @@ func init() {
 	viper.SetDefault(configSearchService, "search-service:8080")
 	viper.SetDefault(configSpikeService, "spike-service:8080")
 	viper.SetDefault(configGotenbergService, "gotenberg-service:8080")
+	viper.SetDefault(configFalconService, "falcon-service:8080")
 	viper.SetDefault(configSecret, "pandora@drive")
 	viper.SetDefault(configAuthURL, "http://localhost/auth/login")
 	viper.SetDefault(configDocsURL, "http://localhost:3000")
