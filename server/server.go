@@ -54,6 +54,9 @@ const (
 	configCtsDestAppID             = "cts_dest_appid"
 	configCtsDestEnabled           = "cts_dest_enabled"
 	configCtsDestOnlyApprover      = "cts_dest_only_approver"
+	configFalconDestName 		   = "falcon_dest_name"
+	configFalconDestValue 		   = "falcon_dest_value"
+	configFalconDestAppID 		   = "falcon_dest_appid"
 	configTransferStatusSuccess    = "transfer_status_success_type"
 	configTransferStatusFailed     = "transfer_status_failed_type"
 	configTransferStatusInProgress = "transfer_status_in_progress_type"
@@ -121,6 +124,9 @@ func init() {
 	viper.SetDefault(configCtsDestAppID, "cargo")
 	viper.SetDefault(configCtsDestEnabled, true)
 	viper.SetDefault(configCtsDestOnlyApprover, false)
+	viper.SetDefault(configFalconDestName, "Falcon")
+	viper.SetDefault(configFalconDestValue, "FALCON")
+	viper.SetDefault(configFalconDestAppID, "falcon")
 	viper.SetDefault(configExternalShareName, "שיתוף חיצוני")
 	viper.SetDefault(configMyExternalSharesName, "השיתופים החיצוניים שלי")
 	viper.SetDefault(configVipService, "http://localhost:8094")

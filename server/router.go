@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/meateam/api-gateway/dropbox"
+	"github.com/meateam/api-gateway/fav"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
@@ -32,8 +33,6 @@ import (
 	"go.elastic.co/apm/module/apmgrpc"
 	"go.elastic.co/apm/module/apmhttp"
 	"google.golang.org/grpc"
-	"github.com/meateam/api-gateway/fav"
-
 )
 
 const (
@@ -361,6 +360,13 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest {
 			IsDefault:      false,
 			IsEnabled:      viper.GetBool(configCtsDestEnabled),
 			IsOnlyApprover: viper.GetBool(configCtsDestOnlyApprover),
+		},
+		{
+			Value:          viper.GetString(configFalconDestValue),
+			Label:          viper.GetString(configFalconDestName),
+			AppID:          viper.GetString(configFalconDestAppID),
+			IsDefault:      false,
+			IsEnabled:      false,
 		},
 	}
 
