@@ -59,9 +59,10 @@ func deleteFileAndPremission(ctx *gin.Context,
 	// Notify falcon service
 	if deletedFile.File.GetAppID() == oauth.FalconAppID {
 		if _, err := falconClient.SendMsg(ctx, &flcnpb.SendMsgRequest{FileId: fileID}); err != nil {
-			httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
-			loggermiddleware.LogError(logger, ctx.AbortWithError(httpStatusCode, fmt.Errorf("failed to notify falcon service: %v", err)))
-			return nil
+			loggermiddleware.LogError(
+				logger,
+				fmt.Errorf("failed to notify falcon service: %v", err),
+			)
 		}
 	}
 
