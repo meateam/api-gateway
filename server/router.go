@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/meateam/api-gateway/dropbox"
+	"github.com/meateam/api-gateway/fav"
 	"github.com/meateam/api-gateway/file"
 	loggermiddleware "github.com/meateam/api-gateway/logger"
 	"github.com/meateam/api-gateway/oauth"
@@ -153,6 +154,16 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		logger.Fatalf("couldn't setup spike service connection: %v", err)
 	}
 
+	favConn, err := initServiceConn(viper.GetString(configFavService))
+	if err != nil {
+		logger.Fatalf("couldn't setup fav service connection: %v", err)
+	}
+
+	falconConn, err := initServiceConn(viper.GetString(configFalconService))
+	if err != nil {
+		logger.Fatalf("couldn't setup falcon service connection: %v", err)
+	}
+
 	gotenbergClient := &gotenberg.Client{Hostname: viper.GetString(configGotenbergService)}
 
 	// initiate middlewares
@@ -162,6 +173,8 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 		dropboxConn,
 		userConn,
 		spikeConn,
+		favConn,
+		falconConn,
 	}
 
 	fatalConns := []*grpcPoolTypes.ConnPool{
@@ -213,14 +226,15 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	// Initiate routers.
 	fr := file.NewRouter(fileConn, downloadConn, uploadConn, permissionConn, dropboxConn,
-		searchConn, gotenbergClient, om, logger)
-	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, om, logger)
+		searchConn, favConn, falconConn, gotenbergClient, om, logger)
+	ur := upload.NewRouter(uploadConn, fileConn, permissionConn, searchConn, favConn, falconConn, om, logger)
 	usr := user.NewRouter(userConn, logger)
 	ar := auth.NewRouter(logger)
 	qr := quota.NewRouter(fileConn, logger)
-	pr := permission.NewRouter(permissionConn, fileConn, userConn, om, logger)
+	pr := permission.NewRouter(permissionConn, fileConn, userConn, favConn, om, logger)
 	drp := dropbox.NewRouter(dropboxConn, permissionConn, fileConn, om, logger)
 	sr := search.NewRouter(searchConn, fileConn, permissionConn, logger)
+	fv := fav.NewRouter(favConn, fileConn, permissionConn, om, logger)
 
 	middlewares := make([]gin.HandlerFunc, 0, 2)
 
@@ -258,6 +272,9 @@ func NewRouter(logger *logrus.Logger) (*gin.Engine, []*grpcPoolTypes.ConnPool) {
 
 	// Initiate client connection to search service.
 	sr.Setup(authRequiredRoutesGroup)
+
+	// Initiate client connection to fav service.
+	fv.Setup(authRequiredRoutesGroup)
 
 	// Create a slice to manage connections and return it.
 	return r, conns
@@ -349,6 +366,13 @@ func GetExternalNetworksConfiguration() []ExternalNetworkDest {
 			IsDefault:      false,
 			IsEnabled:      viper.GetBool(configCtsDestEnabled),
 			IsOnlyApprover: viper.GetBool(configCtsDestOnlyApprover),
+		},
+		{
+			Value:     viper.GetString(configFalconDestValue),
+			Label:     viper.GetString(configFalconDestName),
+			AppID:     viper.GetString(configFalconDestAppID),
+			IsDefault: false,
+			IsEnabled: false,
 		},
 	}
 

@@ -3,6 +3,8 @@ package factory
 import (
 	dpb "github.com/meateam/download-service/proto"
 	drp "github.com/meateam/dropbox-service/proto/dropbox"
+	flcnpb "github.com/meateam/falcon-service/proto/falcon"
+	fvpb "github.com/meateam/fav-service/proto"
 	fpb "github.com/meateam/file-service/proto/file"
 	qpb "github.com/meateam/file-service/proto/quota"
 	ppb "github.com/meateam/permission-service/proto"
@@ -38,3 +40,9 @@ type QuotaClientFactory = func() qpb.QuotaServiceClient
 
 // DropboxClientFactory is a factory for the Dropbox GRPC client
 type DropboxClientFactory = func() drp.DropboxClient
+
+//FavClientFactory is a factory for the fav GRPC client
+type FavClientFactory = func() fvpb.FavoriteClient
+
+//FalconClientFactory is a factory for the falcon GRPC client
+type FalconClientFactory = func() flcnpb.FalconServiceClient

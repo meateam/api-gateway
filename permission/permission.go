@@ -17,6 +17,7 @@ import (
 	grpcPoolTypes "github.com/meateam/grpc-go-conn-pool/grpc/types"
 	ppb "github.com/meateam/permission-service/proto"
 	upb "github.com/meateam/user-service/proto/users"
+	fvpb "github.com/meateam/fav-service/proto"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
@@ -68,6 +69,9 @@ type Router struct {
 	// UserClientFactory
 	userClient factory.UserClientFactory
 
+	//FavClientFactory
+	favClient  factory.FavClientFactory
+
 	oAuthMiddleware *oauth.Middleware
 	logger          *logrus.Logger
 }
@@ -79,6 +83,7 @@ func NewRouter(
 	permissionConn *grpcPoolTypes.ConnPool,
 	fileConn *grpcPoolTypes.ConnPool,
 	userConnection *grpcPoolTypes.ConnPool,
+	favConn *grpcPoolTypes.ConnPool,
 	oAuthMiddleware *oauth.Middleware,
 	logger *logrus.Logger,
 ) *Router {
@@ -99,6 +104,10 @@ func NewRouter(
 
 	r.userClient = func() upb.UsersClient {
 		return upb.NewUsersClient((*userConnection).Conn())
+	}
+
+	r.favClient = func() fvpb.FavoriteClient {
+		return fvpb.NewFavoriteClient((*favConn).Conn())
 	}
 
 	r.oAuthMiddleware = oAuthMiddleware
@@ -337,6 +346,15 @@ func (r *Router) DeleteFilePermission(c *gin.Context) {
 
 	deleteRequest := &ppb.DeletePermissionRequest{FileID: fileID, UserID: userID}
 	permission, err := r.permissionClient().DeletePermission(c.Request.Context(), deleteRequest)
+	if err != nil {
+		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
+		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
+
+		return
+	}
+
+	deleteFav := &fvpb.DeleteFavoriteRequest{FileID: fileID, UserID: userID}
+	_, err = r.favClient().DeleteFavorite(c.Request.Context(), deleteFav)
 	if err != nil {
 		httpStatusCode := gwruntime.HTTPStatusFromCode(status.Code(err))
 		loggermiddleware.LogError(r.logger, c.AbortWithError(httpStatusCode, err))
